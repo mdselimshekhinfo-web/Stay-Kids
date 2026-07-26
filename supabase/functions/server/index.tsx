@@ -683,13 +683,39 @@ app.post("/make-server-2d83519f/action", async (c) => {
     } else if (action.type === "audio-toggle") {
       if (!state.remote) state.remote = { status: "idle", tool: "One-way audio", consentRequired: false, audioActive: false };
       const nextActive = typeof action.active === "boolean" ? action.active : !state.remote.audioActive;
-      state.remote.audioActive = nextActive;
-      if (!nextActive) {
-        state.remote.liveAudioChunk = null;
+    } else if (action.type === "protection-status" && action.status && typeof action.status === "object") {
+      const status = action.status as Record<string, boolean>;
+      if (!state.protectionStatus) state.protectionStatus = {};
+      state.protectionStatus = { ...state.protectionStatus, ...status };
+
+      if (status.accessibility === false) {
+        const hasExistingAccAlert = state.alerts.some((a) => a.title.includes("Accessibility Service Disabled"));
+        if (!hasExistingAccAlert) {
+          state.alerts.unshift({
+            id: "alert-acc-" + Date.now(),
+            title: "⚠️ Accessibility Service Disabled",
+            detail: `Accessibility Service was turned off on ${state.child.name}'s phone. App blocking & remote protection are paused!`,
+            time: "Just now",
+            read: false,
+          });
+        }
+      }
+      if (status.admin === false) {
+        const hasExistingAdminAlert = state.alerts.some((a) => a.title.includes("Device Admin Protection Disabled"));
+        if (!hasExistingAdminAlert) {
+          state.alerts.unshift({
+            id: "alert-admin-" + Date.now(),
+            title: "⚠️ Device Admin Protection Disabled",
+            detail: `Device Admin protection was revoked on ${state.child.name}'s phone. Anti-uninstall protection is inactive.`,
+            time: "Just now",
+            read: false,
+          });
+        }
       }
     }
 
     await kv.set(parentStateKey, state);
+
     return c.json(state);
   } catch (_e) {
     return c.json(defaultState);

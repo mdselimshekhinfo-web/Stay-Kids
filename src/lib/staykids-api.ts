@@ -23,7 +23,7 @@ export type StayKidsState = {
   blockedApps?: Record<string, boolean>
   rewards: { earned: number; balance: number }
   alerts: { id: string; title: string; detail: string; time: string; read: boolean }[]
-  remote: { status: string; tool: string; consentRequired: boolean; audioActive: boolean; alarmActive?: boolean; lastSnapshotTime?: string; mirrorStreamActive?: boolean; lastSignal?: any; lastTouchAction?: string }
+  remote: { status: string; tool: string; consentRequired: boolean; audioActive: boolean; alarmActive?: boolean; lastSnapshotTime?: string; mirrorStreamActive?: boolean; lastSignal?: any; lastTouchAction?: string; liveFrame?: string; connectionState?: string; liveAudioChunk?: string }
 }
 
 let inMemoryToken: string | null = typeof window !== "undefined" ? localStorage.getItem("staykids_jwt_token") : null
@@ -92,10 +92,96 @@ export const setResendApiKey = (key: string) => {
   }
 }
 
+// Offline Action Queue Implementation
+type QueuedAction = {
+  id: string
+  action: Record<string, unknown>
+  timestamp: number
+}
+
+const OFFLINE_QUEUE_KEY = "staykids_offline_queue"
+const MAX_QUEUE_AGE_MS = 5 * 60 * 1000 // Discard actions older than 5 minutes
+const MAX_QUEUE_SIZE = 10
+
+function getOfflineQueue(): QueuedAction[] {
+  try {
+    const raw = localStorage.getItem(OFFLINE_QUEUE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch (_e) {
+    return []
+  }
+}
+
+function saveOfflineQueue(queue: QueuedAction[]) {
+  try {
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue))
+  } catch (_e) {}
+}
+
+export function enqueueOfflineAction(action: Record<string, unknown>) {
+  if (action.type === "audio-chunk" || action.type === "webrtc-signal") return // Exclude high-frequency streaming frames
+
+  const queue = getOfflineQueue().filter((item) => Date.now() - item.timestamp < MAX_QUEUE_AGE_MS)
+  queue.push({
+    id: String(Date.now() + Math.random()),
+    action,
+    timestamp: Date.now(),
+  })
+  if (queue.length > MAX_QUEUE_SIZE) queue.shift()
+  saveOfflineQueue(queue)
+}
+
+export async function flushOfflineQueue() {
+  if (typeof window === "undefined" || !navigator.onLine) return
+  const queue = getOfflineQueue()
+  if (queue.length === 0) return
+
+  const validItems = queue.filter((item) => Date.now() - item.timestamp < MAX_QUEUE_AGE_MS)
+  saveOfflineQueue([]) // Clear queue before processing
+
+  for (const item of validItems) {
+    try {
+      await sendStayKidsAction(item.action)
+    } catch (_e) {
+      // Re-enqueue if still failing
+      enqueueOfflineAction(item.action)
+    }
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    flushOfflineQueue().catch(() => {})
+  })
+}
+
+// 10-Second AbortController Timeout + Retry with Exponential Backoff
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2): Promise<Response> {
+  let attempt = 0
+  let delay = 500
+
+  while (true) {
+    attempt++
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10-second timeout
+
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal })
+      clearTimeout(timeoutId)
+      return response
+    } catch (err: any) {
+      clearTimeout(timeoutId)
+      if (attempt > maxRetries) throw err
+      await new Promise((r) => setTimeout(r, delay))
+      delay *= 2 // Exponential backoff (500ms -> 1000ms)
+    }
+  }
+}
+
 export async function sendResendEmailDirect(email: string, otp: string, type: "signup" | "reset" = "signup") {
   if (!resendApiKey) return false
   try {
-    const res = await fetch("https://api.resend.com/emails", {
+    const res = await fetchWithRetry("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${resendApiKey}`,
@@ -127,7 +213,7 @@ export async function sendResendEmailDirect(email: string, otp: string, type: "s
   }
 }
 
-const request = async (path: string, init?: RequestInit) => {
+const request = async (path: string, init?: RequestInit, isIdempotentRead = false) => {
   const token = inMemoryToken || publicAnonKey
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
@@ -136,7 +222,10 @@ const request = async (path: string, init?: RequestInit) => {
   }
 
   try {
-    const response = await fetch(`${base}${path}`, { ...init, headers })
+    const response = isIdempotentRead
+      ? await fetchWithRetry(`${base}${path}`, { ...init, headers }, 2)
+      : await fetchWithRetry(`${base}${path}`, { ...init, headers }, 0)
+
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}))
       if (errData.error) throw new Error(errData.error)
@@ -144,13 +233,21 @@ const request = async (path: string, init?: RequestInit) => {
       return await response.json()
     }
   } catch (err: any) {
+    // If request failed due to offline network connection, enqueue for reconnection flush
+    if (init?.method === "POST" && init?.body) {
+      try {
+        const bodyObj = JSON.parse(init.body as string)
+        enqueueOfflineAction(bodyObj)
+      } catch (_e) {}
+    }
+
     if (err.message && err.message !== "Failed to fetch" && !err.message.includes("data service is unavailable")) {
       throw err
     }
     console.warn(`[StayKids API Fallback] ${path} using resilient local state:`, err)
   }
 
-  // Resilient Local Fallbacks for seamless offline / preview usage
+  // Resilient Local Fallbacks
   if (path === "/auth/signup") {
     const body = init?.body ? JSON.parse(init.body as string) : {}
     const devOtp = String(Math.floor(100000 + Math.random() * 900000))
@@ -218,10 +315,13 @@ const request = async (path: string, init?: RequestInit) => {
   return defaultLocalState
 }
 
-export const getStayKidsState = () => request("/state") as Promise<StayKidsState>
+export const getStayKidsState = () => request("/state", undefined, true) as Promise<StayKidsState>
 
-export const sendStayKidsAction = (action: Record<string, unknown>) =>
-  request("/action", { method: "POST", body: JSON.stringify(action) }) as Promise<StayKidsState>
+export const sendStayKidsAction = (action: Record<string, unknown>) => {
+  // Idempotent signals get automatic retries
+  const isIdempotentSignal = action.type === "protection-status" || action.type === "webrtc-signal" || action.type === "select-child" || action.type === "mark-all-read"
+  return request("/action", { method: "POST", body: JSON.stringify(action) }, isIdempotentSignal) as Promise<StayKidsState>
+}
 
 export const signUpParent = async (data: { name?: string; email: string; password?: string }) => {
   return await request("/auth/signup", { method: "POST", body: JSON.stringify(data) })

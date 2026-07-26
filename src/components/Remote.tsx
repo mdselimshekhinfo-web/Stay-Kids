@@ -7,6 +7,7 @@ import {
   stopNativeScreenShare,
   triggerRemoteNavigation,
 } from "../lib/native"
+import { triggerToast } from "./Toast"
 
 export function Remote({ state, onAction }: { state: StayKidsState; onAction: (data: Record<string, unknown>) => void }) {
   const [tool, setTool] = useState("Live Camera")
@@ -111,7 +112,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 type="button"
                 onClick={() => {
                   onAction({ type: "capture-snapshot", facing: camFacing })
-                  captureNativeSnapshot().catch(() => {})
+                  captureNativeSnapshot().catch(() => {
+                    triggerToast("Snapshot failed — check child camera permissions & connection", "error")
+                  })
                 }}
                 className="flex-1 rounded-xl bg-[#287555] py-3 text-xs font-bold text-white hover:bg-[#1f5c43] transition shadow-md"
               >
@@ -199,7 +202,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 const targetX = Math.round((clickX / rect.width) * 540)
                 const targetY = Math.round((clickY / rect.height) * 960)
                 onAction({ type: "remote-touch", x: targetX, y: targetY, actionType: "TOUCH" })
-                triggerRemoteTouch(targetX, targetY).catch(() => {})
+                triggerRemoteTouch(targetX, targetY).catch(() => {
+                  triggerToast("Touch command failed — check child device connection", "error")
+                })
               }}
               className="relative flex min-h-[340px] max-h-[480px] cursor-crosshair flex-col items-center justify-center rounded-xl border border-[#287555] bg-black text-center select-none overflow-hidden"
             >
@@ -248,13 +253,15 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                     const res = await startNativeScreenShare()
                     if (res.error) {
                       onAction({ type: "webrtc-signal", signalState: "denied" })
-                      alert("Screen Share Consent Error: " + res.error)
+                      triggerToast("Screen Share Consent Error: " + res.error, "error")
                     } else {
                       onAction({ type: "mirror-toggle", active: true })
                       onAction({ type: "webrtc-signal", signalState: "connecting" })
                     }
                   } else {
-                    await stopNativeScreenShare()
+                    await stopNativeScreenShare().catch(() => {
+                      triggerToast("Failed to stop screen share service cleanly", "warning")
+                    })
                     onAction({ type: "mirror-toggle", active: false })
                     onAction({ type: "webrtc-signal", signalState: "idle" })
                   }
@@ -270,7 +277,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 type="button"
                 onClick={() => {
                   onAction({ type: "remote-touch", actionType: "HOME" })
-                  triggerRemoteNavigation("HOME").catch(() => {})
+                  triggerRemoteNavigation("HOME").catch(() => {
+                    triggerToast("Home gesture failed — check child device online", "error")
+                  })
                 }}
                 className="w-full rounded-xl bg-[#287555]/30 border border-[#287555] py-3 text-xs font-bold text-white hover:bg-[#287555]/50 transition"
               >
@@ -323,7 +332,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             <button
               onClick={() => {
                 onAction({ type: "capture-snapshot" })
-                captureNativeSnapshot().catch(() => {})
+                captureNativeSnapshot().catch(() => {
+                  triggerToast("Snapshot failed — check child camera permissions & connection", "error")
+                })
               }}
               className="w-full rounded-2xl bg-[#287555] py-3.5 text-sm font-bold text-white hover:bg-[#1f5c43] transition shadow-md"
             >
@@ -344,7 +355,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               <button
                 onClick={() => {
                   onAction({ type: "remote-touch", actionType: "HOME" })
-                  triggerRemoteNavigation("HOME").catch(() => {})
+                  triggerRemoteNavigation("HOME").catch(() => {
+                    triggerToast("Home navigation failed — check child device online", "error")
+                  })
                 }}
                 className="rounded-xl bg-[#edf3ef] py-2.5 text-xs font-bold text-[#1d5946] hover:bg-[#dbe7de] transition"
               >
@@ -353,7 +366,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               <button
                 onClick={() => {
                   onAction({ type: "remote-touch", actionType: "BACK" })
-                  triggerRemoteNavigation("BACK").catch(() => {})
+                  triggerRemoteNavigation("BACK").catch(() => {
+                    triggerToast("Back navigation failed — check child device online", "error")
+                  })
                 }}
                 className="rounded-xl bg-[#edf3ef] py-2.5 text-xs font-bold text-[#1d5946] hover:bg-[#dbe7de] transition"
               >
@@ -362,7 +377,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               <button
                 onClick={() => {
                   onAction({ type: "remote-touch", actionType: "RECENTS" })
-                  triggerRemoteNavigation("RECENTS").catch(() => {})
+                  triggerRemoteNavigation("RECENTS").catch(() => {
+                    triggerToast("Recents navigation failed — check child device online", "error")
+                  })
                 }}
                 className="rounded-xl bg-[#edf3ef] py-2.5 text-xs font-bold text-[#1d5946] hover:bg-[#dbe7de] transition"
               >
@@ -371,7 +388,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               <button
                 onClick={() => {
                   onAction({ type: "remote-touch", actionType: "OPEN_SETTINGS" })
-                  triggerRemoteNavigation("OPEN_SETTINGS").catch(() => {})
+                  triggerRemoteNavigation("OPEN_SETTINGS").catch(() => {
+                    triggerToast("Settings command failed — check child device online", "error")
+                  })
                 }}
                 className="rounded-xl bg-[#e3f2fd] py-2.5 text-xs font-bold text-[#1565c0] hover:bg-[#bbdefb] transition"
               >
@@ -380,7 +399,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               <button
                 onClick={() => {
                   onAction({ type: "remote-touch", actionType: "NOTIFICATIONS" })
-                  triggerRemoteNavigation("NOTIFICATIONS").catch(() => {})
+                  triggerRemoteNavigation("NOTIFICATIONS").catch(() => {
+                    triggerToast("Notifications command failed — check child device online", "error")
+                  })
                 }}
                 className="rounded-xl bg-[#e3f2fd] py-2.5 text-xs font-bold text-[#1565c0] hover:bg-[#bbdefb] transition"
               >
@@ -389,7 +410,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               <button
                 onClick={() => {
                   onAction({ type: "remote-touch", actionType: "QUICK_SETTINGS" })
-                  triggerRemoteNavigation("QUICK_SETTINGS").catch(() => {})
+                  triggerRemoteNavigation("QUICK_SETTINGS").catch(() => {
+                    triggerToast("Toggles command failed — check child device online", "error")
+                  })
                 }}
                 className="rounded-xl bg-[#e3f2fd] py-2.5 text-xs font-bold text-[#1565c0] hover:bg-[#bbdefb] transition"
               >
@@ -398,7 +421,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               <button
                 onClick={() => {
                   onAction({ type: "remote-touch", actionType: "SWIPE_UP" })
-                  triggerRemoteNavigation("SWIPE_UP").catch(() => {})
+                  triggerRemoteNavigation("SWIPE_UP").catch(() => {
+                    triggerToast("Scroll Up command failed — check child device online", "error")
+                  })
                 }}
                 className="rounded-xl bg-[#fff3e0] py-2.5 text-xs font-bold text-[#e65100] hover:bg-[#ffe0b2] transition"
               >
@@ -407,7 +432,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               <button
                 onClick={() => {
                   onAction({ type: "remote-touch", actionType: "SWIPE_DOWN" })
-                  triggerRemoteNavigation("SWIPE_DOWN").catch(() => {})
+                  triggerRemoteNavigation("SWIPE_DOWN").catch(() => {
+                    triggerToast("Scroll Down command failed — check child device online", "error")
+                  })
                 }}
                 className="rounded-xl bg-[#fff3e0] py-2.5 text-xs font-bold text-[#e65100] hover:bg-[#ffe0b2] transition"
               >
@@ -416,7 +443,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               <button
                 onClick={() => {
                   onAction({ type: "remote-touch", actionType: "LOCK_SCREEN" })
-                  triggerRemoteNavigation("LOCK_SCREEN").catch(() => {})
+                  triggerRemoteNavigation("LOCK_SCREEN").catch(() => {
+                    triggerToast("Lock Phone command failed — check child device online", "error")
+                  })
                 }}
                 className="rounded-xl bg-[#feebee] py-2.5 text-xs font-bold text-[#c62828] hover:bg-[#ffcdd2] transition"
               >

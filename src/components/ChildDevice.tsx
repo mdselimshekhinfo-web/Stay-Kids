@@ -1,12 +1,42 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import type { StayKidsState } from "../lib/staykids-api"
 import { sendStayKidsAction } from "../lib/staykids-api"
-import { captureNativeSnapshot, getNativeLocation } from "../lib/native"
+import {
+  captureNativeSnapshot,
+  getNativeLocation,
+  checkAccessibilityEnabled,
+  checkDeviceAdminEnabled,
+  checkOverlayPermissionGranted,
+} from "../lib/native"
 
 export function ChildDevice({ state, switchRole }: { state: StayKidsState; switchRole: () => void }) {
   const [help, setHelp] = useState(false)
   const isPaused = state.controls.paused
   const remainingMins = Math.max(0, state.usage.limit - state.usage.minutes)
+
+  // Periodic Health-Check for Accessibility, Device Admin & System Protection
+  useEffect(() => {
+    const runHealthCheck = async () => {
+      try {
+        const acc = await checkAccessibilityEnabled().catch(() => ({ enabled: true }))
+        const admin = await checkDeviceAdminEnabled().catch(() => ({ enabled: true }))
+        const overlay = await checkOverlayPermissionGranted().catch(() => ({ granted: true }))
+
+        sendStayKidsAction({
+          type: "protection-status",
+          status: {
+            accessibility: acc.enabled !== false,
+            admin: admin.enabled !== false,
+            overlay: overlay.granted !== false,
+          },
+        }).catch(() => {})
+      } catch (_e) {}
+    }
+
+    runHealthCheck()
+    const interval = setInterval(runHealthCheck, 60000) // Poll health status every 60 seconds
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <main className={`min-h-screen p-5 font-sans text-white transition-colors duration-300 ${isPaused ? "bg-[#721c12]" : "bg-[#1d5946]"}`}>

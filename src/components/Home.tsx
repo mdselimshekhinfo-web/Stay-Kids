@@ -84,6 +84,20 @@ export function Home({
         </div>
       )}
 
+      {(state as any).protectionStatus?.accessibility === false && (
+        <div className="flex items-center gap-2.5 rounded-2xl bg-[#feebee] p-3.5 text-xs font-bold text-[#c62828] border border-[#ff8a80] shadow-sm">
+          <span className="text-base animate-pulse">⚠️</span>
+          <p>Accessibility Service was turned off on {child.name}'s phone. App blocking & remote protection are paused!</p>
+        </div>
+      )}
+
+      {(state as any).protectionStatus?.admin === false && (
+        <div className="flex items-center gap-2.5 rounded-2xl bg-[#fff3e0] p-3.5 text-xs font-bold text-[#e65100] border border-[#ffe082] shadow-sm">
+          <span className="text-base animate-pulse">⚡</span>
+          <p>Device Admin protection was revoked on {child.name}'s phone. Anti-uninstall protection is inactive.</p>
+        </div>
+      )}
+
       <section className={`overflow-hidden rounded-[28px] p-5 text-white transition-colors duration-300 ${isPaused ? "bg-[#8b2318]" : "bg-[#1d5946]"}`}>
         <div className="flex items-start justify-between">
           <div>
