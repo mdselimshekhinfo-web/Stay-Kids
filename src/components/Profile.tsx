@@ -40,7 +40,7 @@ export function Profile({
       <div className="rounded-[28px] bg-[#1d5946] p-6 text-white shadow-md">
         <div className="flex items-center gap-4">
           <div className="grid h-16 w-16 place-items-center rounded-full bg-[#ffe7c2] text-2xl font-bold text-[#8c5b00] border-2 border-white/20">
-            {initials || "AM"}
+            {initials || "P"}
           </div>
           <div>
             <h2 className="text-xl font-bold">{user.name}</h2>
@@ -61,11 +61,11 @@ export function Profile({
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="bg-[#f8fbf9] p-3 rounded-xl">
             <p className="text-xs text-[#71807a]">Child Name</p>
-            <p className="font-bold text-[#172226] mt-0.5">{state.child.name} Morgan</p>
+            <p className="font-bold text-[#172226] mt-0.5">{state.child.name}</p>
           </div>
           <div className="bg-[#f8fbf9] p-3 rounded-xl">
             <p className="text-xs text-[#71807a]">Age / Grade</p>
-            <p className="font-bold text-[#172226] mt-0.5">9 Yrs (Grade 4)</p>
+            <p className="font-bold text-[#172226] mt-0.5">—</p>
           </div>
           <div className="bg-[#f8fbf9] p-3 rounded-xl">
             <p className="text-xs text-[#71807a]">School</p>
@@ -102,7 +102,7 @@ export function Profile({
         <p className="font-bold text-base text-[#172226]">App Preferences & Legal</p>
         <div className="flex items-center justify-between border-b pb-3 border-[#f0f4f4]">
           <div>
-            <p className="font-bold text-sm">App Language (ভাষা)</p>
+            <p className="font-bold text-sm">App Language (ভাষা) <span className="text-[10px] font-normal text-[#287555] bg-[#edf3ef] px-1.5 py-0.5 rounded-full ml-1">(Coming Soon)</span></p>
             <p className="text-xs text-[#71807a]">Choose interface language</p>
           </div>
           <div className="flex rounded-xl bg-[#edf3ef] p-1">

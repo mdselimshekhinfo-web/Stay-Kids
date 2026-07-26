@@ -35,14 +35,14 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
 
   const items: [string, string, string, boolean, string][] = [
     ["App limits", "Social apps stop after limit", "limits", controls.limits, "◫"],
-    ["Bedtime", "Device locks at 9:00 PM", "bedtime", controls.bedtime, "◐"],
+    ["Bedtime", "Schedule Only — no native enforcement yet", "bedtime", controls.bedtime, "◐"],
     ["Web filter", "Blocking mature & unsafe content", "filter", controls.filter, "◉"],
   ]
 
   return (
     <div className="space-y-5 pb-24">
       <div className="pt-2">
-        <p className="text-sm text-[#70808b]">Mia’s Galaxy Tab A8</p>
+        <p className="text-sm text-[#70808b]">{state.child.name}'s {state.child.device}</p>
         <h1 className="mt-1 text-[28px] font-bold tracking-[-.05em]">Controls & Rules</h1>
       </div>
 
@@ -102,21 +102,33 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
         </div>
       </div>
 
+      {/* Geofence Zones */}
+      <div className="rounded-[24px] border border-[#e1e7e8] bg-white p-5 shadow-sm">
+        <div className="flex items-center gap-3 mb-2">
+          <span className="text-xl">📍</span>
+          <div>
+            <p className="font-bold text-sm text-[#172226]">Geofencing — Coming Soon</p>
+            <p className="text-xs text-[#71807a]">Set safe zones and get alerts when your child arrives or leaves.</p>
+          </div>
+        </div>
+      </div>
+
       {/* Anti-Theft Siren Alarm */}
-      <div className="flex items-center justify-between rounded-[24px] border border-[#ffcdd2] bg-[#fff5f5] p-5 shadow-sm">
+      <div className="flex items-center justify-between rounded-[24px] border border-[#ffcdd2] bg-[#fff5f5] p-5 shadow-sm opacity-50">
         <div className="flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#feebee] text-xl">🚨</span>
           <div>
-            <p className="font-bold text-sm text-[#172226]">Anti-Theft Siren Alarm</p>
+            <p className="font-bold text-sm text-[#172226]">Anti-Theft Siren Alarm <span className="text-[10px] bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-medium ml-1">(Coming Soon)</span></p>
             <p className="text-xs text-[#71807a]">Ring loud alarm on child device if lost or stolen</p>
           </div>
         </div>
         <button
           type="button"
-          onClick={() => onAction({ type: "trigger-alarm" })}
-          className={`rounded-xl px-3.5 py-2 text-xs font-bold transition ${state.remote.alarmActive ? "bg-[#c62828] text-white animate-pulse" : "bg-[#feebee] text-[#c62828] hover:bg-[#ffcdd2]"}`}
+          disabled
+          onClick={() => {}}
+          className="rounded-xl px-3.5 py-2 text-xs font-bold transition bg-[#feebee] text-[#c62828] cursor-not-allowed"
         >
-          {state.remote.alarmActive ? "Stop Alarm 🔕" : "Ring Siren 🚨"}
+          Ring Siren 🚨
         </button>
       </div>
 

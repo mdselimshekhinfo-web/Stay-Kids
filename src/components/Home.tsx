@@ -44,11 +44,13 @@ export function Home({
   return (
     <div className="space-y-5 pb-24">
       <section className="pt-2">
-        <p className="text-sm text-[#70808b]">Tuesday, 15 July</p>
+        <p className="text-sm text-[#70808b]">{new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         <div className="mt-1 flex items-center justify-between">
-          <h1 className="text-[28px] font-bold tracking-[-.05em]">Good afternoon, Ava</h1>
+          <h1 className="text-[28px] font-bold tracking-[-.05em]">
+            {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}
+          </h1>
           <button onClick={onProfile} className="grid h-10 w-10 place-items-center rounded-full bg-[#ffe7c2] text-sm font-bold text-[#8c5b00] shadow-sm hover:scale-105 transition">
-            AM
+            {child.name ? child.name.charAt(0).toUpperCase() : 'P'}
           </button>
         </div>
 
@@ -107,9 +109,9 @@ export function Home({
             <p className="text-sm text-[#cce0d5]">{child.name}'s device</p>
             <h2 className="mt-1 text-xl font-bold">{isPaused ? "Device Paused" : "Everything looks good"}</h2>
             <div className="mt-2 flex items-center gap-2 text-xs text-[#cce0d5]">
-              <span className="flex items-center gap-1 font-semibold bg-white/10 px-2 py-0.5 rounded-full">🔋 84%</span>
-              <span className="flex items-center gap-1 font-semibold bg-white/10 px-2 py-0.5 rounded-full">📶 Wi-Fi</span>
-              <span className="flex items-center gap-1 font-semibold bg-[#baf26b]/20 text-[#baf26b] px-2 py-0.5 rounded-full">● Online</span>
+              <span className="flex items-center gap-1 font-semibold bg-white/10 px-2 py-0.5 rounded-full">🔋 {child.battery}%</span>
+              <span className="flex items-center gap-1 font-semibold bg-white/10 px-2 py-0.5 rounded-full">📶 {child.online ? 'Wi-Fi' : 'Offline'}</span>
+              <span className={`flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full ${child.online ? 'bg-[#baf26b]/20 text-[#baf26b]' : 'bg-[#ffcdd2]/20 text-[#ffcdd2]'}`}>● {child.online ? 'Online' : 'Offline'}</span>
             </div>
           </div>
           <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${isPaused ? "bg-[#ffcdd2] text-[#8b2318]" : "bg-[#baf26b] text-[#17352b]"}`}>
@@ -150,9 +152,9 @@ export function Home({
           </div>
           <div className="rounded-[22px] border border-[#e1e7e8] bg-white p-4">
             <Icon name="⌖" />
-            <p className="mt-5 text-base font-bold">At school</p>
-            <p className="text-sm text-[#72808a]">{child.location}</p>
-            <p className="mt-3 text-xs font-bold text-[#287555]">View location →</p>
+            <p className="mt-5 text-base font-bold">{child.location || 'Unknown'}</p>
+            <p className="text-sm text-[#72808a]">{child.location ? 'Current Location' : ''}</p>
+            <button onClick={() => onRemote()} className="mt-3 text-xs font-bold text-[#287555] cursor-pointer">View location →</button>
           </div>
         </div>
       </section>

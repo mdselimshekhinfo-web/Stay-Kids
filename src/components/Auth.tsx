@@ -347,7 +347,7 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
                   <p className="mt-2 text-xs leading-5 text-[#71807a]">
                     {mode === "signup"
                       ? "Register your primary parent account to manage routines, safety & remote help."
-                      : "Sign in to access Mia's real-time safety dashboard & controls."}
+                      : "Sign in to access your child's real-time safety dashboard & controls."}
                   </p>
                 </div>
 

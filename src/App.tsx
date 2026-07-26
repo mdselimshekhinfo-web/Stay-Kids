@@ -65,7 +65,11 @@ export default function App() {
     return saved === "parent" || saved === "child" ? saved : null
   })
   const [authenticated, setAuthenticated] = useState<boolean>(() => Boolean(getAuthToken()))
-  const [user, setUser] = useState<{ name: string; email: string }>({ name: "Ava Morgan", email: "ava.morgan@staykids.family" })
+  const [user, setUser] = useState<{ name: string; email: string }>(() => {
+    const savedName = localStorage.getItem("staykids_user_name") || ""
+    const savedEmail = localStorage.getItem("staykids_user_email") || ""
+    return { name: savedName, email: savedEmail }
+  })
   const [ready, setReady] = useState<boolean>(() => Boolean(getAuthToken() || selectedRole === "child"))
   const [role, setRole] = useState<"parent" | "child">(() => selectedRole || "parent")
   const [tab, setTab] = useState("Home")
@@ -219,6 +223,10 @@ export default function App() {
   }
 
   const handleSignOut = () => {
+    localStorage.removeItem("staykids_user_name")
+    localStorage.removeItem("staykids_user_email")
+    localStorage.removeItem("staykids_jwt_token")
+    setUser({ name: "", email: "" })
     setAuthenticated(false)
     setReady(false)
   }
@@ -233,7 +241,7 @@ export default function App() {
   const unreadAlertsCount = state.alerts.filter((a) => !a.read).length
 
   const pages: Record<string, React.ReactNode> = {
-    Home: <Home onRemote={() => setTab("Remote")} onProfile={() => setTab("Profile")} state={state} onAction={action} />,
+    Home: <Home onRemote={() => setTab("Remote")} onProfile={() => setTab("Profile")} state={state} onAction={action} user={user} />,
     Controls: <Controls state={state} onAction={action} />,
     Activity: <Activity state={state} />,
     Alerts: <Alerts state={state} onAction={action} />,
@@ -289,6 +297,8 @@ export default function App() {
       <Auth
         onAuthenticate={(authenticatedUser) => {
           setUser(authenticatedUser)
+          localStorage.setItem("staykids_user_name", authenticatedUser.name)
+          localStorage.setItem("staykids_user_email", authenticatedUser.email)
           setAuthenticated(true)
           setReady(true)
         }}

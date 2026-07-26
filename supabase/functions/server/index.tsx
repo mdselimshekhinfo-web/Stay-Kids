@@ -85,17 +85,17 @@ async function getAuthenticatedUser(c: any): Promise<{ email: string; name: stri
 
 const defaultState = {
   child: {
-    name: "Mia",
-    device: "Galaxy Tab A8",
-    location: "Greenfield School",
-    battery: 84,
+    name: "Child",
+    device: "Android Device",
+    location: "Unknown",
+    battery: 100,
     online: true,
     protected: true,
   },
   usage: {
-    minutes: 102,
-    limit: 180,
-    topApps: ["YouTube", "Roblox", "Chrome"],
+    minutes: 0,
+    limit: 120,
+    topApps: [],
   },
   controls: {
     paused: false,
@@ -104,15 +104,10 @@ const defaultState = {
     filter: true,
   },
   rewards: {
-    earned: 45,
-    balance: 15,
+    earned: 0,
+    balance: 0,
   },
-  alerts: [
-    { id: "1", title: "Screen time nearly used", detail: "Mia has 18 minutes remaining today.", time: "5 min ago", read: false },
-    { id: "2", title: "Safe place reached", detail: "Mia arrived at Greenfield School.", time: "8:11 AM", read: false },
-    { id: "3", title: "New app request", detail: "Mia requested access to Pinterest.", time: "Yesterday", read: false },
-    { id: "4", title: "Browser protection", detail: "A restricted page was blocked safely.", time: "Yesterday", read: true },
-  ],
+  alerts: [],
   remote: {
     status: "idle",
     tool: "Screen Mirror",

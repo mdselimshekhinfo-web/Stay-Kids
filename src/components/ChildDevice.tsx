@@ -18,9 +18,9 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
   useEffect(() => {
     const runHealthCheck = async () => {
       try {
-        const acc = await checkAccessibilityEnabled().catch(() => ({ enabled: true }))
-        const admin = await checkDeviceAdminEnabled().catch(() => ({ enabled: true }))
-        const overlay = await checkOverlayPermissionGranted().catch(() => ({ granted: true }))
+        const acc = await checkAccessibilityEnabled().catch(() => ({ enabled: false }))
+        const admin = await checkDeviceAdminEnabled().catch(() => ({ enabled: false }))
+        const overlay = await checkOverlayPermissionGranted().catch(() => ({ granted: false }))
 
         sendStayKidsAction({
           type: "protection-status",
@@ -48,7 +48,7 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
           <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold">Child device</span>
         </div>
         <div className="mt-16">
-          <p className="text-sm text-[#cde0d5]">Hi, Mia</p>
+          <p className="text-sm text-[#cde0d5]">Hi, {state.child.name}</p>
           <h1 className="mt-2 text-4xl font-bold tracking-[-.06em]">{isPaused ? "Device Paused by Parent" : "Your day is on track."}</h1>
 
           <div className="mt-8 rounded-[28px] bg-white p-6 text-[#172226] shadow-md">
@@ -93,7 +93,15 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
               </div>
             )}
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <button onClick={() => setHelp(!help)} className="rounded-2xl bg-[#d6f4ad] px-4 py-3 text-xs font-bold text-[#17352b] transition hover:bg-[#c4ec94]">
+              <button 
+                onClick={() => {
+                  setHelp(!help)
+                  if (!help) {
+                    sendStayKidsAction({ type: "trigger-sos", source: "help-request" }).catch(() => {})
+                  }
+                }} 
+                className="rounded-2xl bg-[#d6f4ad] px-4 py-3 text-xs font-bold text-[#17352b] transition hover:bg-[#c4ec94]"
+              >
                 {help ? "Help Sent ✓" : "Ask for Help 💬"}
               </button>
               <button

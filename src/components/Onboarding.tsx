@@ -134,7 +134,7 @@ export function Onboarding({
       tag: "Step 1 of 2",
       icon: "⌁",
       title: role === "parent" ? "Device Pairing (কোড বা QR)" : "Pair Device (PIN বা QR)",
-      text: role === "parent" ? "Use this 6-digit PIN or QR Code on Mia’s device to pair instantly." : "Enter 6-digit code or scan parent QR code with camera.",
+      text: role === "parent" ? "Use this 6-digit PIN or QR Code on your child's device to pair instantly." : "Enter 6-digit code or scan parent QR code with camera.",
     },
     {
       tag: "Step 2 of 2",
