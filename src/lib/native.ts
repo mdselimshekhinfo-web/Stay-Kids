@@ -237,15 +237,18 @@ export const checkNativeScreenShareActive = async (): Promise<boolean> => {
   }
 }
 
-export const listenScreenFrame = (callback: (frameBase64: string) => void) => {
+export const listenScreenFrame = (callback: (frameBase64: string) => void): (() => void) => {
   try {
-    return StayKidsNative.addListener("screenFrame", (data: any) => {
+    const handlePromise = StayKidsNative.addListener("screenFrame", (data: any) => {
       if (data && data.frame) {
         callback(data.frame)
       }
     })
+    return () => {
+      handlePromise.then((h) => h.remove()).catch(() => {})
+    }
   } catch (_e) {
-    return null
+    return () => {}
   }
 }
 

@@ -32,6 +32,7 @@ import {
   requestMicrophonePermission,
   startNativeScreenShare,
   stopNativeScreenShare,
+  listenScreenFrame,
 } from "./lib/native"
 
 const Icon = ({ name }: { name: string }) => (
@@ -1414,8 +1415,8 @@ function Remote({ state, onAction }: { state: StayKidsState; onAction: (data: Re
                 const rect = e.currentTarget.getBoundingClientRect()
                 const clickX = e.clientX - rect.left
                 const clickY = e.clientY - rect.top
-                const targetX = Math.round((clickX / rect.width) * 1080)
-                const targetY = Math.round((clickY / rect.height) * 2400)
+                const targetX = Math.round((clickX / rect.width) * 540)
+                const targetY = Math.round((clickY / rect.height) * 960)
                 onAction({ type: "remote-touch", x: targetX, y: targetY, actionType: "TOUCH" })
                 triggerRemoteTouch(targetX, targetY).catch(() => {})
               }}
@@ -2780,6 +2781,45 @@ export default function App() {
     const interval = setInterval(fetchLatestState, 3000)
     return () => clearInterval(interval)
   }, [])
+
+  // 1. Real-time Child Frame Stream Listener
+  useEffect(() => {
+    let unsubscribeFrameListener: (() => void) | null = null
+
+    if (role === "child" || state.remote.mirrorStreamActive) {
+      unsubscribeFrameListener = listenScreenFrame((frameBase64) => {
+        sendStayKidsAction({
+          type: "webrtc-signal",
+          frame: frameBase64,
+          signalState: "live",
+        }).catch(() => {})
+      })
+    }
+
+    return () => {
+      if (unsubscribeFrameListener) {
+        unsubscribeFrameListener()
+      }
+    }
+  }, [role, state.remote.mirrorStreamActive])
+
+  // 2. Child Device MediaProjection Auto-Start Response
+  useEffect(() => {
+    if (role === "child" && state.remote.mirrorStreamActive) {
+      sendStayKidsAction({ type: "webrtc-signal", signalState: "requesting-consent" }).catch(() => {})
+      startNativeScreenShare()
+        .then((res) => {
+          if (res.success) {
+            sendStayKidsAction({ type: "webrtc-signal", signalState: "connecting" }).catch(() => {})
+          } else {
+            sendStayKidsAction({ type: "webrtc-signal", signalState: "denied" }).catch(() => {})
+          }
+        })
+        .catch(() => {})
+    } else if (role === "child" && !state.remote.mirrorStreamActive) {
+      stopNativeScreenShare().catch(() => {})
+    }
+  }, [role, state.remote.mirrorStreamActive])
 
   const action = (data: Record<string, unknown>) => {
     // Optimistic local state updates for 100% interactive UI

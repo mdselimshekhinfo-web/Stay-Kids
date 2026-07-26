@@ -83,11 +83,16 @@ public class MainActivity extends BridgeActivity {
 
         @PluginMethod
         public void performRemoteTouch(PluginCall call) {
-            Double x = call.getDouble("x", 500.0);
-            Double y = call.getDouble("y", 1000.0);
+            Double x = call.getDouble("x", 270.0);
+            Double y = call.getDouble("y", 480.0);
             StayKidsAccessibilityService service = StayKidsAccessibilityService.getInstance();
             if (service != null) {
-                service.performRemoteTouch(x.floatValue(), y.floatValue());
+                android.util.DisplayMetrics metrics = getContext().getResources().getDisplayMetrics();
+                float scaleX = metrics.widthPixels / 540f;
+                float scaleY = metrics.heightPixels / 960f;
+                float actualX = x.floatValue() * scaleX;
+                float actualY = y.floatValue() * scaleY;
+                service.performRemoteTouch(actualX, actualY);
                 call.resolve(new JSObject().put("success", true));
             } else {
                 call.reject("Accessibility Service is not currently active.");
