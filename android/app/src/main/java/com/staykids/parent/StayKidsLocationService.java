@@ -1,0 +1,76 @@
+package com.staykids.parent;
+
+import android.content.Context;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Bundle;
+import android.util.Log;
+
+public class StayKidsLocationService {
+
+    private static final String TAG = "StayKidsLocationService";
+    private final Context context;
+
+    public StayKidsLocationService(Context context) {
+        this.context = context;
+    }
+
+    public interface LocationCallback {
+        void onSuccess(double latitude, double longitude);
+        void onError(String error);
+    }
+
+    public void getCurrentLocation(LocationCallback callback) {
+        LocationManager locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+        if (locationManager == null) {
+            callback.onError("Location service unavailable");
+            return;
+        }
+
+        try {
+            boolean isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+            boolean isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+
+            if (!isGpsEnabled && !isNetworkEnabled) {
+                callback.onError("GPS and Location providers are disabled");
+                return;
+            }
+
+            String provider = isGpsEnabled ? LocationManager.GPS_PROVIDER : LocationManager.NETWORK_PROVIDER;
+            Location lastKnown = locationManager.getLastKnownLocation(provider);
+
+            if (lastKnown != null) {
+                Log.i(TAG, "Last known location retrieved: " + lastKnown.getLatitude() + ", " + lastKnown.getLongitude());
+                callback.onSuccess(lastKnown.getLatitude(), lastKnown.getLongitude());
+                return;
+            }
+
+            locationManager.requestSingleUpdate(provider, new LocationListener() {
+                @Override
+                public void onLocationChanged(Location location) {
+                    if (location != null) {
+                        Log.i(TAG, "Fresh location update: " + location.getLatitude() + ", " + location.getLongitude());
+                        callback.onSuccess(location.getLatitude(), location.getLongitude());
+                    } else {
+                        callback.onError("Failed to obtain GPS coordinates");
+                    }
+                }
+
+                @Override
+                public void onStatusChanged(String provider, int status, Bundle extras) {}
+
+                @Override
+                public void onProviderEnabled(String provider) {}
+
+                @Override
+                public void onProviderDisabled(String provider) {}
+            }, null);
+
+        } catch (SecurityException e) {
+            callback.onError("Location permission not granted: " + e.getMessage());
+        } catch (Exception e) {
+            callback.onError("Location exception: " + e.getMessage());
+        }
+    }
+}

@@ -1,0 +1,34 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+dist-ssr
+*.local
+*.apk
+*.zip
+
+# Android build outputs & IDE
+android/.gradle
+android/build
+android/app/build
+android/.idea
+android/captures
+android/local.properties
+.gradle
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# System files
+.DS_Store
+Thumbs.db

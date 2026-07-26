@@ -1,0 +1,8 @@
+{
+	"appId": "com.staykids.parent",
+	"appName": "StayKids",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	}
+}
