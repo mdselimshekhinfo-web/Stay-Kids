@@ -19,15 +19,9 @@ public class StayKidsBootReceiver extends BroadcastReceiver {
             Intent.ACTION_MY_PACKAGE_REPLACED.equals(action) ||
             "com.htc.intent.action.QUICKBOOT_POWERON".equals(action)) {
             
-            Log.i(TAG, "Device rebooted or package updated. Auto-starting StayKids protection service.");
-            
-            try {
-                Intent mainIntent = new Intent(context, MainActivity.class);
-                mainIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(mainIntent);
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to auto-start MainActivity on boot: " + e.getMessage());
-            }
+            Log.i(TAG, "Device rebooted or package updated. Accessibility Service is automatically re-bound by Android OS.");
+            // Android 10+ (API 29+) prohibits launching visible Activities directly from background BroadcastReceivers.
+            // Core protection (StayKidsAccessibilityService) is automatically re-bound by Android OS upon boot.
         }
     }
 }

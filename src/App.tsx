@@ -1740,9 +1740,11 @@ function PermissionInstructionModal({
 function Onboarding({
   complete,
   defaultRole = "parent",
+  activeChildId = "child-1",
 }: {
   complete: (role: "parent" | "child") => void
   defaultRole?: "parent" | "child"
+  activeChildId?: string
 }) {
   const [step, setStep] = useState(0)
   const [role, setRole] = useState<"parent" | "child">(defaultRole)
@@ -1784,7 +1786,7 @@ function Onboarding({
 
   const generateNewPin = async () => {
     try {
-      const res = await generatePairingCode()
+      const res = await generatePairingCode(activeChildId)
       if (res.pin) setDynamicPin(res.pin)
     } catch (_e) {
       setDynamicPin(String(Math.floor(100000 + Math.random() * 900000)))
@@ -3014,6 +3016,7 @@ export default function App() {
     return (
       <Onboarding
         defaultRole="parent"
+        activeChildId={state.activeChildId || state.child?.id || "child-1"}
         complete={(nextRole) => {
           setRole(nextRole)
           setReady(true)

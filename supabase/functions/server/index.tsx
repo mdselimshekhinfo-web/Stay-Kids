@@ -56,14 +56,19 @@ async function checkRateLimit(ipOrEmail: string, limit = 5, windowMs = 60000): P
 }
 
 // Unified Auth Helper for Parent & Device Tokens
-async function getAuthContext(c: any): Promise<{ isDevice: boolean; email: string; deviceId?: string; name?: string } | null> {
+async function getAuthContext(c: any): Promise<{ isDevice: boolean; email: string; deviceId?: string; childId?: string; name?: string } | null> {
   const authHeader = c.req.header("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
   const token = authHeader.substring(7);
   const payload = await verifyJwt(token);
   if (!payload) return null;
   if (payload.type === "device" && payload.parentEmail) {
-    return { isDevice: true, email: payload.parentEmail.toLowerCase(), deviceId: payload.deviceId };
+    return {
+      isDevice: true,
+      email: payload.parentEmail.toLowerCase(),
+      deviceId: payload.deviceId,
+      childId: payload.childId,
+    };
   }
   if (payload.email) {
     return { isDevice: false, email: payload.email.toLowerCase(), name: payload.name || payload.email.split("@")[0] };
@@ -414,8 +419,16 @@ app.post("/make-server-2d83519f/pairing/generate", async (c) => {
       return c.json({ error: "Unauthorized. Valid JWT Authorization token is required." }, 401);
     }
 
+    const body = await c.req.json().catch(() => ({}));
+    const targetChildId = body?.childId || "child-1";
+
     const pin = Math.floor(100000 + Math.random() * 900000).toString();
-    await kv.set(`pairing:${pin}`, { active: true, parentId: authUser.email, createdAt: Date.now() });
+    await kv.set(`pairing:${pin}`, {
+      active: true,
+      parentId: authUser.email,
+      childId: targetChildId,
+      createdAt: Date.now(),
+    });
     return c.json({ pin, qrCode: `SK-PAIR-${pin}` });
   } catch (_e) {
     return c.json({ error: "Failed to generate pairing code" }, 500);
@@ -448,12 +461,20 @@ app.post("/make-server-2d83519f/pairing/claim", async (c) => {
     }
 
     const parentEmail = pairing.parentId || pairing.parentEmail || "parent@staykids.family";
-    await kv.set(`pairing:${pin}`, { active: false, parentId: parentEmail, claimedBy: deviceName || "Child Device", claimedAt: Date.now() });
+    const targetChildId = pairing.childId || "child-1";
+    await kv.set(`pairing:${pin}`, {
+      active: false,
+      parentId: parentEmail,
+      childId: targetChildId,
+      claimedBy: deviceName || "Child Device",
+      claimedAt: Date.now(),
+    });
 
     const deviceToken = await signDeviceJwt({
       parentEmail,
       deviceId: String(Date.now()),
       deviceName: deviceName || "Child Device",
+      childId: targetChildId,
     });
     
     return c.json({
@@ -500,7 +521,7 @@ app.post("/make-server-2d83519f/action", async (c) => {
 
     // Restrict parent-only management actions for device-scoped tokens
     if (authCtx.isDevice) {
-      const parentOnlyActions = ["add-child", "upgrade-premium", "change-password", "generate-pin"];
+      const parentOnlyActions = ["add-child", "upgrade-premium", "change-password", "generate-pin", "select-child"];
       if (parentOnlyActions.includes(action.type)) {
         return c.json({ error: "Forbidden. Action not permitted for device token." }, 403);
       }
@@ -510,7 +531,12 @@ app.post("/make-server-2d83519f/action", async (c) => {
 
     if (!state.perChild) state.perChild = {};
 
-    const targetChildId = action.childId || state.activeChildId || state.child?.id || "child-1";
+    // For device tokens, force targetChildId to be token's embedded childId (preventing cross-child data mutation)
+    // Backward compatibility: fallback to activeChildId or "child-1" for legacy device tokens
+    const targetChildId = authCtx.isDevice
+      ? (authCtx.childId || state.activeChildId || state.child?.id || "child-1")
+      : (action.childId || state.activeChildId || state.child?.id || "child-1");
+
     if (!state.perChild[targetChildId]) {
       state.perChild[targetChildId] = {
         controls: { ...(state.controls || {}) },

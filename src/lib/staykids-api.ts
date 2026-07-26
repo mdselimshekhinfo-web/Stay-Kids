@@ -257,8 +257,8 @@ export const logoutParent = () => {
   setAuthToken(null)
 }
 
-export const generatePairingCode = () =>
-  request("/pairing/generate", { method: "POST" }) as Promise<{ pin: string; qrCode: string }>
+export const generatePairingCode = (childId?: string) =>
+  request("/pairing/generate", { method: "POST", body: JSON.stringify({ childId }) }) as Promise<{ pin: string; qrCode: string }>
 
 export const claimDevicePairing = async (data: { pin: string; deviceName?: string }) => {
   const result = await request("/pairing/claim", { method: "POST", body: JSON.stringify(data) })
