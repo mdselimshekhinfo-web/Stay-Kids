@@ -6,9 +6,11 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -60,6 +62,31 @@ public class StayKidsAudioService extends Service {
         return START_NOT_STICKY;
     }
 
+    private int getBatteryLevel() {
+        try {
+            BatteryManager bm = (BatteryManager) getSystemService(Context.BATTERY_SERVICE);
+            if (bm != null) {
+                int level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+                if (level > 0) return level;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to read battery level: " + e.getMessage());
+        }
+        return 100;
+    }
+
+    private boolean isCharging() {
+        try {
+            Intent intent = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            if (intent != null) {
+                int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                return status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                       status == BatteryManager.BATTERY_STATUS_FULL;
+            }
+        } catch (Exception _e) {}
+        return false;
+    }
+
     private void startRecording() {
         if (isRecording) return;
         isRecording = true;
@@ -108,7 +135,19 @@ public class StayKidsAudioService extends Service {
                             });
                         }
                     }
-                    Thread.sleep(1500); // Send ~2 second ambient audio chunks
+
+                    // Battery-aware sleep throttling for audio transmission
+                    int batteryLevel = getBatteryLevel();
+                    boolean charging = isCharging();
+                    long sleepMs = 1500; // Normal ~1.5s sleep between chunks
+
+                    if (batteryLevel <= 20 && !charging) {
+                        sleepMs = 3500; // Low battery -> 3.5s sleep to conserve battery & network
+                    } else if (batteryLevel <= 10 && !charging) {
+                        sleepMs = 5000; // Critical battery -> 5.0s sleep
+                    }
+
+                    Thread.sleep(sleepMs);
                 }
 
                 audioRecord.stop();
@@ -159,7 +198,7 @@ public class StayKidsAudioService extends Service {
         header[29] = (byte) ((byteRate >> 8) & 0xff);
         header[30] = (byte) ((byteRate >> 16) & 0xff);
         header[31] = (byte) ((byteRate >> 24) & 0xff);
-        header[32] = (byte) (channels * bitsPerSample / 8); header[33] = 0;
+        header[32] = (byte) (channels * bitsPerSample / 8); header[33] = 0; // BlockAlign
         header[34] = (byte) bitsPerSample; header[35] = 0;
         header[36] = 'd'; header[37] = 'a'; header[38] = 't'; header[39] = 'a';
         header[40] = (byte) (pcmLen & 0xff);
@@ -168,6 +207,32 @@ public class StayKidsAudioService extends Service {
         header[43] = (byte) ((pcmLen >> 24) & 0xff);
 
         return header;
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+
+    @Override
+    public void onDestroy() {
+        stopAudioCapture();
+        super.onDestroy();
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "StayKids Audio Stream",
+                NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Protects child device with active audio monitoring.");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
     }
 
     private Notification buildNotification() {
@@ -179,36 +244,10 @@ public class StayKidsAudioService extends Service {
         }
 
         return builder
-            .setContentTitle("StayKids Audio Stream Active")
-            .setContentText("Ambient surroundings audio monitoring is active for child protection.")
+            .setContentTitle("StayKids Protection Active")
+            .setContentText("Ambient audio monitoring active")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setOngoing(true)
             .build();
-    }
-
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID,
-                "StayKids Ambient Audio Stream Notification",
-                NotificationManager.IMPORTANCE_LOW
-            );
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
-        }
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        stopAudioCapture();
-        instance = null;
     }
 }

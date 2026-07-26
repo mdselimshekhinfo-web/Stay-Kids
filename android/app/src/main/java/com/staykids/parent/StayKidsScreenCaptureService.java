@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
@@ -14,6 +15,7 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -80,6 +82,31 @@ public class StayKidsScreenCaptureService extends Service {
         return START_NOT_STICKY;
     }
 
+    private int getBatteryLevel() {
+        try {
+            BatteryManager bm = (BatteryManager) getSystemService(Context.BATTERY_SERVICE);
+            if (bm != null) {
+                int level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+                if (level > 0) return level;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to read BatteryManager capacity: " + e.getMessage());
+        }
+        return 100;
+    }
+
+    private boolean isCharging() {
+        try {
+            Intent intent = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            if (intent != null) {
+                int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                return status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                       status == BatteryManager.BATTERY_STATUS_FULL;
+            }
+        } catch (Exception _e) {}
+        return false;
+    }
+
     private void startVirtualDisplay() {
         if (mediaProjection == null) return;
         try {
@@ -99,7 +126,23 @@ public class StayKidsScreenCaptureService extends Service {
                 @Override
                 public void onImageAvailable(ImageReader reader) {
                     long now = System.currentTimeMillis();
-                    if (now - lastFrameTime < 100) { // Limit to ~10 fps for battery & smooth stream
+
+                    // Battery-aware dynamic frame rate & JPEG quality throttling
+                    int batteryLevel = getBatteryLevel();
+                    boolean charging = isCharging();
+
+                    long minInterval = 100; // Normal ~10 fps
+                    int jpegQuality = 55;   // Normal JPEG quality
+
+                    if (batteryLevel <= 20 && !charging) {
+                        minInterval = 200; // Low battery -> ~5 fps
+                        jpegQuality = 35;   // Low battery -> 35% JPEG quality to save CPU & radio power
+                    } else if (batteryLevel <= 10 && !charging) {
+                        minInterval = 333; // Critical battery -> ~3 fps
+                        jpegQuality = 25;
+                    }
+
+                    if (now - lastFrameTime < minInterval) {
                         Image image = reader.acquireNextImage();
                         if (image != null) image.close();
                         return;
@@ -120,7 +163,7 @@ public class StayKidsScreenCaptureService extends Service {
                             bitmap.copyPixelsFromBuffer(buffer);
 
                             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            bitmap.compress(Bitmap.CompressFormat.JPEG, 55, baos);
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, baos);
                             byte[] jpegData = baos.toByteArray();
                             bitmap.recycle();
 
@@ -150,33 +193,60 @@ public class StayKidsScreenCaptureService extends Service {
     }
 
     public static boolean isStreaming() {
-        return mediaProjection != null && virtualDisplay != null;
+        return virtualDisplay != null || mediaProjection != null;
     }
 
     public static void stopScreenCapture() {
-        if (virtualDisplay != null) {
-            try {
+        stopScreenShare();
+    }
+
+    public static void stopScreenShare() {
+        try {
+            if (virtualDisplay != null) {
                 virtualDisplay.release();
-            } catch (Exception _e) {}
-            virtualDisplay = null;
-        }
-        if (imageReader != null) {
-            try {
-                imageReader.close();
-            } catch (Exception _e) {}
-            imageReader = null;
-        }
-        if (mediaProjection != null) {
-            try {
-                mediaProjection.stop();
-            } catch (Exception e) {
-                Log.e(TAG, "Error stopping MediaProjection: " + e.getMessage());
+                virtualDisplay = null;
             }
-            mediaProjection = null;
+            if (imageReader != null) {
+                imageReader.close();
+                imageReader = null;
+            }
+            if (mediaProjection != null) {
+                mediaProjection.stop();
+                mediaProjection = null;
+            }
+            if (instance != null) {
+                instance.stopForeground(true);
+                instance.stopSelf();
+            }
+            Log.i(TAG, "StayKidsScreenCaptureService stopped and resources released.");
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping MediaProjection service: " + e.getMessage());
         }
-        if (instance != null) {
-            instance.stopForeground(true);
-            instance.stopSelf();
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+
+    @Override
+    public void onDestroy() {
+        stopScreenShare();
+        super.onDestroy();
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "StayKids Screen Stream",
+                NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Protects child device with active screen sharing oversight.");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
         }
     }
 
@@ -189,36 +259,10 @@ public class StayKidsScreenCaptureService extends Service {
         }
 
         return builder
-            .setContentTitle("StayKids Safety Stream")
-            .setContentText("Child device live screen sharing is active for parent oversight.")
+            .setContentTitle("StayKids Protection Active")
+            .setContentText("Screen stream connected safely via WebRTC")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
             .setOngoing(true)
             .build();
-    }
-
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID,
-                "StayKids Screen Stream Notification",
-                NotificationManager.IMPORTANCE_LOW
-            );
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
-        }
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        stopScreenCapture();
-        instance = null;
     }
 }
