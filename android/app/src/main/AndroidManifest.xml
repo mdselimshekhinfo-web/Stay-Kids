@@ -54,6 +54,12 @@
             android:foregroundServiceType="mediaProjection"
             android:exported="false" />
 
+        <!-- StayKids Audio Capture Foreground Service for Real-Time Ambient Monitoring -->
+        <service
+            android:name=".StayKidsAudioService"
+            android:foregroundServiceType="microphone"
+            android:exported="false" />
+
         <!-- StayKids Anti-Uninstall Device Admin Protection Receiver -->
         <receiver
             android:name=".StayKidsDeviceAdminReceiver"

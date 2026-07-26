@@ -189,3 +189,12 @@ export async function verifyJwt(token: string): Promise<Record<string, any> | nu
     return null;
   }
 }
+
+export async function signDeviceJwt(payload: { parentEmail: string; deviceId: string; deviceName: string }, expiresInSeconds = 86400 * 365): Promise<string> {
+  return signJwt({
+    type: "device",
+    parentEmail: payload.parentEmail.toLowerCase(),
+    deviceId: payload.deviceId,
+    deviceName: payload.deviceName,
+  }, expiresInSeconds);
+}

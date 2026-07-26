@@ -33,6 +33,9 @@ import {
   startNativeScreenShare,
   stopNativeScreenShare,
   listenScreenFrame,
+  startNativeAudioCapture,
+  stopNativeAudioCapture,
+  listenAudioChunk,
 } from "./lib/native"
 
 const Icon = ({ name }: { name: string }) => (
@@ -1500,12 +1503,41 @@ function Remote({ state, onAction }: { state: StayKidsState; onAction: (data: Re
         )}
 
         {activeSession === tool && tool === "One-way audio" && (
-          <button
-            onClick={() => onAction({ type: "audio-toggle" })}
-            className={`mt-5 w-full rounded-2xl py-3.5 text-sm font-bold transition ${audio ? "bg-[#e95f50] text-white" : "bg-[#287555] text-white"}`}
-          >
-            {audio ? "Stop one-way audio 🛑" : "Start one-way audio 🎙️"}
-          </button>
+          <div className="mt-5 overflow-hidden rounded-2xl bg-[#111c18] p-4 space-y-3 border border-[#287555] text-white">
+            <div className="flex items-center justify-between">
+              <span className="rounded-full bg-[#d6f4ad] px-2.5 py-0.5 text-[10px] font-bold text-[#17352b]">
+                🎙️ Surroundings Ambient Audio Stream
+              </span>
+              <span className={`text-[10px] font-mono font-bold ${audio ? "text-[#baf26b] animate-pulse" : "text-[#869690]"}`}>
+                {audio ? "🔴 LIVE AUDIO MONITORING" : "⚪ IDLE"}
+              </span>
+            </div>
+
+            {audio && state.remote.liveAudioChunk ? (
+              <div className="space-y-2 p-3 bg-black/60 rounded-xl border border-[#287555] text-center">
+                <p className="text-xs font-bold text-[#baf26b] flex items-center justify-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#baf26b] animate-ping" />
+                  Streaming Ambient Surroundings Audio...
+                </p>
+                <audio src={state.remote.liveAudioChunk} autoPlay controls className="w-full h-8" />
+              </div>
+            ) : audio ? (
+              <div className="p-4 text-center space-y-2">
+                <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-[#baf26b] border-t-transparent" />
+                <p className="text-xs text-[#cce0d5]">Listening for surroundings audio chunks...</p>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => onAction({ type: "audio-toggle", active: !audio })}
+              className={`w-full rounded-xl py-3.5 text-xs font-bold transition shadow-sm ${
+                audio ? "bg-[#c62828] text-white hover:bg-[#b71c1c]" : "bg-[#287555] text-white hover:bg-[#1f5c43]"
+              }`}
+            >
+              {audio ? "Stop One-Way Audio 🛑" : "Start One-Way Audio 🎙️"}
+            </button>
+          </div>
         )}
 
         {tool === "Snapshot" && (
@@ -2820,6 +2852,34 @@ export default function App() {
       stopNativeScreenShare().catch(() => {})
     }
   }, [role, state.remote.mirrorStreamActive])
+
+  // 3. Child Device Ambient Audio Streaming Response
+  useEffect(() => {
+    let unsubscribeAudioListener: (() => void) | null = null
+
+    if (role === "child" && state.remote.audioActive) {
+      startNativeAudioCapture()
+        .then((res) => {
+          if (res.success) {
+            unsubscribeAudioListener = listenAudioChunk((chunkBase64) => {
+              sendStayKidsAction({
+                type: "audio-chunk",
+                chunk: chunkBase64,
+              }).catch(() => {})
+            })
+          }
+        })
+        .catch(() => {})
+    } else if (role === "child" && !state.remote.audioActive) {
+      stopNativeAudioCapture().catch(() => {})
+    }
+
+    return () => {
+      if (unsubscribeAudioListener) {
+        unsubscribeAudioListener()
+      }
+    }
+  }, [role, state.remote.audioActive])
 
   const action = (data: Record<string, unknown>) => {
     // Optimistic local state updates for 100% interactive UI

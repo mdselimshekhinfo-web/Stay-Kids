@@ -24,6 +24,9 @@ export interface StayKidsNativePlugin {
   startScreenShare(): Promise<{ success: boolean; streaming?: boolean; error?: string; message?: string }>
   stopScreenShare(): Promise<{ success: boolean; streaming?: boolean }>
   isScreenSharingActive(): Promise<{ active: boolean }>
+  startAudioCapture(): Promise<{ success: boolean; capturing?: boolean; error?: string }>
+  stopAudioCapture(): Promise<{ success: boolean; capturing?: boolean }>
+  isAudioCapturing(): Promise<{ capturing: boolean }>
 }
 
 const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative")
@@ -242,6 +245,39 @@ export const listenScreenFrame = (callback: (frameBase64: string) => void): (() 
     const handlePromise = StayKidsNative.addListener("screenFrame", (data: any) => {
       if (data && data.frame) {
         callback(data.frame)
+      }
+    })
+    return () => {
+      handlePromise.then((h) => h.remove()).catch(() => {})
+    }
+  } catch (_e) {
+    return () => {}
+  }
+}
+
+export const startNativeAudioCapture = async (): Promise<{ success: boolean; capturing?: boolean; error?: string }> => {
+  try {
+    return await StayKidsNative.startAudioCapture()
+  } catch (e: any) {
+    console.warn("StayKidsNative: Audio capture simulated in web mode.")
+    return { success: true, capturing: true }
+  }
+}
+
+export const stopNativeAudioCapture = async (): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.stopAudioCapture()
+    return res.success ?? false
+  } catch (_e) {
+    return true
+  }
+}
+
+export const listenAudioChunk = (callback: (chunkBase64: string) => void): (() => void) => {
+  try {
+    const handlePromise = StayKidsNative.addListener("audioChunk", (data: any) => {
+      if (data && data.chunk) {
+        callback(data.chunk)
       }
     })
     return () => {

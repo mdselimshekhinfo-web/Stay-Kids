@@ -2,7 +2,7 @@ import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import * as kv from "./kv_store.tsx";
-import { hashPassword, verifyPassword, signJwt, verifyJwt } from "./security.ts";
+import { hashPassword, verifyPassword, signJwt, verifyJwt, signDeviceJwt } from "./security.ts";
 
 const app = new Hono();
 
@@ -55,14 +55,27 @@ async function checkRateLimit(ipOrEmail: string, limit = 5, windowMs = 60000): P
   }
 }
 
-// JWT Authentication Helper Middleware
-async function getAuthenticatedUser(c: any): Promise<{ email: string; name: string } | null> {
+// Unified Auth Helper for Parent & Device Tokens
+async function getAuthContext(c: any): Promise<{ isDevice: boolean; email: string; deviceId?: string; name?: string } | null> {
   const authHeader = c.req.header("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
   const token = authHeader.substring(7);
   const payload = await verifyJwt(token);
-  if (!payload || !payload.email) return null;
-  return { email: payload.email, name: payload.name || payload.email.split("@")[0] };
+  if (!payload) return null;
+  if (payload.type === "device" && payload.parentEmail) {
+    return { isDevice: true, email: payload.parentEmail.toLowerCase(), deviceId: payload.deviceId };
+  }
+  if (payload.email) {
+    return { isDevice: false, email: payload.email.toLowerCase(), name: payload.name || payload.email.split("@")[0] };
+  }
+  return null;
+}
+
+// Parent-only Auth Middleware
+async function getAuthenticatedUser(c: any): Promise<{ email: string; name: string } | null> {
+  const ctx = await getAuthContext(c);
+  if (!ctx || ctx.isDevice) return null;
+  return { email: ctx.email, name: ctx.name || ctx.email.split("@")[0] };
 }
 
 const defaultState = {
@@ -434,12 +447,20 @@ app.post("/make-server-2d83519f/pairing/claim", async (c) => {
       return c.json({ error: "Pairing PIN has expired (valid for 10 minutes). Please request a new code from the Parent app." }, 400);
     }
 
-    await kv.set(`pairing:${pin}`, { active: false, parentId: pairing.parentId, claimedBy: deviceName || "Child Device", claimedAt: Date.now() });
+    const parentEmail = pairing.parentId || pairing.parentEmail || "parent@staykids.family";
+    await kv.set(`pairing:${pin}`, { active: false, parentId: parentEmail, claimedBy: deviceName || "Child Device", claimedAt: Date.now() });
+
+    const deviceToken = await signDeviceJwt({
+      parentEmail,
+      deviceId: String(Date.now()),
+      deviceName: deviceName || "Child Device",
+    });
     
     return c.json({
       success: true,
       message: "Device successfully paired!",
-      parentId: pairing.parentId,
+      parentId: parentEmail,
+      deviceToken,
     });
   } catch (_e) {
     return c.json({ error: "Device claim failed" }, 500);
@@ -451,14 +472,14 @@ app.get("/make-server-2d83519f/health", (c) => {
   return c.json({ status: "ok" });
 });
 
-// GET state endpoint
+// GET state endpoint (Accepts Parent Token & Device Token)
 app.get("/make-server-2d83519f/state", async (c) => {
   try {
-    const authUser = await getAuthenticatedUser(c);
-    if (!authUser) {
+    const authCtx = await getAuthContext(c);
+    if (!authCtx) {
       return c.json({ error: "Unauthorized. Valid JWT Authorization token is required." }, 401);
     }
-    const parentStateKey = `state:${authUser.email.toLowerCase()}`;
+    const parentStateKey = `state:${authCtx.email.toLowerCase()}`;
     const state = await kv.get(parentStateKey);
     return c.json(state || defaultState);
   } catch (_e) {
@@ -466,16 +487,25 @@ app.get("/make-server-2d83519f/state", async (c) => {
   }
 });
 
-// POST action endpoint for real-time state mutation & persistence (with Per-Child scoping)
+// POST action endpoint for real-time state mutation & persistence (with Per-Child & Token Scoping)
 app.post("/make-server-2d83519f/action", async (c) => {
   try {
-    const authUser = await getAuthenticatedUser(c);
-    if (!authUser) {
+    const authCtx = await getAuthContext(c);
+    if (!authCtx) {
       return c.json({ error: "Unauthorized. Valid JWT Authorization token is required." }, 401);
     }
 
     const action = await c.req.json();
-    const parentStateKey = `state:${authUser.email.toLowerCase()}`;
+    const parentStateKey = `state:${authCtx.email.toLowerCase()}`;
+
+    // Restrict parent-only management actions for device-scoped tokens
+    if (authCtx.isDevice) {
+      const parentOnlyActions = ["add-child", "upgrade-premium", "change-password", "generate-pin"];
+      if (parentOnlyActions.includes(action.type)) {
+        return c.json({ error: "Forbidden. Action not permitted for device token." }, 403);
+      }
+    }
+
     let state = (await kv.get(parentStateKey)) || JSON.parse(JSON.stringify(defaultState));
 
     if (!state.perChild) state.perChild = {};
@@ -580,7 +610,7 @@ app.post("/make-server-2d83519f/action", async (c) => {
         });
       }
     } else if (action.type === "remote-touch") {
-      const allowedTouch = await checkRateLimit(`touch:${authUser.email.toLowerCase()}`, 15, 5000);
+      const allowedTouch = await checkRateLimit(`touch:${authCtx.email.toLowerCase()}`, 15, 5000);
       if (!allowedTouch) {
         return c.json({ error: "Touch control rate limit exceeded. Please wait a moment." }, 429);
       }
@@ -620,9 +650,17 @@ app.post("/make-server-2d83519f/action", async (c) => {
     } else if (action.type === "set-bedtime" && typeof action.bedtime === "string") {
       childState.controls.bedtimeSchedule = action.bedtime;
       state.controls.bedtimeSchedule = action.bedtime;
+    } else if (action.type === "audio-chunk") {
+      if (!state.remote) state.remote = { status: "idle", tool: "One-way audio", consentRequired: false, audioActive: false };
+      state.remote.liveAudioChunk = action.chunk;
+      state.remote.audioActive = true;
     } else if (action.type === "audio-toggle") {
       if (!state.remote) state.remote = { status: "idle", tool: "One-way audio", consentRequired: false, audioActive: false };
-      state.remote.audioActive = !state.remote.audioActive;
+      const nextActive = typeof action.active === "boolean" ? action.active : !state.remote.audioActive;
+      state.remote.audioActive = nextActive;
+      if (!nextActive) {
+        state.remote.liveAudioChunk = null;
+      }
     }
 
     await kv.set(parentStateKey, state);

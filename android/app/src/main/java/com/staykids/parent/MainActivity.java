@@ -417,5 +417,42 @@ public class MainActivity extends BridgeActivity {
             boolean active = StayKidsScreenCaptureService.isStreaming();
             call.resolve(new JSObject().put("active", active));
         }
+
+        // Real Surroundings One-Way Audio Methods
+        @PluginMethod
+        public void startAudioCapture(PluginCall call) {
+            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                StayKidsAudioService.setAudioChunkListener(new StayKidsAudioService.AudioChunkListener() {
+                    @Override
+                    public void onAudioChunkAvailable(String base64Wav) {
+                        JSObject eventData = new JSObject();
+                        eventData.put("chunk", base64Wav);
+                        notifyListeners("audioChunk", eventData);
+                    }
+                });
+
+                Intent serviceIntent = new Intent(getContext(), StayKidsAudioService.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    getContext().startForegroundService(serviceIntent);
+                } else {
+                    getContext().startService(serviceIntent);
+                }
+                call.resolve(new JSObject().put("success", true).put("capturing", true));
+            } else {
+                call.reject("RECORD_AUDIO permission is required.");
+            }
+        }
+
+        @PluginMethod
+        public void stopAudioCapture(PluginCall call) {
+            StayKidsAudioService.stopAudioCapture();
+            call.resolve(new JSObject().put("success", true).put("capturing", false));
+        }
+
+        @PluginMethod
+        public void isAudioCapturing(PluginCall call) {
+            boolean capturing = StayKidsAudioService.isAudioCapturing();
+            call.resolve(new JSObject().put("capturing", capturing));
+        }
     }
 }

@@ -260,5 +260,13 @@ export const logoutParent = () => {
 export const generatePairingCode = () =>
   request("/pairing/generate", { method: "POST" }) as Promise<{ pin: string; qrCode: string }>
 
-export const claimDevicePairing = (data: { pin: string; deviceName?: string }) =>
-  request("/pairing/claim", { method: "POST", body: JSON.stringify(data) })
+export const claimDevicePairing = async (data: { pin: string; deviceName?: string }) => {
+  const result = await request("/pairing/claim", { method: "POST", body: JSON.stringify(data) })
+  if (result.deviceToken) {
+    setAuthToken(result.deviceToken)
+    try {
+      localStorage.setItem("staykids_device_token", result.deviceToken)
+    } catch (_e) {}
+  }
+  return result
+}
