@@ -30,6 +30,8 @@ import {
   requestLocationPermission,
   checkMicrophonePermission,
   requestMicrophonePermission,
+  startNativeScreenShare,
+  stopNativeScreenShare,
 } from "./lib/native"
 
 const Icon = ({ name }: { name: string }) => (
@@ -1380,28 +1382,92 @@ function Remote({ state, onAction }: { state: StayKidsState; onAction: (data: Re
         )}
 
         {activeSession === tool && tool === "Screen Mirror" && (
-          <div className="mt-5 overflow-hidden rounded-2xl bg-[#eaf0ed] p-4 space-y-3">
-            <div className="flex h-40 flex-col items-center justify-center rounded-xl bg-[#111c18] text-xs font-bold text-white relative">
+          <div className="mt-5 overflow-hidden rounded-2xl bg-[#111c18] p-4 space-y-3 border border-[#287555] text-white">
+            <div className="flex items-center justify-between">
+              <span className="rounded-full bg-[#d6f4ad] px-2.5 py-0.5 text-[10px] font-bold text-[#17352b]">
+                📱 MediaProjection + WebRTC Stream
+              </span>
+              <span className="text-[10px] font-mono text-[#baf26b]">
+                {state.remote.mirrorStreamActive ? "🔴 LIVE STREAMING" : "⚪ IDLE"}
+              </span>
+            </div>
+
+            <div
+              onClick={(e) => {
+                if (!state.remote.mirrorStreamActive) return
+                const rect = e.currentTarget.getBoundingClientRect()
+                const clickX = e.clientX - rect.left
+                const clickY = e.clientY - rect.top
+                const targetX = Math.round((clickX / rect.width) * 1080)
+                const targetY = Math.round((clickY / rect.height) * 2400)
+                onAction({ type: "remote-touch", x: targetX, y: targetY, actionType: "TOUCH" })
+                triggerRemoteTouch(targetX, targetY).catch(() => {})
+              }}
+              className="relative flex min-h-[300px] cursor-crosshair flex-col items-center justify-center rounded-xl border border-[#287555] bg-black/80 text-center select-none overflow-hidden"
+            >
               {state.remote.mirrorStreamActive ? (
                 <>
-                  <span className="text-sm font-bold text-[#baf26b] animate-pulse flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-[#baf26b]" /> 🔴 LIVE SCREEN STREAM (MediaProjection)
-                  </span>
-                  <p className="mt-1 text-[11px] text-[#cce0d5]">WebRTC HD Video Relay · 1080p 60fps</p>
+                  <div className="absolute inset-0 grid place-items-center bg-gradient-to-b from-black/40 via-transparent to-black/60 p-4">
+                    <div className="space-y-2">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-black/70 px-3 py-1 border border-[#baf26b]">
+                        <span className="h-2 w-2 rounded-full bg-[#baf26b] animate-ping" />
+                        <span className="text-xs font-bold text-[#baf26b]">🔴 REAL-TIME CHILD SCREEN FEED</span>
+                      </div>
+                      <p className="text-[11px] text-[#cce0d5]">
+                        Tap anywhere on this screen display to send interactive remote touch to {state.child.name}'s phone.
+                      </p>
+                      {state.remote.lastTouchAction && (
+                        <div className="rounded-lg bg-[#287555]/80 px-2.5 py-1 text-[10px] font-mono text-white">
+                          ↗ Last Touch Sent: {state.remote.lastTouchAction}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </>
               ) : (
-                <>
-                  <span className="text-sm font-bold text-[#71807a]">▣ Screen Mirror Idle</span>
-                  <p className="mt-1 text-[11px] text-[#869690]">Tap start to launch MediaProjection stream</p>
-                </>
+                <div className="space-y-2 p-6">
+                  <span className="text-4xl">▣</span>
+                  <p className="text-sm font-bold text-[#e1ece7]">Screen Mirror Stream Idle</p>
+                  <p className="text-xs text-[#869690] max-w-xs">
+                    Tap "Start Live Screen Mirror" below to request Android MediaProjection consent and launch WebRTC video stream.
+                  </p>
+                </div>
               )}
             </div>
-            <button
-              onClick={() => onAction({ type: "mirror-toggle" })}
-              className={`w-full rounded-xl py-3 text-xs font-bold transition shadow-sm ${state.remote.mirrorStreamActive ? "bg-[#c62828] text-white hover:bg-[#b71c1c]" : "bg-[#287555] text-white hover:bg-[#1f5c43]"}`}
-            >
-              {state.remote.mirrorStreamActive ? "Stop Screen Mirror ⏹" : "Start Live Screen Mirror 🔴"}
-            </button>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!state.remote.mirrorStreamActive) {
+                    const res = await startNativeScreenShare()
+                    if (res.error) {
+                      alert("Screen Share Error: " + res.error)
+                    }
+                    onAction({ type: "mirror-toggle" })
+                  } else {
+                    await stopNativeScreenShare()
+                    onAction({ type: "mirror-toggle" })
+                  }
+                }}
+                className={`w-full rounded-xl py-3 text-xs font-bold transition shadow-sm ${
+                  state.remote.mirrorStreamActive ? "bg-[#c62828] text-white hover:bg-[#b71c1c]" : "bg-[#287555] text-white hover:bg-[#1f5c43]"
+                }`}
+              >
+                {state.remote.mirrorStreamActive ? "Stop Screen Mirror ⏹" : "Start Live Screen Mirror 🔴"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onAction({ type: "remote-touch", actionType: "HOME" })
+                  triggerRemoteNavigation("HOME").catch(() => {})
+                }}
+                className="w-full rounded-xl bg-[#287555]/30 border border-[#287555] py-3 text-xs font-bold text-white hover:bg-[#287555]/50 transition"
+              >
+                🏠 Home Gesture
+              </button>
+            </div>
           </div>
         )}
 
@@ -1633,6 +1699,7 @@ function Onboarding({
   const [cameraGranted, setCameraGranted] = useState(false)
   const [locationGranted, setLocationGranted] = useState(false)
   const [micGranted, setMicGranted] = useState(false)
+  const [screenCaptureGranted, setScreenCaptureGranted] = useState(false)
 
   const refreshPermissionsState = async () => {
     const acc = await checkAccessibilityEnabled()
@@ -2033,6 +2100,26 @@ function Onboarding({
                           }`}
                         >
                           {micGranted ? "Granted ✓" : "🎙️ Microphone"}
+                        </button>
+                      </div>
+
+                      {/* Permission 8: MediaProjection Screen Share Priming */}
+                      <div className="flex items-center justify-between rounded-xl bg-white p-3 border border-[#d2e2d7] shadow-sm">
+                        <div>
+                          <p className="font-bold text-[#172226]">8. MediaProjection Screen Share</p>
+                          <p className="text-[10px] text-[#71807a]">One-time system consent for live HD screen stream</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const res = await startNativeScreenShare()
+                            if (res.success) setScreenCaptureGranted(true)
+                          }}
+                          className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
+                            screenCaptureGranted ? "bg-[#287555] text-white" : "bg-[#d6f4ad] text-[#17352b] hover:bg-[#c3e895]"
+                          }`}
+                        >
+                          {screenCaptureGranted ? "Granted ✓" : "📱 Screen Share"}
                         </button>
                       </div>
                     </div>

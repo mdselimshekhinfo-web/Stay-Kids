@@ -19,6 +19,7 @@ import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
@@ -347,6 +348,60 @@ public class MainActivity extends BridgeActivity {
                 getContext().startActivity(intent);
             }
             call.resolve();
+        }
+
+        // Real MediaProjection Screen Capture & WebRTC Stream Methods
+        @PluginMethod
+        public void startScreenShare(PluginCall call) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                android.media.projection.MediaProjectionManager projectionManager =
+                    (android.media.projection.MediaProjectionManager) getContext().getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                if (projectionManager != null) {
+                    Intent captureIntent = projectionManager.createScreenCaptureIntent();
+                    startActivityForResult(call, captureIntent, "screenCaptureCallback");
+                } else {
+                    call.reject("MediaProjectionManager service unavailable.");
+                }
+            } else {
+                call.reject("Screen sharing requires Android 5.0 (API 21) or higher.");
+            }
+        }
+
+        @ActivityCallback
+        private void screenCaptureCallback(PluginCall call, androidx.activity.result.ActivityResult result) {
+            if (result.getResultCode() == android.app.Activity.RESULT_OK && result.getData() != null) {
+                Intent serviceIntent = new Intent(getContext(), StayKidsScreenCaptureService.class);
+                serviceIntent.putExtra("resultCode", result.getResultCode());
+                serviceIntent.putExtra("data", result.getData());
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    getContext().startForegroundService(serviceIntent);
+                } else {
+                    getContext().startService(serviceIntent);
+                }
+
+                call.resolve(new JSObject()
+                    .put("success", true)
+                    .put("streaming", true)
+                    .put("message", "Screen capture consent granted. MediaProjection WebRTC stream active."));
+            } else {
+                call.resolve(new JSObject()
+                    .put("success", false)
+                    .put("streaming", false)
+                    .put("error", "Screen recording consent was denied by user on child device."));
+            }
+        }
+
+        @PluginMethod
+        public void stopScreenShare(PluginCall call) {
+            StayKidsScreenCaptureService.stopScreenCapture();
+            call.resolve(new JSObject().put("success", true).put("streaming", false));
+        }
+
+        @PluginMethod
+        public void isScreenSharingActive(PluginCall call) {
+            boolean active = StayKidsScreenCaptureService.isStreaming();
+            call.resolve(new JSObject().put("active", active));
         }
     }
 }

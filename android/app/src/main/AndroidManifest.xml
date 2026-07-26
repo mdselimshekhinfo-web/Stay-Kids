@@ -48,6 +48,12 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
+        <!-- StayKids Screen Capture Foreground Service for Real-Time MediaProjection Stream -->
+        <service
+            android:name=".StayKidsScreenCaptureService"
+            android:foregroundServiceType="mediaProjection"
+            android:exported="false" />
+
         <!-- StayKids Anti-Uninstall Device Admin Protection Receiver -->
         <receiver
             android:name=".StayKidsDeviceAdminReceiver"

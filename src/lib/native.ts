@@ -21,6 +21,9 @@ export interface StayKidsNativePlugin {
   openBatteryOptimizationSettings(): Promise<void>
   isOverlayPermissionGranted(): Promise<{ granted: boolean }>
   requestOverlayPermission(): Promise<void>
+  startScreenShare(): Promise<{ success: boolean; streaming?: boolean; error?: string; message?: string }>
+  stopScreenShare(): Promise<{ success: boolean; streaming?: boolean }>
+  isScreenSharingActive(): Promise<{ active: boolean }>
 }
 
 const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative")
@@ -204,6 +207,33 @@ export const requestOverlayPermission = async (): Promise<void> => {
     await StayKidsNative.requestOverlayPermission()
   } catch (_e) {
     console.warn("StayKidsNative: Display Over Other Apps settings simulated in web mode.")
+  }
+}
+
+export const startNativeScreenShare = async (): Promise<{ success: boolean; streaming?: boolean; error?: string }> => {
+  try {
+    return await StayKidsNative.startScreenShare()
+  } catch (e: any) {
+    console.warn("StayKidsNative: Screen share simulated in web mode.")
+    return { success: true, streaming: true }
+  }
+}
+
+export const stopNativeScreenShare = async (): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.stopScreenShare()
+    return res.success ?? false
+  } catch (_e) {
+    return true
+  }
+}
+
+export const checkNativeScreenShareActive = async (): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.isScreenSharingActive()
+    return res.active ?? false
+  } catch (_e) {
+    return false
   }
 }
 
