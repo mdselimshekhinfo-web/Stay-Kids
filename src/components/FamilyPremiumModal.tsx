@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import { PREMIUM_ENABLED } from "../lib/config"
 
 export function FamilyPremiumModal({
   isOpen,
@@ -15,7 +16,7 @@ export function FamilyPremiumModal({
   const [promoErr, setPromoErr] = useState("")
   const [loading, setLoading] = useState(false)
 
-  if (!isOpen) return null
+  if (!PREMIUM_ENABLED || !isOpen) return null
 
   const handleSubscribe = () => {
     setLoading(true)
@@ -58,92 +59,92 @@ export function FamilyPremiumModal({
           </p>
         </div>
 
-        <div className="space-y-2 rounded-2xl bg-[#f4f8f5] p-3 text-xs">
-          <div className="flex items-center gap-2 font-bold text-[#287555]">
-            <span>📱</span> <span>Connect Unlimited Child Devices (1st Free)</span>
-          </div>
-          <div className="flex items-center gap-2 text-[#465751]">
-            <span>🎥</span> <span>Live Screen Mirroring & Audio Listener</span>
-          </div>
-          <div className="flex items-center gap-2 text-[#465751]">
-            <span>🖐️</span> <span>Remote Touch Navigation & Gestures</span>
-          </div>
-          <div className="flex items-center gap-2 text-[#465751]">
-            <span>🚨</span> <span>Instant Emergency SOS Push Alerts</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setSelectedPlan("monthly")}
-            className={`rounded-2xl p-3 text-center border-2 transition ${
-              selectedPlan === "monthly" ? "border-[#287555] bg-[#f3faee] shadow" : "border-[#e0e8e4] bg-white"
-            }`}
-          >
-            <p className="text-[11px] font-bold text-[#586770]">Monthly Pass</p>
-            <p className="text-lg font-bold text-[#172226] mt-0.5">৳490<span className="text-[10px] font-normal text-[#71807a]">/mo</span></p>
-          </button>
-
-          <button
-            type="button"
+        {/* Plan Cards */}
+        <div className="space-y-2.5">
+          <div
             onClick={() => setSelectedPlan("yearly")}
-            className={`relative rounded-2xl p-3 text-center border-2 transition ${
-              selectedPlan === "yearly" ? "border-[#287555] bg-[#f3faee] shadow" : "border-[#e0e8e4] bg-white"
+            className={`cursor-pointer rounded-2xl p-4 border transition flex justify-between items-center ${
+              selectedPlan === "yearly" ? "border-[#287555] bg-[#f3faee] shadow-sm" : "border-[#e0e7e3] bg-white"
             }`}
           >
-            <span className="absolute -top-2.5 right-2 rounded-full bg-[#287555] px-2 py-0.5 text-[9px] font-bold text-white shadow">
-              SAVE 50%
-            </span>
-            <p className="text-[11px] font-bold text-[#586770]">Yearly Pass</p>
-            <p className="text-lg font-bold text-[#287555] mt-0.5">৳2,990<span className="text-[10px] font-normal text-[#71807a]">/yr</span></p>
-          </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-bold text-sm text-[#172226]">Yearly Family Plan</p>
+                <span className="rounded-full bg-[#287555] px-2 py-0.5 text-[9px] font-bold text-white">SAVE 50%</span>
+              </div>
+              <p className="text-xs text-[#60736c] mt-0.5">Up to 5 Child Devices · Unlimited Mirror & Audio</p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-bold text-[#17352b]">৳২,৪৯০</p>
+              <p className="text-[10px] text-[#71827b]">/year</p>
+            </div>
+          </div>
+
+          <div
+            onClick={() => setSelectedPlan("monthly")}
+            className={`cursor-pointer rounded-2xl p-4 border transition flex justify-between items-center ${
+              selectedPlan === "monthly" ? "border-[#287555] bg-[#f3faee] shadow-sm" : "border-[#e0e7e3] bg-white"
+            }`}
+          >
+            <div>
+              <p className="font-bold text-sm text-[#172226]">Monthly Family Plan</p>
+              <p className="text-xs text-[#60736c] mt-0.5">Up to 3 Child Devices · Full Features</p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-bold text-[#17352b]">৳৩৯০</p>
+              <p className="text-[10px] text-[#71827b]">/month</p>
+            </div>
+          </div>
         </div>
 
         <button
           onClick={handleSubscribe}
           disabled={loading}
-          className="w-full rounded-2xl bg-[#287555] py-3 text-xs font-bold text-white hover:bg-[#1f5c43] transition shadow-lg"
+          className="w-full rounded-2xl bg-[#287555] py-3.5 text-sm font-bold text-white hover:bg-[#1f5c43] transition shadow-lg flex items-center justify-center gap-2"
         >
-          {loading ? "Activating Family Plan..." : "Start 7-Day Free Trial (৳0 Today) →"}
+          {loading ? (
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          ) : (
+            <>👑 Unlock Family Multi-Child Mode</>
+          )}
         </button>
 
-        {/* Admin VIP Promo Code Section */}
-        <div className="pt-1 border-t border-[#e8f0ec] text-center">
+        {/* VIP Promo Code Drawer */}
+        <div className="border-t border-[#edf2ef] pt-3 text-center">
           {!showPromo ? (
             <button
+              type="button"
               onClick={() => setShowPromo(true)}
-              className="text-xs font-bold text-[#287555] hover:underline flex items-center justify-center gap-1 mx-auto"
+              className="text-xs font-bold text-[#287555] hover:underline"
             >
-              <span>🎟️ Have an Admin VIP Promo Code?</span>
+              Have a VIP Promo Code / Voucher? (এখানে কোড দিন) →
             </button>
           ) : (
-            <form onSubmit={handleRedeemPromo} className="space-y-2 text-left pt-1">
-              <label className="text-[11px] font-bold text-[#586770]">Enter Admin VIP Promo Code (ফ্রি কোড)</label>
-              <div className="flex gap-1.5">
+            <form onSubmit={handleRedeemPromo} className="space-y-2">
+              <p className="text-xs font-bold text-[#172226]">Redeem VIP Access Code</p>
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="e.g. STAYKIDS_FREE_VIP"
                   value={promoCode}
                   onChange={(e) => {
                     setPromoCode(e.target.value)
                     setPromoErr("")
                   }}
-                  className="flex-1 rounded-xl border border-[#c5dcd0] px-3 py-2 text-xs font-bold uppercase focus:ring-2 focus:ring-[#287555] focus:outline-none"
+                  placeholder="Enter Code (e.g. STAYKIDS_FREE_VIP)"
+                  className="flex-1 rounded-xl border border-[#c4d6cc] px-3 py-2 text-xs font-mono font-bold uppercase text-[#172226] focus:outline-none focus:ring-2 focus:ring-[#287555]"
                 />
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#1d5946] px-3 py-2 text-xs font-bold text-white hover:bg-[#164435] transition shrink-0"
+                  disabled={loading}
+                  className="rounded-xl bg-[#17352b] px-4 py-2 text-xs font-bold text-white hover:bg-[#0f241d]"
                 >
-                  Apply Code
+                  Apply
                 </button>
               </div>
-              {promoErr && <p className="text-[10px] font-bold text-[#d32f2f]">{promoErr}</p>}
+              {promoErr && <p className="text-[11px] text-[#c62828] font-semibold">{promoErr}</p>}
             </form>
           )}
         </div>
-
-        <p className="text-center text-[10px] text-[#71807a]">Cancel anytime from Google Play / App Store</p>
       </div>
     </div>
   )

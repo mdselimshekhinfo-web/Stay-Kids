@@ -119,7 +119,9 @@ const defaultState = {
     consentRequired: false,
     audioActive: false,
   },
+  isPremium: true,
 };
+
 
 async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "reset" = "signup") {
   const resendApiKey = Deno.env.get("RESEND_API_KEY") || "";

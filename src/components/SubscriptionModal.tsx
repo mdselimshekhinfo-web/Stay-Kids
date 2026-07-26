@@ -1,11 +1,12 @@
 import React, { useState } from "react"
+import { PREMIUM_ENABLED } from "../lib/config"
 
 export function SubscriptionModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">("yearly")
   const [paymentMethod, setPaymentMethod] = useState<"gplay" | "bkash" | "nagad" | "card">("bkash")
   const [subscribed, setSubscribed] = useState(false)
 
-  if (!isOpen) return null
+  if (!PREMIUM_ENABLED || !isOpen) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
@@ -40,78 +41,101 @@ export function SubscriptionModal({ isOpen, onClose }: { isOpen: boolean; onClos
                 <li>✓ Emergency SOS Alerts</li>
               </ul>
             </div>
-            <div className="rounded-2xl border border-[#c5e6b9] bg-[#f3faee] p-3.5 space-y-1.5">
-              <p className="font-bold text-[#1e4d3b] text-xs uppercase tracking-wider">⭐ Family Premium (৳৪৯৯/মাস)</p>
-              <ul className="space-y-1 text-[11px] text-[#287555]">
-                <li>★ Instant Screen Mirroring</li>
-                <li>★ One-Way Audio Listening</li>
-                <li>★ Remote Live Microphone</li>
-                <li>★ Priority Relay Server</li>
-                <li>★ Unlimited Child Devices</li>
+            <div className="rounded-2xl border border-[#baf26b] bg-[#f4fbe9] p-3.5 space-y-1.5 shadow-sm">
+              <p className="font-bold text-[#1e4d3b] text-xs uppercase tracking-wider">👑 Premium (৳৩৯০/মাস)</p>
+              <ul className="space-y-1 text-[11px] text-[#287555] font-medium">
+                <li>✓ Everything in Free</li>
+                <li>✓ <strong>Live Camera Stream</strong></li>
+                <li>✓ <strong>Live Screen Mirroring</strong></li>
+                <li>✓ <strong>One-Way Ambient Audio</strong></li>
+                <li>✓ <strong>Full Remote Navigation</strong></li>
+                <li>✓ Silent Camera Snapshots</li>
               </ul>
             </div>
           </div>
 
-          {/* Pricing Selector */}
-          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[#edf3ef] p-1">
-            <button
-              type="button"
-              onClick={() => setSelectedPlan("monthly")}
-              className={`rounded-xl py-2.5 text-center text-xs font-bold transition ${selectedPlan === "monthly" ? "bg-white shadow text-[#287555]" : "text-[#71807a]"}`}
-            >
-              Monthly Subscription
-              <span className="block text-[10px] text-[#5b7369]">৳৪৯৯ / month</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedPlan("yearly")}
-              className={`relative rounded-xl py-2.5 text-center text-xs font-bold transition ${selectedPlan === "yearly" ? "bg-white shadow text-[#287555]" : "text-[#71807a]"}`}
-            >
-              Yearly Best Value 🔥
-              <span className="block text-[10px] text-[#5b7369]">৳৩৯৯৯ / year (Save 33%)</span>
-            </button>
+          {/* Payment Method Selector */}
+          <div className="space-y-2 pt-2 border-t border-[#e5ece8]">
+            <p className="font-bold text-xs text-[#172226]">Select Payment Gateway (পেমেন্ট মাধ্যম)</p>
+            <div className="grid grid-cols-4 gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("bkash")}
+                className={`rounded-xl border p-2.5 text-center font-bold transition ${paymentMethod === "bkash" ? "border-[#e2136e] bg-[#fce4ec] text-[#c2185b]" : "border-[#e0e7e3] bg-white text-[#556660]"}`}
+              >
+                bKash
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("nagad")}
+                className={`rounded-xl border p-2.5 text-center font-bold transition ${paymentMethod === "nagad" ? "border-[#f7941d] bg-[#fff3e0] text-[#e65100]" : "border-[#e0e7e3] bg-white text-[#556660]"}`}
+              >
+                Nagad
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("gplay")}
+                className={`rounded-xl border p-2.5 text-center font-bold transition ${paymentMethod === "gplay" ? "border-[#4285f4] bg-[#e8f0fe] text-[#1a73e8]" : "border-[#e0e7e3] bg-white text-[#556660]"}`}
+              >
+                Google Play
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod("card")}
+                className={`rounded-xl border p-2.5 text-center font-bold transition ${paymentMethod === "card" ? "border-[#287555] bg-[#f3faee] text-[#1e4d3b]" : "border-[#e0e7e3] bg-white text-[#556660]"}`}
+              >
+                Card / VISA
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-2 pt-1">
-            <p className="text-xs font-bold text-[#172226]">Select Payment Gateway (পেমেন্ট মাধ্যম):</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { id: "bkash", name: "bKash (বিকাশ)", icon: "💖" },
-                { id: "nagad", name: "Nagad (নগদ)", icon: "🟠" },
-                { id: "gplay", name: "Google Play", icon: "▶️" },
-                { id: "card", name: "Visa / Mastercard", icon: "💳" },
-              ].map((method) => (
-                <button
-                  key={method.id}
-                  type="button"
-                  onClick={() => setPaymentMethod(method.id as any)}
-                  className={`flex items-center gap-2 rounded-xl border p-3 text-xs font-bold transition ${paymentMethod === method.id ? "border-[#287555] bg-[#f3faee] text-[#287555]" : "border-[#e0e7e7] bg-white text-[#586771]"}`}
-                >
-                  <span>{method.icon}</span>
-                  <span>{method.name}</span>
-                </button>
-              ))}
+          {/* Plan Duration Cards */}
+          <div className="space-y-2">
+            <div
+              onClick={() => setSelectedPlan("yearly")}
+              className={`cursor-pointer rounded-2xl p-3.5 border transition flex justify-between items-center ${
+                selectedPlan === "yearly" ? "border-[#287555] bg-[#f3faee]" : "border-[#e0e7e3] bg-white"
+              }`}
+            >
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-xs text-[#172226]">1 Year Full Premium Plan</p>
+                  <span className="rounded-full bg-[#287555] px-2 py-0.5 text-[9px] font-bold text-white">SAVE 50%</span>
+                </div>
+                <p className="text-[11px] text-[#60736c]">৳২08 / month (Billed ৳২,৪৯০ yearly)</p>
+              </div>
+              <p className="font-bold text-sm text-[#17352b]">৳২,৪৯০</p>
+            </div>
+
+            <div
+              onClick={() => setSelectedPlan("monthly")}
+              className={`cursor-pointer rounded-2xl p-3.5 border transition flex justify-between items-center ${
+                selectedPlan === "monthly" ? "border-[#287555] bg-[#f3faee]" : "border-[#e0e7e3] bg-white"
+              }`}
+            >
+              <div>
+                <p className="font-bold text-xs text-[#172226]">1 Month Premium Plan</p>
+                <p className="text-[11px] text-[#60736c]">Billed monthly · Cancel anytime</p>
+              </div>
+              <p className="font-bold text-sm text-[#17352b]">৳৩৯০</p>
             </div>
           </div>
         </div>
 
-        <div className="mt-5 border-t pt-3 border-[#e5ece8] space-y-2">
-          <button
-            onClick={() => {
-              setSubscribed(true)
-              alert(`🎉 Subscription Activated via ${paymentMethod.toUpperCase()}! Your account is upgraded to Family Premium.`)
-              onClose()
-            }}
-            className="w-full rounded-2xl bg-[#287555] py-3.5 text-xs font-bold text-white hover:bg-[#1f5c43] shadow-md transition"
-          >
-            {subscribed ? "Renew Family Premium Plan →" : "Upgrade to Family Premium →"}
-          </button>
-          <button
-            onClick={onClose}
-            className="w-full text-center text-xs font-bold text-[#71807a] hover:underline"
-          >
-            Continue with Free Forever Tier (৳০)
-          </button>
+        <div className="mt-4 pt-3 border-t border-[#e5ece8] space-y-2">
+          {subscribed ? (
+            <div className="rounded-xl bg-[#d5f2b0] p-3 text-center text-xs font-bold text-[#17352b]">
+              🎉 Thank you! Your Premium Subscription has been activated.
+            </div>
+          ) : (
+            <button
+              onClick={() => setSubscribed(true)}
+              className="w-full rounded-2xl bg-[#287555] py-3.5 text-sm font-bold text-white hover:bg-[#1f5c43] transition shadow-md"
+            >
+              Start 7-Day Free Trial (৳০ Today)
+            </button>
+          )}
+          <p className="text-center text-[10px] text-[#83948e]">Secured by SSL Commerz & Google Play Billing. No commitment.</p>
         </div>
       </div>
     </div>

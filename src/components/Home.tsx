@@ -3,6 +3,7 @@ import type { StayKidsState } from "../lib/staykids-api"
 import { ChildDeviceSwitcherBar } from "./ChildDeviceSwitcherBar"
 import { AddChildModal } from "./AddChildModal"
 import { FamilyPremiumModal } from "./FamilyPremiumModal"
+import { PREMIUM_ENABLED, isPremiumUnlocked } from "../lib/config"
 
 const Icon = ({ name }: { name: string }) => (
   <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f0f3f6] text-lg" aria-hidden="true">
@@ -28,12 +29,12 @@ export function Home({
   const childrenList = state.children || [child]
   const activeChildId = state.activeChildId || child.id || "child-1"
   const isPaused = state.controls.paused
-  const isPremium = state.isPremium ?? false
+  const hasPremiumAccess = isPremiumUnlocked(state.isPremium)
   const remainingMins = Math.max(0, usage.limit - usage.minutes)
   const percentUsed = Math.min(100, Math.round((usage.minutes / usage.limit) * 100))
 
   const handleAddChildClick = () => {
-    if (!isPremium && childrenList.length >= 1) {
+    if (PREMIUM_ENABLED && !hasPremiumAccess && childrenList.length >= 1) {
       setShowPremiumModal(true)
     } else {
       setShowAddChildModal(true)
@@ -68,14 +69,16 @@ export function Home({
         onDeviceAdded={(newChild) => onAction({ type: "add-child", newChild })}
       />
 
-      <FamilyPremiumModal
-        isOpen={showPremiumModal}
-        onClose={() => setShowPremiumModal(false)}
-        onUpgradeSuccess={() => {
-          onAction({ type: "upgrade-premium" })
-          setShowAddChildModal(true)
-        }}
-      />
+      {PREMIUM_ENABLED && (
+        <FamilyPremiumModal
+          isOpen={showPremiumModal}
+          onClose={() => setShowPremiumModal(false)}
+          onUpgradeSuccess={() => {
+            onAction({ type: "upgrade-premium" })
+            setShowAddChildModal(true)
+          }}
+        />
+      )}
 
       {!child.online && (
         <div className="flex items-center gap-2.5 rounded-2xl bg-[#feebee] p-3 text-xs font-bold text-[#c62828] border border-[#ffcdd2] shadow-sm">

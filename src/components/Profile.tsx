@@ -2,6 +2,7 @@ import React, { useState } from "react"
 import type { StayKidsState } from "../lib/staykids-api"
 import { LegalModal } from "./LegalModal"
 import { SubscriptionModal } from "./SubscriptionModal"
+import { PREMIUM_ENABLED } from "../lib/config"
 
 export function Profile({
   state,
@@ -28,7 +29,8 @@ export function Profile({
   return (
     <div className="space-y-5 pb-24">
       <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} initialTab={legalTab} />
-      <SubscriptionModal isOpen={showSubModal} onClose={() => setShowSubModal(false)} />
+      {PREMIUM_ENABLED && <SubscriptionModal isOpen={showSubModal} onClose={() => setShowSubModal(false)} />}
+
       <div className="pt-2">
         <p className="text-sm text-[#70808b]">Account & Preferences</p>
         <h1 className="mt-1 text-[28px] font-bold tracking-[-.05em]">Profile</h1>
@@ -76,22 +78,24 @@ export function Profile({
         </div>
       </div>
 
-      {/* Subscription & Family Guardians */}
-      <div className="rounded-[24px] border border-[#e1e7e8] bg-white p-5 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="font-bold text-base text-[#172226]">Subscription Plan</p>
-          <button onClick={() => setShowSubModal(true)} className="text-xs font-bold text-[#287555] hover:underline">
-            Manage Billing →
-          </button>
-        </div>
-        <div onClick={() => setShowSubModal(true)} className="cursor-pointer flex items-center justify-between rounded-2xl bg-[#f3faee] p-3.5 border border-[#d5e8ce] hover:bg-[#ebf7e4] transition">
-          <div>
-            <p className="font-bold text-sm text-[#1e4d3b]">7-Day Free Trial (All Features Unlocked)</p>
-            <p className="text-xs text-[#597869]">7 Days Remaining · No Payment Required</p>
+      {/* Subscription & Family Guardians (Rendered only when PREMIUM_ENABLED is true) */}
+      {PREMIUM_ENABLED && (
+        <div className="rounded-[24px] border border-[#e1e7e8] bg-white p-5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="font-bold text-base text-[#172226]">Subscription Plan</p>
+            <button onClick={() => setShowSubModal(true)} className="text-xs font-bold text-[#287555] hover:underline">
+              Manage Billing →
+            </button>
           </div>
-          <span className="rounded-full bg-[#287555] px-3 py-1 text-xs font-bold text-white">Free Trial 🎉</span>
+          <div onClick={() => setShowSubModal(true)} className="cursor-pointer flex items-center justify-between rounded-2xl bg-[#f3faee] p-3.5 border border-[#d5e8ce] hover:bg-[#ebf7e4] transition">
+            <div>
+              <p className="font-bold text-sm text-[#1e4d3b]">7-Day Free Trial (All Features Unlocked)</p>
+              <p className="text-xs text-[#597869]">7 Days Remaining · No Payment Required</p>
+            </div>
+            <span className="rounded-full bg-[#287555] px-3 py-1 text-xs font-bold text-white">Free Trial 🎉</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Preferences & Language Toggle */}
       <div className="rounded-[24px] border border-[#e1e7e8] bg-white p-5 shadow-sm space-y-4">
@@ -119,8 +123,8 @@ export function Profile({
 
         <div className="flex justify-between items-center pt-1">
           <div>
-            <p className="font-bold text-sm">Terms & Privacy Policies</p>
-            <p className="text-xs text-[#71807a]">Review legal compliance & privacy</p>
+            <p className="font-bold text-sm">Terms & Privacy Policy</p>
+            <p className="text-xs text-[#71807a]">View app terms, COPPA & privacy guidelines</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -132,7 +136,7 @@ export function Profile({
             >
               Terms
             </button>
-            <span className="text-xs text-[#b8c4bf]">·</span>
+            <span className="text-xs text-[#b8c4be]">•</span>
             <button
               onClick={() => {
                 setLegalTab("privacy")
@@ -146,15 +150,12 @@ export function Profile({
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="pt-2">
-        <button
-          onClick={onSignOut}
-          className="w-full rounded-2xl bg-[#feebee] py-3.5 text-sm font-bold text-[#c62828] hover:bg-[#ffcdd2] transition"
-        >
-          Sign Out of Account
-        </button>
-      </div>
+      <button
+        onClick={onSignOut}
+        className="w-full rounded-2xl border border-[#ffcdd2] bg-[#feebee] py-3.5 text-sm font-bold text-[#c62828] hover:bg-[#ffcdd2] transition shadow-sm"
+      >
+        Sign Out (লগআউট)
+      </button>
     </div>
   )
 }
