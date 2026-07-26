@@ -1878,6 +1878,24 @@ function Onboarding({
           <h1 className="mt-2 text-3xl font-bold leading-[1.1] tracking-[-.05em]">{page.title}</h1>
           <p className="mt-2 max-w-sm text-xs leading-5 text-[#6e7c83]">{page.text}</p>
 
+          {step === 0 && (
+            <div className="mt-4 rounded-2xl bg-[#edf3ef] p-4 text-xs space-y-3 border border-[#c3d7cb]">
+              <div className="flex items-center gap-2 text-[#1d5946] font-bold">
+                <span>📜</span>
+                <span>Google Play Policy Prominent Disclosure</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-[#4b5953]">
+                StayKids collects <strong>Location, Camera, Microphone, Screen Stream,</strong> and <strong>Accessibility Usage</strong> strictly for authorized parental oversight & child protection. All data transmission is encrypted via HTTPS/TLS and never shared with third parties.
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] font-semibold text-[#1d5946]">
+                <div className="rounded-lg bg-white p-2 border border-[#d5e3da]">📍 Real-time GPS Location</div>
+                <div className="rounded-lg bg-white p-2 border border-[#d5e3da]">📷 Remote Camera Snapshots</div>
+                <div className="rounded-lg bg-white p-2 border border-[#d5e3da]">🎙️ Ambient Surroundings Audio</div>
+                <div className="rounded-lg bg-white p-2 border border-[#d5e3da]">📱 Live HD Screen Oversight</div>
+              </div>
+            </div>
+          )}
+
           {error && <div className="mt-4 rounded-xl bg-[#feebee] p-3 text-xs font-bold text-[#c62828] border border-[#ffcdd2]">{error}</div>}
 
           {step === 1 && (
