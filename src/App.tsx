@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react"
 import {
   getStayKidsState,
   sendStayKidsAction,
+  getAuthToken,
   type StayKidsState,
   type ChildDeviceInfo,
 } from "./lib/staykids-api"
@@ -63,9 +64,9 @@ export default function App() {
     const saved = localStorage.getItem("staykids_selected_role")
     return saved === "parent" || saved === "child" ? saved : null
   })
-  const [authenticated, setAuthenticated] = useState(false)
+  const [authenticated, setAuthenticated] = useState<boolean>(() => Boolean(getAuthToken()))
   const [user, setUser] = useState<{ name: string; email: string }>({ name: "Ava Morgan", email: "ava.morgan@staykids.family" })
-  const [ready, setReady] = useState(false)
+  const [ready, setReady] = useState<boolean>(() => Boolean(getAuthToken() || selectedRole === "child"))
   const [role, setRole] = useState<"parent" | "child">(() => selectedRole || "parent")
   const [tab, setTab] = useState("Home")
   const [state, setState] = useState<StayKidsState>(initialDefaultState)
@@ -289,6 +290,7 @@ export default function App() {
         onAuthenticate={(authenticatedUser) => {
           setUser(authenticatedUser)
           setAuthenticated(true)
+          setReady(true)
         }}
       />
     )

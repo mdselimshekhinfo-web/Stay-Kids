@@ -56,10 +56,29 @@ public class MainActivity extends BridgeActivity {
 
         @PluginMethod
         public void isAccessibilityEnabled(PluginCall call) {
-            StayKidsAccessibilityService service = StayKidsAccessibilityService.getInstance();
-            boolean enabled = (service != null);
+            boolean enabled = false;
+            try {
+                int accessibilityEnabled = Settings.Secure.getInt(
+                    getContext().getContentResolver(),
+                    Settings.Secure.ACCESSIBILITY_ENABLED
+                );
+                if (accessibilityEnabled == 1) {
+                    String service = getContext().getPackageName() + "/" + StayKidsAccessibilityService.class.getName();
+                    String settingValue = Settings.Secure.getString(
+                        getContext().getContentResolver(),
+                        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+                    );
+                    if (settingValue != null) {
+                        enabled = settingValue.contains(service) || settingValue.contains(getContext().getPackageName());
+                    }
+                }
+            } catch (Exception e) {
+                StayKidsAccessibilityService service = StayKidsAccessibilityService.getInstance();
+                enabled = (service != null);
+            }
             call.resolve(new JSObject().put("enabled", enabled));
         }
+
 
         @PluginMethod
         public void openAccessibilitySettings(PluginCall call) {
