@@ -374,85 +374,110 @@ public class MainActivity extends BridgeActivity {
 
         @ActivityCallback
         private void screenCaptureCallback(PluginCall call, androidx.activity.result.ActivityResult result) {
-            if (result.getResultCode() == android.app.Activity.RESULT_OK && result.getData() != null) {
-                Intent serviceIntent = new Intent(getContext(), StayKidsScreenCaptureService.class);
-                serviceIntent.putExtra("resultCode", result.getResultCode());
-                serviceIntent.putExtra("data", result.getData());
+            try {
+                if (result.getResultCode() == android.app.Activity.RESULT_OK && result.getData() != null) {
+                    Intent serviceIntent = new Intent(getContext(), StayKidsScreenCaptureService.class);
+                    serviceIntent.putExtra("resultCode", result.getResultCode());
+                    serviceIntent.putExtra("data", result.getData());
 
-                StayKidsScreenCaptureService.setFrameListener(new StayKidsScreenCaptureService.FrameListener() {
-                    @Override
-                    public void onFrameAvailable(String base64Jpeg) {
-                        JSObject eventData = new JSObject();
-                        eventData.put("frame", base64Jpeg);
-                        notifyListeners("screenFrame", eventData);
+                    StayKidsScreenCaptureService.setFrameListener(new StayKidsScreenCaptureService.FrameListener() {
+                        @Override
+                        public void onFrameAvailable(String base64Jpeg) {
+                            JSObject eventData = new JSObject();
+                            eventData.put("frame", base64Jpeg);
+                            notifyListeners("screenFrame", eventData);
+                        }
+                    });
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        getContext().startForegroundService(serviceIntent);
+                    } else {
+                        getContext().startService(serviceIntent);
                     }
-                });
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    getContext().startForegroundService(serviceIntent);
+                    call.resolve(new JSObject()
+                        .put("success", true)
+                        .put("streaming", true)
+                        .put("message", "Screen capture consent granted. MediaProjection WebRTC stream active."));
                 } else {
-                    getContext().startService(serviceIntent);
+                    call.resolve(new JSObject()
+                        .put("success", false)
+                        .put("streaming", false)
+                        .put("error", "Screen recording consent was denied by user on child device."));
                 }
-
-                call.resolve(new JSObject()
-                    .put("success", true)
-                    .put("streaming", true)
-                    .put("message", "Screen capture consent granted. MediaProjection WebRTC stream active."));
-            } else {
-                call.resolve(new JSObject()
-                    .put("success", false)
-                    .put("streaming", false)
-                    .put("error", "Screen recording consent was denied by user on child device."));
+            } catch (Exception e) {
+                call.reject("Screen capture service initialization failed: " + e.getMessage());
             }
         }
 
         @PluginMethod
         public void stopScreenShare(PluginCall call) {
-            StayKidsScreenCaptureService.stopScreenCapture();
-            call.resolve(new JSObject().put("success", true).put("streaming", false));
+            try {
+                StayKidsScreenCaptureService.stopScreenCapture();
+                call.resolve(new JSObject().put("success", true).put("streaming", false));
+            } catch (Exception e) {
+                call.resolve(new JSObject().put("success", false).put("error", e.getMessage()));
+            }
         }
 
         @PluginMethod
         public void isScreenSharingActive(PluginCall call) {
-            boolean active = StayKidsScreenCaptureService.isStreaming();
-            call.resolve(new JSObject().put("active", active));
+            try {
+                boolean active = StayKidsScreenCaptureService.isStreaming();
+                call.resolve(new JSObject().put("active", active));
+            } catch (Exception e) {
+                call.resolve(new JSObject().put("active", false));
+            }
         }
 
         // Real Surroundings One-Way Audio Methods
         @PluginMethod
         public void startAudioCapture(PluginCall call) {
-            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                StayKidsAudioService.setAudioChunkListener(new StayKidsAudioService.AudioChunkListener() {
-                    @Override
-                    public void onAudioChunkAvailable(String base64Wav) {
-                        JSObject eventData = new JSObject();
-                        eventData.put("chunk", base64Wav);
-                        notifyListeners("audioChunk", eventData);
-                    }
-                });
+            try {
+                if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    StayKidsAudioService.setAudioChunkListener(new StayKidsAudioService.AudioChunkListener() {
+                        @Override
+                        public void onAudioChunkAvailable(String base64Wav) {
+                            JSObject eventData = new JSObject();
+                            eventData.put("chunk", base64Wav);
+                            notifyListeners("audioChunk", eventData);
+                        }
+                    });
 
-                Intent serviceIntent = new Intent(getContext(), StayKidsAudioService.class);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    getContext().startForegroundService(serviceIntent);
+                    Intent serviceIntent = new Intent(getContext(), StayKidsAudioService.class);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        getContext().startForegroundService(serviceIntent);
+                    } else {
+                        getContext().startService(serviceIntent);
+                    }
+                    call.resolve(new JSObject().put("success", true).put("capturing", true));
                 } else {
-                    getContext().startService(serviceIntent);
+                    call.reject("RECORD_AUDIO permission is required.");
                 }
-                call.resolve(new JSObject().put("success", true).put("capturing", true));
-            } else {
-                call.reject("RECORD_AUDIO permission is required.");
+            } catch (Exception e) {
+                call.reject("Failed to start audio service: " + e.getMessage());
             }
         }
 
         @PluginMethod
         public void stopAudioCapture(PluginCall call) {
-            StayKidsAudioService.stopAudioCapture();
-            call.resolve(new JSObject().put("success", true).put("capturing", false));
+            try {
+                StayKidsAudioService.stopAudioCapture();
+                call.resolve(new JSObject().put("success", true).put("capturing", false));
+            } catch (Exception e) {
+                call.resolve(new JSObject().put("success", false).put("error", e.getMessage()));
+            }
         }
 
         @PluginMethod
         public void isAudioCapturing(PluginCall call) {
-            boolean capturing = StayKidsAudioService.isAudioCapturing();
-            call.resolve(new JSObject().put("capturing", capturing));
+            try {
+                boolean capturing = StayKidsAudioService.isAudioCapturing();
+                call.resolve(new JSObject().put("capturing", capturing));
+            } catch (Exception e) {
+                call.resolve(new JSObject().put("capturing", false));
+            }
         }
+
     }
 }

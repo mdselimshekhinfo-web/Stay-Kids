@@ -1,7 +1,9 @@
-import React, { Component, ReactNode } from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
-import './index.css'
+import React, { Component, ReactNode } from "react"
+import ReactDOM from "react-dom/client"
+import App from "./App"
+import "./index.css"
+import { ToastContainer } from "./components/Toast"
+import { reportError, initGlobalErrorHandler } from "./lib/crash-reporter"
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -23,25 +25,26 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("Uncaught error in StayKids:", error, errorInfo)
+    reportError(error, `React ErrorBoundary - ComponentStack: ${errorInfo.componentStack}`)
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: 20, fontFamily: 'sans-serif', backgroundColor: '#172d24', color: '#fff', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-          <h2 style={{ color: '#d6f4ad', marginBottom: 8 }}>StayKids Safety App</h2>
-          <p style={{ fontSize: 13, color: '#feebee', textAlign: 'center', maxWidth: 300, marginBottom: 20 }}>
-            {this.state.error?.message || 'Initialization Warning'}
+        <div style={{ padding: 24, fontFamily: "sans-serif", backgroundColor: "#172d24", color: "#fff", minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🛡️</div>
+          <h2 style={{ color: "#d6f4ad", marginBottom: 8, fontSize: 20, fontWeight: "bold" }}>StayKids Safety Protection</h2>
+          <p style={{ fontSize: 13, color: "#feebee", textAlign: "center", maxWidth: 320, marginBottom: 24, lineHeight: "1.5" }}>
+            {this.state.error?.message || "An unexpected rendering error occurred. Your child's background protection remains active."}
           </p>
           <button
             onClick={() => {
-              try { localStorage.clear() } catch (_e) {}
+              this.setState({ hasError: false, error: null })
               window.location.reload()
             }}
-            style={{ padding: '12px 24px', backgroundColor: '#287555', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 'bold' }}
+            style={{ padding: "14px 28px", backgroundColor: "#287555", color: "#fff", border: "none", borderRadius: 16, fontWeight: "bold", fontSize: 14, cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}
           >
-            Reset App State & Reload
+            🔄 Reload App & Restore Protection
           </button>
         </div>
       )
@@ -51,13 +54,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-window.onerror = (msg, url, line) => {
-  console.error("Global WebView Error:", msg, url, line)
-}
+initGlobalErrorHandler()
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ErrorBoundary>
+      <ToastContainer />
       <App />
     </ErrorBoundary>
   </React.StrictMode>,

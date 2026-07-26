@@ -13,6 +13,7 @@ import {
   stopNativeAudioCapture,
   listenAudioChunk,
 } from "./lib/native"
+import { triggerToast } from "./components/Toast"
 
 import { Auth } from "./components/Auth"
 import { Onboarding } from "./components/Onboarding"
@@ -68,25 +69,39 @@ export default function App() {
   const [role, setRole] = useState<"parent" | "child">(() => selectedRole || "parent")
   const [tab, setTab] = useState("Home")
   const [state, setState] = useState<StayKidsState>(initialDefaultState)
+  const [isForeground, setIsForeground] = useState(true)
 
   const fetchLatestState = () => {
     getStayKidsState()
       .then((data) => {
         if (data && data.usage && data.controls) setState(data)
       })
-      .catch(() => {
+      .catch((_e) => {
         // Keeps optimistic local state if backend is offline
       })
   }
 
+  // 1. Adaptive Polling Interval (Foreground: 3s, Background: 30s unless active live stream)
   useEffect(() => {
     fetchLatestState()
-    // Live Real-Time polling interval every 3 seconds for two-way sync
-    const interval = setInterval(fetchLatestState, 3000)
-    return () => clearInterval(interval)
+
+    const handleVisibility = () => {
+      setIsForeground(document.visibilityState === "visible")
+    }
+    document.addEventListener("visibilitychange", handleVisibility)
+
+    return () => document.removeEventListener("visibilitychange", handleVisibility)
   }, [])
 
-  // 1. Real-time Child Frame Stream Listener
+  useEffect(() => {
+    const isLiveActive = Boolean(state.remote.mirrorStreamActive || state.remote.audioActive)
+    const pollIntervalMs = isForeground || isLiveActive ? 3000 : 30000
+
+    const interval = setInterval(fetchLatestState, pollIntervalMs)
+    return () => clearInterval(interval)
+  }, [isForeground, state.remote.mirrorStreamActive, state.remote.audioActive])
+
+  // 2. Real-time Child Frame Stream Listener
   useEffect(() => {
     let unsubscribeFrameListener: (() => void) | null = null
 
@@ -96,7 +111,9 @@ export default function App() {
           type: "webrtc-signal",
           frame: frameBase64,
           signalState: "live",
-        }).catch(() => {})
+        }).catch((_e) => {
+          // Frame upload transient network glitch
+        })
       })
     }
 
@@ -107,7 +124,7 @@ export default function App() {
     }
   }, [role, state.remote.mirrorStreamActive])
 
-  // 2. Child Device MediaProjection Auto-Start Response
+  // 3. Child Device MediaProjection Auto-Start Response
   useEffect(() => {
     if (role === "child" && state.remote.mirrorStreamActive) {
       sendStayKidsAction({ type: "webrtc-signal", signalState: "requesting-consent" }).catch(() => {})
@@ -117,15 +134,18 @@ export default function App() {
             sendStayKidsAction({ type: "webrtc-signal", signalState: "connecting" }).catch(() => {})
           } else {
             sendStayKidsAction({ type: "webrtc-signal", signalState: "denied" }).catch(() => {})
+            triggerToast("Screen Share permission not granted on child device", "warning")
           }
         })
-        .catch(() => {})
+        .catch((_err) => {
+          triggerToast("Screen Share service failed to initialize", "error")
+        })
     } else if (role === "child" && !state.remote.mirrorStreamActive) {
       stopNativeScreenShare().catch(() => {})
     }
   }, [role, state.remote.mirrorStreamActive])
 
-  // 3. Child Device Ambient Audio Streaming Response
+  // 4. Child Device Ambient Audio Streaming Response
   useEffect(() => {
     let unsubscribeAudioListener: (() => void) | null = null
 
@@ -139,9 +159,13 @@ export default function App() {
                 chunk: chunkBase64,
               }).catch(() => {})
             })
+          } else {
+            triggerToast("Microphone access failed for ambient audio", "warning")
           }
         })
-        .catch(() => {})
+        .catch((_err) => {
+          triggerToast("Ambient audio service error", "error")
+        })
     } else if (role === "child" && !state.remote.audioActive) {
       stopNativeAudioCapture().catch(() => {})
     }
@@ -154,7 +178,10 @@ export default function App() {
   }, [role, state.remote.audioActive])
 
   const action = (data: Record<string, unknown>) => {
-    // Optimistic local state updates for 100% interactive UI
+    // Keep snapshot of previous state for rollback if server rejects
+    const previousState = state
+
+    // Optimistic local state updates for 100% responsive UI
     setState((prev) => {
       const next = JSON.parse(JSON.stringify(prev)) as StayKidsState
       if (data.type === "upgrade-premium") {
@@ -183,8 +210,11 @@ export default function App() {
       return next
     })
 
-    // Background sync request
-    sendStayKidsAction(data).catch(() => {})
+    // Background sync request with user-facing toast on failure
+    sendStayKidsAction(data).catch((err) => {
+      setState(previousState) // Rollback optimistic change on network failure
+      triggerToast(err.message || "Couldn't sync change — check connection", "error")
+    })
   }
 
   const handleSignOut = () => {
@@ -219,7 +249,7 @@ export default function App() {
     ["Profile", "👤"],
   ]
 
-  // 1. First Launch / Onboarding: Professional Onboarding Screen
+  // 1. First Launch / Onboarding
   if (!selectedRole) {
     return (
       <Onboarding
@@ -236,7 +266,7 @@ export default function App() {
     )
   }
 
-  // 2. Child Device Flow: Skips Auth completely! Goes to Onboarding -> ChildDevice
+  // 2. Child Device Flow
   if (selectedRole === "child") {
     if (!ready) {
       return (
@@ -252,7 +282,7 @@ export default function App() {
     return <ChildDevice state={state} switchRole={resetRoleSelection} />
   }
 
-  // 3. Parent Device Flow: Requires Auth (Sign Up / Sign In) -> Onboarding -> Parent Dashboard
+  // 3. Parent Device Flow
   if (!authenticated) {
     return (
       <Auth
