@@ -563,30 +563,44 @@ app.post("/make-server-2d83519f/action", async (c) => {
       });
     } else if (action.type === "mirror-toggle") {
       if (!state.remote) state.remote = { status: "idle", tool: "Screen Mirror", consentRequired: false, audioActive: false };
-      state.remote.mirrorStreamActive = !state.remote.mirrorStreamActive;
-      state.remote.status = state.remote.mirrorStreamActive ? "active" : "idle";
-      if (state.remote.mirrorStreamActive) {
+      const nextActive = typeof action.active === "boolean" ? action.active : !state.remote.mirrorStreamActive;
+      state.remote.mirrorStreamActive = nextActive;
+      state.remote.connectionState = nextActive ? "connecting" : "idle";
+      state.remote.status = nextActive ? "active" : "idle";
+      if (!nextActive) {
+        state.remote.liveFrame = null;
+      }
+      if (nextActive) {
         state.alerts.unshift({
           id: String(Date.now()),
-          title: "▣ Live Screen Mirror Started",
-          detail: `Real-time HD stream connected on ${state.child.name}'s device.`,
+          title: "▣ Live Screen Mirror Requested",
+          detail: `MediaProjection WebRTC stream session initiated for ${state.child.name}.`,
           time: "Just now",
           read: false,
         });
       }
     } else if (action.type === "remote-touch") {
+      const allowedTouch = await checkRateLimit(`touch:${authUser.email.toLowerCase()}`, 15, 5000);
+      if (!allowedTouch) {
+        return c.json({ error: "Touch control rate limit exceeded. Please wait a moment." }, 429);
+      }
       if (!state.remote) state.remote = { status: "idle", tool: "Remote access", consentRequired: false, audioActive: false };
       state.remote.lastTouchAction = `${action.actionType || 'click'} (${action.x || 0}, ${action.y || 0})`;
-      state.alerts.unshift({
-        id: String(Date.now()),
-        title: "↗ Interactive Remote Input Sent",
-        detail: `Remote navigation gesture executed: ${action.actionType || 'Touch Gesture'}.`,
-        time: "Just now",
-        read: false,
-      });
+      childState.lastTouch = { x: action.x, y: action.y, actionType: action.actionType || "TOUCH", timestamp: Date.now() };
     } else if (action.type === "webrtc-signal") {
       if (!state.remote) state.remote = { status: "idle", tool: "Screen Mirror", consentRequired: false, audioActive: false };
-      state.remote.lastSignal = action.signal;
+      if (action.signalState) {
+        state.remote.connectionState = action.signalState; // "idle" | "requesting-consent" | "connecting" | "live" | "denied" | "disconnected"
+      }
+      if (action.frame) {
+        state.remote.liveFrame = action.frame;
+        state.remote.connectionState = "live";
+      }
+      if (action.signal) {
+        childState.signals = childState.signals || [];
+        childState.signals.push({ signal: action.signal, sender: action.sender || "parent", timestamp: Date.now() });
+        if (childState.signals.length > 20) childState.signals.shift();
+      }
     } else if (action.type === "trigger-sos") {
       state.alerts.unshift({
         id: String(Date.now()),

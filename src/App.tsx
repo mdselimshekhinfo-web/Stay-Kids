@@ -1385,16 +1385,32 @@ function Remote({ state, onAction }: { state: StayKidsState; onAction: (data: Re
           <div className="mt-5 overflow-hidden rounded-2xl bg-[#111c18] p-4 space-y-3 border border-[#287555] text-white">
             <div className="flex items-center justify-between">
               <span className="rounded-full bg-[#d6f4ad] px-2.5 py-0.5 text-[10px] font-bold text-[#17352b]">
-                📱 MediaProjection + WebRTC Stream
+                📱 MediaProjection + WebRTC Real-Time Stream
               </span>
-              <span className="text-[10px] font-mono text-[#baf26b]">
-                {state.remote.mirrorStreamActive ? "🔴 LIVE STREAMING" : "⚪ IDLE"}
+              <span className={`text-[10px] font-mono font-bold ${
+                state.remote.connectionState === "live" || state.remote.liveFrame
+                  ? "text-[#baf26b]"
+                  : state.remote.connectionState === "connecting" || state.remote.connectionState === "requesting-consent"
+                  ? "text-[#ffe082] animate-pulse"
+                  : state.remote.connectionState === "denied"
+                  ? "text-[#ef5350]"
+                  : "text-[#869690]"
+              }`}>
+                {state.remote.liveFrame || state.remote.connectionState === "live"
+                  ? "🔴 LIVE STREAMING"
+                  : state.remote.connectionState === "connecting"
+                  ? "🟡 CONNECTING STREAM..."
+                  : state.remote.connectionState === "requesting-consent"
+                  ? "🟡 AWAITING CONSENT..."
+                  : state.remote.connectionState === "denied"
+                  ? "❌ CONSENT DENIED"
+                  : "⚪ IDLE"}
               </span>
             </div>
 
             <div
               onClick={(e) => {
-                if (!state.remote.mirrorStreamActive) return
+                if (!state.remote.mirrorStreamActive && !state.remote.liveFrame) return
                 const rect = e.currentTarget.getBoundingClientRect()
                 const clickX = e.clientX - rect.left
                 const clickY = e.clientY - rect.top
@@ -1403,33 +1419,39 @@ function Remote({ state, onAction }: { state: StayKidsState; onAction: (data: Re
                 onAction({ type: "remote-touch", x: targetX, y: targetY, actionType: "TOUCH" })
                 triggerRemoteTouch(targetX, targetY).catch(() => {})
               }}
-              className="relative flex min-h-[300px] cursor-crosshair flex-col items-center justify-center rounded-xl border border-[#287555] bg-black/80 text-center select-none overflow-hidden"
+              className="relative flex min-h-[340px] max-h-[480px] cursor-crosshair flex-col items-center justify-center rounded-xl border border-[#287555] bg-black text-center select-none overflow-hidden"
             >
-              {state.remote.mirrorStreamActive ? (
-                <>
-                  <div className="absolute inset-0 grid place-items-center bg-gradient-to-b from-black/40 via-transparent to-black/60 p-4">
-                    <div className="space-y-2">
-                      <div className="inline-flex items-center gap-2 rounded-full bg-black/70 px-3 py-1 border border-[#baf26b]">
-                        <span className="h-2 w-2 rounded-full bg-[#baf26b] animate-ping" />
-                        <span className="text-xs font-bold text-[#baf26b]">🔴 REAL-TIME CHILD SCREEN FEED</span>
-                      </div>
-                      <p className="text-[11px] text-[#cce0d5]">
-                        Tap anywhere on this screen display to send interactive remote touch to {state.child.name}'s phone.
-                      </p>
-                      {state.remote.lastTouchAction && (
-                        <div className="rounded-lg bg-[#287555]/80 px-2.5 py-1 text-[10px] font-mono text-white">
-                          ↗ Last Touch Sent: {state.remote.lastTouchAction}
-                        </div>
-                      )}
-                    </div>
+              {state.remote.liveFrame ? (
+                <div className="relative h-full w-full flex items-center justify-center bg-black">
+                  <img
+                    src={state.remote.liveFrame}
+                    alt="Child Device Live Screen"
+                    className="max-h-[460px] w-auto object-contain shadow-2xl"
+                  />
+                  <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold text-[#baf26b] border border-[#baf26b]/40 backdrop-blur-md">
+                    <span className="h-2 w-2 rounded-full bg-[#baf26b] animate-ping" />
+                    <span>🔴 REAL-TIME CHILD SCREEN</span>
                   </div>
-                </>
+                  {state.remote.lastTouchAction && (
+                    <div className="absolute bottom-2 right-2 rounded-lg bg-[#287555]/90 px-2.5 py-1 text-[10px] font-mono text-white shadow-lg backdrop-blur-md">
+                      ↗ Touch Sent: {state.remote.lastTouchAction}
+                    </div>
+                  )}
+                </div>
+              ) : state.remote.mirrorStreamActive || state.remote.connectionState === "connecting" ? (
+                <div className="space-y-3 p-6">
+                  <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[#baf26b] border-t-transparent" />
+                  <p className="text-sm font-bold text-[#e1ece7]">Establishing WebRTC Screen Capture Session...</p>
+                  <p className="text-xs text-[#869690] max-w-xs">
+                    Please grant "Start now" consent on child device screen dialog.
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-2 p-6">
                   <span className="text-4xl">▣</span>
-                  <p className="text-sm font-bold text-[#e1ece7]">Screen Mirror Stream Idle</p>
+                  <p className="text-sm font-bold text-[#e1ece7]">Screen Mirror Stream Disconnected</p>
                   <p className="text-xs text-[#869690] max-w-xs">
-                    Tap "Start Live Screen Mirror" below to request Android MediaProjection consent and launch WebRTC video stream.
+                    Tap "Start Live Screen Mirror" below to launch Android MediaProjection consent and start WebRTC video stream.
                   </p>
                 </div>
               )}
@@ -1440,14 +1462,19 @@ function Remote({ state, onAction }: { state: StayKidsState; onAction: (data: Re
                 type="button"
                 onClick={async () => {
                   if (!state.remote.mirrorStreamActive) {
+                    onAction({ type: "webrtc-signal", signalState: "requesting-consent" })
                     const res = await startNativeScreenShare()
                     if (res.error) {
-                      alert("Screen Share Error: " + res.error)
+                      onAction({ type: "webrtc-signal", signalState: "denied" })
+                      alert("Screen Share Consent Error: " + res.error)
+                    } else {
+                      onAction({ type: "mirror-toggle", active: true })
+                      onAction({ type: "webrtc-signal", signalState: "connecting" })
                     }
-                    onAction({ type: "mirror-toggle" })
                   } else {
                     await stopNativeScreenShare()
-                    onAction({ type: "mirror-toggle" })
+                    onAction({ type: "mirror-toggle", active: false })
+                    onAction({ type: "webrtc-signal", signalState: "idle" })
                   }
                 }}
                 className={`w-full rounded-xl py-3 text-xs font-bold transition shadow-sm ${

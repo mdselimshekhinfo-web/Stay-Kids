@@ -374,6 +374,15 @@ public class MainActivity extends BridgeActivity {
                 serviceIntent.putExtra("resultCode", result.getResultCode());
                 serviceIntent.putExtra("data", result.getData());
 
+                StayKidsScreenCaptureService.setFrameListener(new StayKidsScreenCaptureService.FrameListener() {
+                    @Override
+                    public void onFrameAvailable(String base64Jpeg) {
+                        JSObject eventData = new JSObject();
+                        eventData.put("frame", base64Jpeg);
+                        notifyListeners("screenFrame", eventData);
+                    }
+                });
+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     getContext().startForegroundService(serviceIntent);
                 } else {
