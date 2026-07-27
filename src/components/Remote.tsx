@@ -6,12 +6,13 @@ import {
   startNativeScreenShare,
   stopNativeScreenShare,
   triggerRemoteNavigation,
+  stopNativeAudioCapture,
 } from "../lib/native"
 import { triggerToast } from "./Toast"
 
 export function Remote({ state, onAction }: { state: StayKidsState; onAction: (data: Record<string, unknown>) => void }) {
   const [tool, setTool] = useState("Live Camera")
-  const [fullscreen, setFullscreen] = useState(false)
+  const [fullscreen, setFullscreen] = useState(true)
   const [activeSession, setActiveSession] = useState<string | null>("Live Camera")
   const [camFacing, setCamFacing] = useState<"environment" | "user">("environment")
   const audio = state.remote.audioActive
@@ -54,8 +55,8 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
           <button
             key={name}
             onClick={() => {
-              setFullscreen(false)
               setTool(name)
+              setFullscreen(true)
               setActiveSession(name)
               onAction({ type: "select-remote-tool", tool: name })
             }}
@@ -81,13 +82,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
 
         {/* 1. Live Camera Surroundings View */}
         {tool === "Live Camera" && (
-          <div className={fullscreen ? "fixed inset-0 z-[100] bg-black flex flex-col p-4 space-y-4" : "space-y-3 pt-1"}>
-            <div className={`relative overflow-hidden rounded-2xl bg-[#111c18] border border-[#287555] p-4 text-white text-center flex flex-col items-center justify-center ${fullscreen ? "flex-1" : "min-h-[220px]"}`}>
-              {fullscreen ? (
-                <button type="button" onClick={() => setFullscreen(false)} className="absolute top-4 right-4 z-[110] text-xl text-white bg-white/20 rounded-full h-10 w-10 flex items-center justify-center backdrop-blur-md">✕</button>
-              ) : (
-                <button type="button" onClick={() => setFullscreen(true)} className="absolute top-3 right-3 z-10 text-lg text-white bg-black/40 rounded h-8 w-8 flex items-center justify-center backdrop-blur-sm">⛶</button>
-              )}
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col p-4 space-y-4 overflow-y-auto">
+            <div className="relative overflow-hidden rounded-2xl bg-[#111c18] border border-[#287555] p-4 text-white text-center flex flex-col items-center justify-center flex-1">
+              <button type="button" onClick={() => setFullscreen(false)} className="absolute top-4 right-4 z-[110] text-xl text-white bg-white/20 rounded-full h-10 w-10 flex items-center justify-center backdrop-blur-md">✕</button>
               <span className="absolute top-3 left-3 rounded-full bg-[#feebee] px-2.5 py-0.5 text-[10px] font-bold text-[#c62828] animate-pulse flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#c62828]" /> 🔴 SURROUNDINGS FEED ({camFacing === "environment" ? "Rear Camera" : "Front Camera"})
               </span>
@@ -174,15 +171,11 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         )}
 
         {activeSession === tool && tool === "Screen Mirror" && (
-          <div className={fullscreen ? "fixed inset-0 z-[100] bg-black flex flex-col p-4 space-y-3 overflow-y-auto text-white" : "mt-5 overflow-hidden rounded-2xl bg-[#111c18] p-4 space-y-3 border border-[#287555] text-white relative"}>
-            {fullscreen ? (
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col p-4 space-y-3 overflow-y-auto text-white">
               <button type="button" onClick={() => setFullscreen(false)} className="absolute top-4 right-4 z-[110] text-xl text-white bg-white/20 rounded-full h-10 w-10 flex items-center justify-center backdrop-blur-md">✕</button>
-            ) : (
-              <button type="button" onClick={() => setFullscreen(true)} className="absolute top-4 right-4 z-10 text-lg text-white bg-black/40 rounded h-8 w-8 flex items-center justify-center backdrop-blur-sm">⛶</button>
-            )}
-            <div className={`flex items-center justify-between ${fullscreen ? "pr-14" : "pr-10"}`}>
+            <div className="flex items-center justify-between pr-14">
               <span className="rounded-full bg-[#d6f4ad] px-2.5 py-0.5 text-[10px] font-bold text-[#17352b]">
-                📱 MediaProjection + WebRTC Real-Time Stream
+                📱 MediaProjection + Live Stream
               </span>
               <span className={`text-[10px] font-mono font-bold ${
                 state.remote.connectionState === "live" || state.remote.liveFrame
@@ -211,21 +204,23 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 const rect = e.currentTarget.getBoundingClientRect()
                 const clickX = e.clientX - rect.left
                 const clickY = e.clientY - rect.top
-                const targetX = Math.round((clickX / rect.width) * 540)
-                const targetY = Math.round((clickY / rect.height) * 960)
+                const targetW = (state as any).child?.screenWidth || 1080
+                const targetH = (state as any).child?.screenHeight || 1920
+                const targetX = Math.round((clickX / rect.width) * targetW)
+                const targetY = Math.round((clickY / rect.height) * targetH)
                 onAction({ type: "remote-touch", x: targetX, y: targetY, actionType: "TOUCH" })
                 triggerRemoteTouch(targetX, targetY).catch(() => {
                   triggerToast("Touch command failed — check child device connection", "error")
                 })
               }}
-              className={`relative flex ${fullscreen ? "flex-1 w-full" : "min-h-[340px] max-h-[480px]"} cursor-crosshair flex-col items-center justify-center rounded-xl border border-[#287555] bg-black text-center select-none overflow-hidden`}
+              className="relative flex flex-1 w-full cursor-crosshair flex-col items-center justify-center rounded-xl border border-[#287555] bg-black text-center select-none overflow-hidden"
             >
               {state.remote.liveFrame ? (
                 <div className="relative h-full w-full flex items-center justify-center bg-black">
                   <img
                     src={state.remote.liveFrame}
                     alt="Child Device Live Screen"
-                    className={`${fullscreen ? "flex-1 w-full h-full object-contain" : "max-h-[460px] w-auto object-contain"} shadow-2xl`}
+                    className="flex-1 w-full h-full object-contain shadow-2xl"
                   />
                   <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold text-[#baf26b] border border-[#baf26b]/40 backdrop-blur-md">
                     <span className="h-2 w-2 rounded-full bg-[#baf26b] animate-ping" />
@@ -240,7 +235,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               ) : state.remote.mirrorStreamActive || state.remote.connectionState === "connecting" ? (
                 <div className="space-y-3 p-6">
                   <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[#baf26b] border-t-transparent" />
-                  <p className="text-sm font-bold text-[#e1ece7]">Establishing WebRTC Screen Capture Session...</p>
+                  <p className="text-sm font-bold text-[#e1ece7]">Establishing Live Stream Screen Capture Session...</p>
                   <p className="text-xs text-[#869690] max-w-xs">
                     Please grant "Start now" consent on child device screen dialog.
                   </p>
@@ -250,7 +245,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                   <span className="text-4xl">▣</span>
                   <p className="text-sm font-bold text-[#e1ece7]">Screen Mirror Stream Disconnected</p>
                   <p className="text-xs text-[#869690] max-w-xs">
-                    Tap "Start Live Screen Mirror" below to launch Android MediaProjection consent and start WebRTC video stream.
+                    Tap "Start Live Screen Mirror" below to launch Android MediaProjection consent and start Live Stream video stream.
                   </p>
                 </div>
               )}
@@ -302,7 +297,8 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         )}
 
         {activeSession === tool && tool === "One-way audio" && (
-          <div className="mt-5 overflow-hidden rounded-2xl bg-[#111c18] p-4 space-y-3 border border-[#287555] text-white">
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col p-4 space-y-3 overflow-y-auto text-white">
+            <button type="button" onClick={() => setFullscreen(false)} className="absolute top-4 right-4 z-[110] text-xl text-white bg-white/20 rounded-full h-10 w-10 flex items-center justify-center backdrop-blur-md">✕</button>
             <div className="flex items-center justify-between">
               <span className="rounded-full bg-[#d6f4ad] px-2.5 py-0.5 text-[10px] font-bold text-[#17352b]">
                 🎙️ Surroundings Ambient Audio Stream
@@ -329,7 +325,10 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
 
             <button
               type="button"
-              onClick={() => onAction({ type: "audio-toggle", active: !audio })}
+              onClick={() => {
+                if (audio) stopNativeAudioCapture();
+                onAction({ type: "audio-toggle", active: !audio })
+              }}
               className={`w-full rounded-xl py-3.5 text-xs font-bold transition shadow-sm ${
                 audio ? "bg-[#c62828] text-white hover:bg-[#b71c1c]" : "bg-[#287555] text-white hover:bg-[#1f5c43]"
               }`}
@@ -361,14 +360,10 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         )}
 
         {tool === "Remote access" && (
-          <div className={fullscreen ? "fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-6 space-y-8" : "mt-5 space-y-3 relative"}>
-            {fullscreen ? (
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-6 space-y-8 overflow-y-auto">
               <button type="button" onClick={() => setFullscreen(false)} className="absolute top-6 right-6 z-[110] text-xl text-white bg-white/20 rounded-full h-12 w-12 flex items-center justify-center backdrop-blur-md">✕</button>
-            ) : (
-              <button type="button" onClick={() => setFullscreen(true)} className="absolute -top-1 right-0 z-10 text-lg text-gray-500 bg-gray-100 rounded h-8 w-8 flex items-center justify-center hover:bg-gray-200">⛶</button>
-            )}
-            <p className={`font-bold ${fullscreen ? "text-xl text-white" : "text-xs text-[#172226]"}`}>Full Device Remote Assistance (Accessibility Control)</p>
-            <div className={`grid grid-cols-3 gap-2 ${fullscreen ? "w-full max-w-lg gap-4" : ""}`}>
+            <p className="font-bold text-xl text-white">Full Device Remote Assistance (Accessibility Control)</p>
+            <div className="grid grid-cols-3 gap-2 w-full max-w-lg gap-4">
               <button
                 onClick={() => {
                   onAction({ type: "remote-touch", actionType: "HOME" })

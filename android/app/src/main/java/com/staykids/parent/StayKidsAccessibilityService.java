@@ -30,6 +30,16 @@ public class StayKidsAccessibilityService extends AccessibilityService {
         Log.i(TAG, "StayKids Accessibility Service Initialized.");
     }
 
+    @Override
+    protected void onServiceConnected() {
+        super.onServiceConnected();
+        android.content.SharedPreferences prefs = getSharedPreferences("StayKidsPrefs", android.content.Context.MODE_PRIVATE);
+        java.util.Set<String> savedApps = prefs.getStringSet("blockedApps", null);
+        if (savedApps != null) {
+            blockedPackageNames.addAll(savedApps);
+        }
+    }
+
     public static StayKidsAccessibilityService getInstance() {
         return instance;
     }
@@ -39,6 +49,10 @@ public class StayKidsAccessibilityService extends AccessibilityService {
             blockedPackageNames.add(packageName);
         } else {
             blockedPackageNames.remove(packageName);
+        }
+        if (instance != null) {
+            android.content.SharedPreferences prefs = instance.getSharedPreferences("StayKidsPrefs", android.content.Context.MODE_PRIVATE);
+            prefs.edit().putStringSet("blockedApps", new java.util.HashSet<>(blockedPackageNames)).apply();
         }
     }
 
@@ -63,6 +77,7 @@ public class StayKidsAccessibilityService extends AccessibilityService {
     }
 
     public void performRemoteTouch(float x, float y) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N) { return; }
         Path clickPath = new Path();
         clickPath.moveTo(x, y);
         GestureDescription.StrokeDescription stroke = new GestureDescription.StrokeDescription(clickPath, 0, 100);
@@ -72,6 +87,7 @@ public class StayKidsAccessibilityService extends AccessibilityService {
     }
 
     public void performRemoteSwipe(float startX, float startY, float endX, float endY) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.N) { return; }
         Path swipePath = new Path();
         swipePath.moveTo(startX, startY);
         swipePath.lineTo(endX, endY);

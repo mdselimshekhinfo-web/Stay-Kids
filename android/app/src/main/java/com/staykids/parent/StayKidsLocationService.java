@@ -46,14 +46,17 @@ public class StayKidsLocationService {
                 return;
             }
 
-            locationManager.requestSingleUpdate(provider, new LocationListener() {
+            java.util.concurrent.atomic.AtomicBoolean handled = new java.util.concurrent.atomic.AtomicBoolean(false);
+            LocationListener listener = new LocationListener() {
                 @Override
                 public void onLocationChanged(Location location) {
-                    if (location != null) {
-                        Log.i(TAG, "Fresh location update: " + location.getLatitude() + ", " + location.getLongitude());
-                        callback.onSuccess(location.getLatitude(), location.getLongitude());
-                    } else {
-                        callback.onError("Failed to obtain GPS coordinates");
+                    if (handled.compareAndSet(false, true)) {
+                        if (location != null) {
+                            Log.i(TAG, "Fresh location update: " + location.getLatitude() + ", " + location.getLongitude());
+                            callback.onSuccess(location.getLatitude(), location.getLongitude());
+                        } else {
+                            callback.onError("Failed to obtain GPS coordinates");
+                        }
                     }
                 }
 
@@ -65,7 +68,15 @@ public class StayKidsLocationService {
 
                 @Override
                 public void onProviderDisabled(String provider) {}
-            }, null);
+            };
+            locationManager.requestSingleUpdate(provider, listener, android.os.Looper.getMainLooper());
+            
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                if (handled.compareAndSet(false, true)) {
+                    try { locationManager.removeUpdates(listener); } catch (Exception e) {}
+                    callback.onError("Location request timed out after 15 seconds");
+                }
+            }, 15000);
 
         } catch (SecurityException e) {
             callback.onError("Location permission not granted: " + e.getMessage());

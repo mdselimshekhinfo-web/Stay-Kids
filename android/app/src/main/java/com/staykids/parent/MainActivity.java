@@ -69,7 +69,7 @@ public class MainActivity extends BridgeActivity {
                         Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
                     );
                     if (settingValue != null) {
-                        enabled = settingValue.contains(service) || settingValue.contains(getContext().getPackageName());
+                        enabled = settingValue.toLowerCase().contains(service.toLowerCase()) || settingValue.toLowerCase().contains(getContext().getPackageName().toLowerCase());
                     }
                 }
             } catch (Exception e) {
@@ -127,16 +127,18 @@ public class MainActivity extends BridgeActivity {
                 java.util.List<android.content.pm.ResolveInfo> pkgAppsList = pm.queryIntentActivities(mainIntent, 0);
 
                 com.getcapacitor.JSArray appsArray = new com.getcapacitor.JSArray();
-                for (android.content.pm.ResolveInfo ri : pkgAppsList) {
-                    if (ri.activityInfo != null && ri.activityInfo.packageName != null) {
-                        String pkgName = ri.activityInfo.packageName;
-                        if (!pkgName.startsWith("com.staykids") && !pkgName.startsWith("com.android.settings")) {
-                            String appLabel = ri.loadLabel(pm).toString();
-                            JSObject appObj = new JSObject();
-                            appObj.put("name", appLabel);
-                            appObj.put("packageName", pkgName);
-                            appObj.put("isBlocked", StayKidsAccessibilityService.isAppBlocked(pkgName));
-                            appsArray.put(appObj);
+                if (pkgAppsList != null) {
+                    for (android.content.pm.ResolveInfo ri : pkgAppsList) {
+                        if (ri.activityInfo != null && ri.activityInfo.packageName != null) {
+                            String pkgName = ri.activityInfo.packageName;
+                            if (!pkgName.startsWith("com.staykids") && !pkgName.startsWith("com.android.settings")) {
+                                String appLabel = ri.loadLabel(pm).toString();
+                                JSObject appObj = new JSObject();
+                                appObj.put("name", appLabel);
+                                appObj.put("packageName", pkgName);
+                                appObj.put("isBlocked", StayKidsAccessibilityService.isAppBlocked(pkgName));
+                                appsArray.put(appObj);
+                            }
                         }
                     }
                 }
@@ -432,10 +434,13 @@ public class MainActivity extends BridgeActivity {
         @PluginMethod
         public void stopScreenShare(PluginCall call) {
             try {
-                StayKidsScreenCaptureService.stopScreenCapture();
-                call.resolve(new JSObject().put("success", true).put("streaming", false));
+                Intent stopIntent = new Intent(getContext(), StayKidsScreenCaptureService.class);
+                getContext().stopService(stopIntent);
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                call.resolve(ret);
             } catch (Exception e) {
-                call.resolve(new JSObject().put("success", false).put("error", e.getMessage()));
+                call.reject("Failed to stop screen share: " + e.getMessage());
             }
         }
 
@@ -481,10 +486,13 @@ public class MainActivity extends BridgeActivity {
         @PluginMethod
         public void stopAudioCapture(PluginCall call) {
             try {
-                StayKidsAudioService.stopAudioCapture();
-                call.resolve(new JSObject().put("success", true).put("capturing", false));
+                Intent stopIntent = new Intent(getContext(), StayKidsAudioService.class);
+                getContext().stopService(stopIntent);
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                call.resolve(ret);
             } catch (Exception e) {
-                call.resolve(new JSObject().put("success", false).put("error", e.getMessage()));
+                call.reject("Failed to stop audio: " + e.getMessage());
             }
         }
 

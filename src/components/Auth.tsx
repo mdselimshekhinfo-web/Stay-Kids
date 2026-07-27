@@ -108,6 +108,7 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
   const [resetStep, setResetStep] = useState(false)
   const [resetOtpCode, setResetOtpCode] = useState("")
   const [newPassword, setNewPassword] = useState("")
+  const [confirmNewPassword, setConfirmNewPassword] = useState("")
 
   const handleRequestPasswordReset = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -130,8 +131,12 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
 
   const handleConfirmPasswordReset = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!resetOtpCode || resetOtpCode.length !== 6 || !newPassword) {
+    if (!resetOtpCode || resetOtpCode.length !== 6 || !newPassword || !confirmNewPassword) {
       setError("Please enter the 6-digit OTP code and a new password.")
+      return
+    }
+    if (newPassword !== confirmNewPassword) {
+      setError("Passwords do not match.")
       return
     }
     setError("")
@@ -237,9 +242,21 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-[.1em] text-[#71807a] mb-1.5">Confirm New Password</label>
+                    <input
+                      type="password"
+                      required
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      className="w-full rounded-2xl border border-[#d8e2df] bg-white px-4 py-3.5 text-sm font-semibold text-[#172226] focus:border-[#287555] focus:outline-none focus:ring-2 focus:ring-[#287555]/20"
+                    />
+                  </div>
+
                   <button
                     type="submit"
-                    disabled={loading || resetOtpCode.length !== 6 || !newPassword}
+                    disabled={loading || resetOtpCode.length !== 6 || !newPassword || newPassword !== confirmNewPassword}
                     className="w-full rounded-2xl bg-[#287555] py-4 text-sm font-bold text-white hover:bg-[#1f5c43] disabled:opacity-50 transition shadow-md"
                   >
                     {loading ? "Updating Password..." : "Update Password & Sign In →"}
@@ -274,6 +291,15 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
               {error && <div className="rounded-xl bg-[#feebee] p-3 text-xs font-bold text-[#c62828] border border-[#ffcdd2]">{error}</div>}
 
               <form onSubmit={handleVerifyOtpSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-[.1em] text-[#71807a] mb-1.5">Registered Email</label>
+                  <input
+                    type="email"
+                    disabled
+                    value={email}
+                    className="w-full rounded-2xl border border-[#d8e2df] bg-white px-4 py-3.5 text-sm font-semibold text-[#172226] opacity-60 cursor-not-allowed"
+                  />
+                </div>
                 <div>
                   <label className="text-xs font-bold text-[#172226]">6-Digit Email OTP Code</label>
                   <input
@@ -391,13 +417,13 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
                         placeholder="••••••••"
                         className="w-full rounded-2xl border border-[#d8e2df] bg-white px-4 py-3.5 text-sm font-semibold text-[#172226] focus:border-[#287555] focus:outline-none focus:ring-2 focus:ring-[#287555]/20 pr-10"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#71807a] hover:text-[#287555]"
-                      >
-                        {showPassword ? "Hide" : "Show"}
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-lg font-bold text-[#71807a] hover:text-[#287555]"
+                        >
+                          {showPassword ? "🙈" : "👁"}
+                        </button>
                     </div>
                   </div>
 
@@ -416,9 +442,9 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#71807a] hover:text-[#287555]"
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-lg font-bold text-[#71807a] hover:text-[#287555]"
                         >
-                          {showPassword ? "Hide" : "Show"}
+                          {showPassword ? "🙈" : "👁"}
                         </button>
                       </div>
                     </div>

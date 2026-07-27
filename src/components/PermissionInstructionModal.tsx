@@ -49,8 +49,11 @@ export function PermissionInstructionModal({
           <button
             type="button"
             onClick={async () => {
-              await onOpenSettings()
-              onClose()
+              try {
+                await onOpenSettings()
+              } finally {
+                onClose()
+              }
             }}
             className="w-full rounded-2xl bg-[#287555] py-3.5 text-xs font-bold text-white hover:bg-[#1f5c43] shadow-md transition"
           >

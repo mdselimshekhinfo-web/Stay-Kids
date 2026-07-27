@@ -18,13 +18,17 @@ export function ToastContainer() {
   const [toasts, setToasts] = useState<ToastMessage[]>([])
 
   useEffect(() => {
+    const timers = new Set<NodeJS.Timeout>()
     toastListener = (newToast) => {
       setToasts((prev) => [...prev.slice(-2), newToast]) // keep max 3 toasts
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== newToast.id))
+        timers.delete(timer)
       }, 4000)
+      timers.add(timer)
     }
     return () => {
+      timers.forEach(clearTimeout)
       toastListener = null
     }
   }, [])

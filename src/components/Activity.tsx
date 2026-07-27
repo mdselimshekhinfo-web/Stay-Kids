@@ -8,7 +8,7 @@ export function Activity({ state }: { state: StayKidsState }) {
   const alerts = state.alerts || []
   const recentAlerts = alerts.slice(0, 5)
 
-  const progress = Math.min(100, Math.round((usage.minutes / usage.limit) * 100)) || 0
+  const progress = Math.min(100, Math.round((usage.minutes / Math.max(1, usage.limit)) * 100)) || 0
 
   return (
     <div className="space-y-5 pb-24">
@@ -21,12 +21,17 @@ export function Activity({ state }: { state: StayKidsState }) {
         {["Today", "7 days", "30 days"].map((label) => (
           <button
             key={label}
-            onClick={() => setTimeframe(label)}
+            onClick={() => {
+              if (label !== "Today") return;
+              setTimeframe(label)
+            }}
+            disabled={label !== "Today"}
             className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition flex items-center gap-1 ${
               timeframe === label ? "bg-[#1d5946] text-white" : "bg-[#edf1f2] text-[#6f7b82]"
-            }`}
+            } ${label !== "Today" ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             {label}
+            {label !== "Today" && <span className="text-[10px] font-normal ml-1">(Coming Soon)</span>}
             {timeframe === label && <span className="text-[10px] font-normal opacity-80">(Live Data)</span>}
           </button>
         ))}

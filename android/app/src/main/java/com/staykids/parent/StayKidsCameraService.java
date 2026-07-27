@@ -98,7 +98,14 @@ public class StayKidsCameraService {
                             @Override
                             public void onConfigured(CameraCaptureSession session) {
                                 try {
-                                    session.capture(builder.build(), null, backgroundHandler);
+                                    session.capture(builder.build(), new CameraCaptureSession.CaptureCallback() {
+                                        @Override
+                                        public void onCaptureCompleted(CameraCaptureSession captureSession, CaptureRequest request, android.hardware.camera2.TotalCaptureResult result) {
+                                            try { captureSession.close(); } catch(Exception e) {}
+                                            try { camera.close(); } catch(Exception e) {}
+                                            try { imageReader.close(); } catch(Exception e) {}
+                                        }
+                                    }, backgroundHandler);
                                 } catch (CameraAccessException e) {
                                     callback.onError("Camera access exception during capture: " + e.getMessage());
                                 }

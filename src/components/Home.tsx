@@ -111,7 +111,7 @@ export function Home({
             <div className="mt-2 flex items-center gap-2 text-xs text-[#cce0d5]">
               <span className="flex items-center gap-1 font-semibold bg-white/10 px-2 py-0.5 rounded-full">🔋 {child.battery}%</span>
               <span className="flex items-center gap-1 font-semibold bg-white/10 px-2 py-0.5 rounded-full">📶 {child.online ? 'Wi-Fi' : 'Offline'}</span>
-              <span className={`flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full ${child.online ? 'bg-[#baf26b]/20 text-[#baf26b]' : 'bg-[#ffcdd2]/20 text-[#ffcdd2]'}`}>● {child.online ? 'Online' : 'Offline'}</span>
+              <span className={`flex items-center gap-1 font-bold px-2 py-0.5 rounded-full ${child.online ? 'bg-[#287555] text-[#baf26b]' : 'bg-[#8b2318] text-[#ffcdd2]'}`}>● {child.online ? 'Online' : 'Offline'}</span>
             </div>
           </div>
           <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${isPaused ? "bg-[#ffcdd2] text-[#8b2318]" : "bg-[#baf26b] text-[#17352b]"}`}>

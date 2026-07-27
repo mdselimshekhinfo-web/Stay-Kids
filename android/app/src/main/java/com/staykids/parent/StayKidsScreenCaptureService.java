@@ -18,6 +18,7 @@ import android.media.projection.MediaProjectionManager;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Base64;
@@ -122,6 +123,10 @@ public class StayKidsScreenCaptureService extends Service {
                 null
             );
 
+            HandlerThread bgThread = new HandlerThread("ScreenCaptureThread");
+            bgThread.start();
+            Handler bgHandler = new Handler(bgThread.getLooper());
+
             imageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
                 @Override
                 public void onImageAvailable(ImageReader reader) {
@@ -182,7 +187,7 @@ public class StayKidsScreenCaptureService extends Service {
                         if (image != null) image.close();
                     }
                 }
-            }, new Handler(Looper.getMainLooper()));
+            }, bgHandler);
         } catch (Exception e) {
             Log.e(TAG, "Failed to create VirtualDisplay: " + e.getMessage());
         }

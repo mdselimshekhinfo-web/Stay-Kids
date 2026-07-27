@@ -5,7 +5,7 @@ function getSecretKey(): string {
   const secret = Deno.env.get("JWT_SECRET") || Deno.env.get("SUPABASE_AUTH_JWT_SECRET");
   if (!secret || secret.trim() === "") {
     // If running in development without env config, log warning and use fallback
-    const devFallback = "staykids_production_jwt_secret_key_2026_staykids_guard";
+    const devFallback = "staykids-dev-secret-key-v1-not-for-production";
     console.warn("[SECURITY WARNING] JWT_SECRET environment variable is missing. Using local dev secret.");
     return devFallback;
   }

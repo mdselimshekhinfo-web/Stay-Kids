@@ -24,11 +24,10 @@ app.use(
   "/*",
   cors({
     origin: (origin) => {
-      if (!origin) return "*";
-      if (ALLOWED_ORIGINS.some((allowed) => origin.startsWith(allowed))) {
-        return origin;
-      }
-      return null;
+      const allowedOrigins = ["capacitor://localhost", "http://localhost:8443", "http://localhost:5173"];
+      const reqOrigin = origin || "";
+      const corsOrigin = allowedOrigins.includes(reqOrigin) ? reqOrigin : allowedOrigins[0];
+      return corsOrigin;
     },
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -220,9 +219,10 @@ app.post("/make-server-2d83519f/auth/verify-otp", async (c) => {
       return c.json({ error: "Email and 6-digit OTP code are required" }, 400);
     }
 
-    const allowed = await checkRateLimit(`verify-otp:${email.toLowerCase()}`, 10, 5 * 60000);
+    const verifyRateKey = `verify-otp:${email.toLowerCase()}`;
+    const allowed = await checkRateLimit(verifyRateKey, 5, 15 * 60000);
     if (!allowed) {
-      return c.json({ error: "Too many verification attempts. Please wait 5 minutes before trying again." }, 429);
+      return c.json({ error: "Too many verification attempts. Try again in 15 minutes." }, 429);
     }
 
     const pendingKey = `pending:${email.toLowerCase()}`;
@@ -441,7 +441,8 @@ app.post("/make-server-2d83519f/pairing/claim", async (c) => {
       return c.json({ error: "Please enter a valid 6-digit PIN code." }, 400);
     }
 
-    const allowed = await checkRateLimit(`pairing-claim:${pin}`, 5, 5 * 60000);
+    const ip = c.req.header("x-forwarded-for") || "unknown";
+    const allowed = await checkRateLimit(`pairing-claim:${ip}`, 5, 5 * 60000);
     if (!allowed) {
       return c.json({ error: "Too many pairing attempts. Please wait 5 minutes." }, 429);
     }
@@ -499,9 +500,9 @@ app.get("/make-server-2d83519f/state", async (c) => {
     }
     const parentStateKey = `state:${authCtx.email.toLowerCase()}`;
     const state = await kv.get(parentStateKey);
-    return c.json(state || defaultState);
+    return c.json(state || JSON.parse(JSON.stringify(defaultState)));
   } catch (_e) {
-    return c.json(defaultState);
+    return c.json(JSON.parse(JSON.stringify(defaultState)));
   }
 });
 
@@ -516,12 +517,15 @@ app.post("/make-server-2d83519f/action", async (c) => {
     const action = await c.req.json();
     const parentStateKey = `state:${authCtx.email.toLowerCase()}`;
 
-    // Restrict parent-only management actions for device-scoped tokens
-    if (authCtx.isDevice) {
-      const parentOnlyActions = ["add-child", "upgrade-premium", "change-password", "generate-pin", "select-child"];
-      if (parentOnlyActions.includes(action.type)) {
-        return c.json({ error: "Forbidden. Action not permitted for device token." }, 403);
-      }
+    const DEVICE_ALLOWED_ACTIONS = [
+      "protection-status", "trigger-sos", "audio-chunk",
+      "webrtc-signal", "capture-snapshot", "audio-toggle"
+    ];
+    if (authCtx.isDevice && !DEVICE_ALLOWED_ACTIONS.includes(action.type)) {
+      return c.json({ error: "Action not permitted for device tokens" }, 403);
+    }
+    if (authCtx.isDevice && !authCtx.childId) {
+      return c.json({ success: false, error: "Device token missing childId" }, 400);
     }
 
     let state = (await kv.get(parentStateKey)) || JSON.parse(JSON.stringify(defaultState));
@@ -544,6 +548,9 @@ app.post("/make-server-2d83519f/action", async (c) => {
     const childState = state.perChild[targetChildId];
 
     if (action.type === "select-child" && typeof action.childId === "string") {
+      if (!state.children?.some((c: any) => c.id === action.childId)) {
+        return c.json({ error: "Child not found" }, 400);
+      }
       state.activeChildId = action.childId;
       if (state.children) {
         const sel = state.children.find((c: any) => c.id === action.childId);
@@ -583,6 +590,9 @@ app.post("/make-server-2d83519f/action", async (c) => {
       childState.controls.geofence = !childState.controls.geofence;
       state.controls = { ...childState.controls };
     } else if (action.type === "set-limit" && typeof action.value === "number") {
+      if (action.value < 0 || action.value > 1440) {
+        return c.json({ error: "Invalid limit, must be between 0 and 1440" }, 400);
+      }
       childState.usage.limit = action.value;
       state.usage = { ...childState.usage };
     } else if (action.type === "mark-all-read") {
@@ -595,6 +605,7 @@ app.post("/make-server-2d83519f/action", async (c) => {
       if (state.remote.alarmActive) {
         state.alerts.unshift({
           id: String(Date.now()),
+          category: "security",
           title: "🚨 Anti-Theft Alarm Triggered",
           detail: `Loud siren alarm activated remotely on ${state.child.name}'s device.`,
           time: "Just now",
@@ -609,6 +620,7 @@ app.post("/make-server-2d83519f/action", async (c) => {
       state.remote.lastSnapshotTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       state.alerts.unshift({
         id: String(Date.now()),
+        category: "security",
         title: "📷 Remote Snapshot Captured",
         detail: `Camera snapshot captured safely on ${state.child.name}'s device.`,
         time: "Just now",
@@ -626,6 +638,7 @@ app.post("/make-server-2d83519f/action", async (c) => {
       if (nextActive) {
         state.alerts.unshift({
           id: String(Date.now()),
+          category: "activity",
           title: "▣ Live Screen Mirror Requested",
           detail: `MediaProjection WebRTC stream session initiated for ${state.child.name}.`,
           time: "Just now",
@@ -657,6 +670,7 @@ app.post("/make-server-2d83519f/action", async (c) => {
     } else if (action.type === "trigger-sos") {
       state.alerts.unshift({
         id: String(Date.now()),
+        category: "sos",
         title: "🆘 EMERGENCY SOS SIGNAL RECEIVED",
         detail: `${state.child.name} triggered Emergency SOS button! Immediate attention required.`,
         time: "JUST NOW",
@@ -665,6 +679,7 @@ app.post("/make-server-2d83519f/action", async (c) => {
     } else if (action.type === "log-call-sms" && typeof action.detail === "string") {
       state.alerts.unshift({
         id: String(Date.now()),
+        category: "activity",
         title: action.title || "📞 Call / SMS Activity Alert",
         detail: action.detail,
         time: "Just now",
@@ -680,16 +695,23 @@ app.post("/make-server-2d83519f/action", async (c) => {
     } else if (action.type === "audio-toggle") {
       if (!state.remote) state.remote = { status: "idle", tool: "One-way audio", consentRequired: false, audioActive: false };
       const nextActive = typeof action.active === "boolean" ? action.active : !state.remote.audioActive;
+      state.remote.audioActive = nextActive;
     } else if (action.type === "protection-status" && action.status && typeof action.status === "object") {
       const status = action.status as Record<string, boolean>;
       if (!state.protectionStatus) state.protectionStatus = {};
       state.protectionStatus = { ...state.protectionStatus, ...status };
 
       if (status.accessibility === false) {
-        const hasExistingAccAlert = state.alerts.some((a) => a.title.includes("Accessibility Service Disabled"));
+        const now = Date.now();
+        const hasExistingAccAlert = state.alerts.some((a: any) => 
+          a.title.includes("Accessibility Service Disabled") && 
+          !a.read && 
+          (now - parseInt(a.id.split('-').pop() || "0") < 3600000)
+        );
         if (!hasExistingAccAlert) {
           state.alerts.unshift({
             id: "alert-acc-" + Date.now(),
+            category: "security",
             title: "⚠️ Accessibility Service Disabled",
             detail: `Accessibility Service was turned off on ${state.child.name}'s phone. App blocking & remote protection are paused!`,
             time: "Just now",
@@ -698,10 +720,16 @@ app.post("/make-server-2d83519f/action", async (c) => {
         }
       }
       if (status.admin === false) {
-        const hasExistingAdminAlert = state.alerts.some((a) => a.title.includes("Device Admin Protection Disabled"));
+        const now = Date.now();
+        const hasExistingAdminAlert = state.alerts.some((a: any) => 
+          a.title.includes("Device Admin Protection Disabled") && 
+          !a.read && 
+          (now - parseInt(a.id.split('-').pop() || "0") < 3600000)
+        );
         if (!hasExistingAdminAlert) {
           state.alerts.unshift({
             id: "alert-admin-" + Date.now(),
+            category: "security",
             title: "⚠️ Device Admin Protection Disabled",
             detail: `Device Admin protection was revoked on ${state.child.name}'s phone. Anti-uninstall protection is inactive.`,
             time: "Just now",
@@ -715,7 +743,7 @@ app.post("/make-server-2d83519f/action", async (c) => {
 
     return c.json(state);
   } catch (_e) {
-    return c.json(defaultState);
+    return c.json(JSON.parse(JSON.stringify(defaultState)));
   }
 });
 

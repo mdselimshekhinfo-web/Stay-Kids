@@ -112,8 +112,8 @@ export function Onboarding({
         setLoading(false)
       }
     } else if (step === 2) {
-      if (role === "child" && !accEnabled) {
-        setError("StayKids Accessibility Service must be enabled in Android System Settings before completing child device setup.")
+      if (role === "child" && (!accEnabled || !adminEnabled)) {
+        setError("StayKids Accessibility & Device Admin Services must be enabled in Android System Settings before completing child device setup.")
         return
       }
       complete(role)
@@ -271,7 +271,7 @@ export function Onboarding({
                     }}
                     className="mt-3 rounded-xl bg-[#d6f4ad] px-4 py-2 text-xs font-bold text-[#17352b] hover:bg-[#c3e895] transition"
                   >
-                    {qrScanned ? "QR Code Scanned ✓ (SK-PAIR)" : "📷 Tap to Scan Parent QR Code"}
+                    {qrScanned ? "QR Code Scanned ✓ (SK-PAIR)" : "📷 Tap to Scan Parent QR Code (Simulated)"}
                   </button>
                 </div>
               )}

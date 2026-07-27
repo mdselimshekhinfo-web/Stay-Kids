@@ -19,9 +19,10 @@ export function Profile({
   const [legalTab, setLegalTab] = useState<"terms" | "privacy">("terms")
   const [showSubModal, setShowSubModal] = useState(false)
 
-  const initials = user.name
+  const initials = (user?.name || "")
     .split(" ")
-    .map((n) => n[0])
+    .filter(Boolean)
+    .map((n) => (n[0] || ""))
     .join("")
     .substring(0, 2)
     .toUpperCase()

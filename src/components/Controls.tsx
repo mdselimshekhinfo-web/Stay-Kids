@@ -13,6 +13,7 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
   const controls = state.controls
 
   const [realApps, setRealApps] = useState<{ name: string; packageName: string; isBlocked: boolean }[]>([])
+  const [localLimit, setLocalLimit] = useState(state.usage.limit)
 
   useEffect(() => {
     fetchNativeInstalledApps().then((apps) => {
@@ -65,9 +66,10 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
               min="15"
               max="480"
               step="5"
-              value={usage.limit}
+              value={localLimit}
               onChange={(e) => {
                 const val = Math.max(15, Math.min(480, Number(e.target.value) || 15))
+                setLocalLimit(val)
                 onAction({ type: "set-limit", value: val })
               }}
               className="w-12 bg-transparent font-bold text-sm text-[#8c5b00] text-center focus:outline-none"
@@ -83,14 +85,19 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
             min="15"
             max="480"
             step="15"
-            value={usage.limit}
-            onChange={(e) => onAction({ type: "set-limit", value: Number(e.target.value) })}
+            value={localLimit}
+            onChange={(e) => setLocalLimit(Number(e.target.value))}
+            onMouseUp={() => onAction({ type: "set-limit", value: localLimit })}
+            onTouchEnd={() => onAction({ type: "set-limit", value: localLimit })}
           />
           <div className="flex justify-between gap-1 text-[11px] font-bold">
             {[30, 60, 120, 180, 240, 360].map((mins) => (
               <button
                 key={mins}
-                onClick={() => onAction({ type: "set-limit", value: mins })}
+                onClick={() => {
+                  setLocalLimit(mins)
+                  onAction({ type: "set-limit", value: mins })
+                }}
                 className={`rounded-lg px-2 py-1 transition ${
                   usage.limit === mins ? "bg-[#ca8b18] text-white" : "bg-[#f5e6c4]/60 text-[#8c5b00] hover:bg-[#f5e6c4]"
                 }`}

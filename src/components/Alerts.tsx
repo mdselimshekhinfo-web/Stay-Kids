@@ -12,10 +12,11 @@ export function Alerts({ state, onAction }: { state: StayKidsState; onAction: (a
   const alerts = state.alerts || []
 
   const filteredAlerts = alerts.filter((item) => {
-    if (filter === "sos") return item.title.includes("SOS") || item.title.includes("EMERGENCY") || item.title.includes("Alarm")
-    if (filter === "block") return item.title.includes("app") || item.title.includes("protection") || item.title.includes("Blocked")
-    if (filter === "location") return item.title.includes("place") || item.title.includes("School") || item.title.includes("Geofence")
-    if (filter === "call") return item.title.includes("Call") || item.title.includes("SMS") || item.title.includes("Activity")
+    const cat = (item as any).category
+    if (filter === "sos") return cat === "sos" || item.title.includes("SOS") || item.title.includes("EMERGENCY") || item.title.includes("Alarm")
+    if (filter === "block") return cat === "block" || item.title.includes("app") || item.title.includes("protection") || item.title.includes("Blocked")
+    if (filter === "location") return cat === "location" || item.title.includes("place") || item.title.includes("School") || item.title.includes("Geofence")
+    if (filter === "call") return cat === "call" || item.title.includes("Call") || item.title.includes("SMS") || item.title.includes("Activity")
     return true
   })
 

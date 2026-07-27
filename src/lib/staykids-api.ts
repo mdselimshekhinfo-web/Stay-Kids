@@ -30,12 +30,10 @@ let inMemoryToken: string | null = typeof window !== "undefined" ? localStorage.
 
 export const setAuthToken = (token: string | null) => {
   inMemoryToken = token
-  if (typeof window !== "undefined") {
-    if (token) {
-      localStorage.setItem("staykids_jwt_token", token)
-    } else {
-      localStorage.removeItem("staykids_jwt_token")
-    }
+  if (token) {
+    localStorage.setItem("staykids_jwt_token", token)
+  } else {
+    localStorage.removeItem("staykids_jwt_token")
   }
 }
 
@@ -83,14 +81,6 @@ const defaultLocalState: StayKidsState = {
   },
 }
 
-export let resendApiKey: string = typeof window !== "undefined" ? (localStorage.getItem("staykids_resend_key") || "") : ""
-
-export const setResendApiKey = (key: string) => {
-  resendApiKey = key
-  if (typeof window !== "undefined") {
-    localStorage.setItem("staykids_resend_key", key)
-  }
-}
 
 // Offline Action Queue Implementation
 type QueuedAction = {
@@ -134,17 +124,17 @@ export function enqueueOfflineAction(action: Record<string, unknown>) {
 export async function flushOfflineQueue() {
   if (typeof window === "undefined" || !navigator.onLine) return
   const queue = getOfflineQueue()
-  if (queue.length === 0) return
+  if (!queue.length) return
 
-  const validItems = queue.filter((item) => Date.now() - item.timestamp < MAX_QUEUE_AGE_MS)
-  saveOfflineQueue([]) // Clear queue before processing
-
-  for (const item of validItems) {
+  const remaining = [...queue]
+  for (let i = 0; i < remaining.length; i++) {
     try {
-      await sendStayKidsAction(item.action)
-    } catch (_e) {
-      // Re-enqueue if still failing
-      enqueueOfflineAction(item.action)
+      await sendStayKidsAction(remaining[i].action)
+      remaining.splice(i, 1)
+      i--
+      saveOfflineQueue(remaining)
+    } catch {
+      break // stop on first failure
     }
   }
 }
@@ -178,40 +168,6 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
   }
 }
 
-export async function sendResendEmailDirect(email: string, otp: string, type: "signup" | "reset" = "signup") {
-  if (!resendApiKey) return false
-  try {
-    const res = await fetchWithRetry("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "StayKids Security <onboarding@resend.dev>",
-        to: [email],
-        subject: type === "signup" ? `StayKids Security Code: ${otp}` : `Reset Your StayKids Password: ${otp}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #e1e8e5; border-radius: 20px; background-color: #ffffff;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <h2 style="color: #287555; margin: 0; font-size: 24px;">stay<span style="color: #17352b;">kids</span></h2>
-              <p style="color: #687b74; font-size: 13px; margin-top: 4px;">Parental Control & Digital Safety</p>
-            </div>
-            <p style="color: #172226; font-size: 14px;">Hello,</p>
-            <p style="color: #556660; font-size: 14px;">Your 6-digit OTP code for StayKids ${type === "signup" ? "Account Verification" : "Password Reset"} is:</p>
-            <div style="background-color: #f3faee; padding: 18px; border-radius: 16px; text-align: center; margin: 20px 0; border: 1px dashed #287555;">
-              <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #17352b; font-family: monospace;">${otp}</span>
-            </div>
-            <p style="color: #71807a; font-size: 12px; text-align: center;">This code is valid for 5 minutes.</p>
-          </div>
-        `,
-      }),
-    })
-    return res.ok
-  } catch (_e) {
-    return false
-  }
-}
 
 const request = async (path: string, init?: RequestInit, isIdempotentRead = false) => {
   const token = inMemoryToken || publicAnonKey
@@ -248,68 +204,8 @@ const request = async (path: string, init?: RequestInit, isIdempotentRead = fals
   }
 
   // Resilient Local Fallbacks
-  if (path === "/auth/signup") {
-    const body = init?.body ? JSON.parse(init.body as string) : {}
-    const devOtp = String(Math.floor(100000 + Math.random() * 900000))
-    sendResendEmailDirect(body.email, devOtp, "signup").catch(() => {})
-    return {
-      success: true,
-      requiresOtp: true,
-      email: body.email,
-      message: `A 6-digit verification code has been sent to ${body.email}`,
-    }
-  }
-
-  if (path === "/auth/verify-otp") {
-    const body = init?.body ? JSON.parse(init.body as string) : {}
-    const fakeToken = "sk_jwt_session_" + Date.now()
-    return {
-      success: true,
-      token: fakeToken,
-      user: { name: body.email?.split("@")[0] || "Parent", email: body.email || "parent@staykids.app" },
-      message: "Email verified successfully!",
-    }
-  }
-
-  if (path === "/auth/forgot-password") {
-    const body = init?.body ? JSON.parse(init.body as string) : {}
-    const devOtp = String(Math.floor(100000 + Math.random() * 900000))
-    sendResendEmailDirect(body.email, devOtp, "reset").catch(() => {})
-    return {
-      success: true,
-      email: body.email,
-      message: `Password reset 6-digit OTP code sent to ${body.email}`,
-    }
-  }
-
-  if (path === "/auth/reset-password") {
-    const body = init?.body ? JSON.parse(init.body as string) : {}
-    const fakeToken = "sk_jwt_session_" + Date.now()
-    return {
-      success: true,
-      token: fakeToken,
-      user: { name: body.email?.split("@")[0] || "Parent", email: body.email || "parent@staykids.app" },
-      message: "Password reset successful!",
-    }
-  }
-
-  if (path === "/auth/login") {
-    const body = init?.body ? JSON.parse(init.body as string) : {}
-    const fakeToken = "sk_jwt_session_" + Date.now()
-    return {
-      success: true,
-      token: fakeToken,
-      user: { name: body.email?.split("@")[0] || "Parent", email: body.email || "parent@staykids.app" },
-    }
-  }
-
-  if (path === "/pairing/generate") {
-    const pin = Math.floor(100000 + Math.random() * 900000).toString()
-    return { pin, qrCode: `SK-PAIR-${pin}` }
-  }
-
-  if (path === "/pairing/claim") {
-    return { success: true, message: "Device successfully paired!" }
+  if (path.startsWith("/auth/") || path.startsWith("/pairing/")) {
+    throw new Error("Server unavailable. Check your internet connection.")
   }
 
   return defaultLocalState

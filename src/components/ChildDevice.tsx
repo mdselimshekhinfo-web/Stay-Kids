@@ -61,7 +61,7 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
               </p>
             )}
             <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#e6ece8]">
-              <div className="h-full rounded-full bg-[#43a878]" style={{ width: `${Math.min(100, Math.round((state.usage.minutes / state.usage.limit) * 100))}%` }} />
+              <div className="h-full rounded-full bg-[#43a878]" style={{ width: `${Math.min(100, Math.round((state.usage.minutes / Math.max(1, state.usage.limit)) * 100))}%` }} />
             </div>
             <p className="mt-3 text-sm text-[#6b7a76]">Your parent set a {Math.floor(state.usage.limit / 60)}h daily limit.</p>
           </div>
@@ -92,28 +92,6 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
                 🚨 Emergency Alert Sent! Parent notified with GPS Location & Surroundings Photo.
               </div>
             )}
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <button 
-                onClick={() => {
-                  setHelp(!help)
-                  if (!help) {
-                    sendStayKidsAction({ type: "trigger-sos", source: "help-request" }).catch(() => {})
-                  }
-                }} 
-                className="rounded-2xl bg-[#d6f4ad] px-4 py-3 text-xs font-bold text-[#17352b] transition hover:bg-[#c4ec94]"
-              >
-                {help ? "Help Sent ✓" : "Ask for Help 💬"}
-              </button>
-              <button
-                onClick={() => {
-                  setHelp(true)
-                  sendStayKidsAction({ type: "trigger-sos" }).catch(() => {})
-                }}
-                className="rounded-2xl bg-[#ff5252] px-4 py-3 text-xs font-bold text-white transition hover:bg-[#ff1744] shadow-md animate-pulse"
-              >
-                🚨 Emergency SOS
-              </button>
-            </div>
           </div>
 
           <button onClick={switchRole} className="mt-8 text-sm font-bold text-[#d6f4ad] hover:underline">

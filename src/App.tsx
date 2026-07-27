@@ -56,7 +56,16 @@ const initialDefaultState: StayKidsState = {
     tool: "Screen Mirror",
     consentRequired: false,
     audioActive: false,
-  },
+    mirrorStreamActive: false,
+    liveFrame: null,
+    connectionState: "idle",
+    lastTouchAction: null,
+    lastSnapshotTime: null,
+    liveAudioChunk: null,
+  } as any,
+  blockedApps: {},
+  isPremium: true,
+  protectionStatus: { accessibility: false, admin: false },
 }
 
 export default function App() {
@@ -211,6 +220,17 @@ export default function App() {
         next.alerts = next.alerts.map((a) => (a.id === data.id ? { ...a, read: true } : a))
       } else if (data.type === "audio-toggle") {
         next.remote.audioActive = !next.remote.audioActive
+      } else if (data.type === "toggle-app-lock") {
+        const app = (data.appName || data.app) as string
+        if (app) next.blockedApps = { ...(next.blockedApps || {}), [app]: !(next.blockedApps || {})[app] };
+      } else if (data.type === "mirror-toggle") {
+        next.remote = { ...next.remote, mirrorStreamActive: !!data.active, connectionState: data.active ? "connecting" : "idle" } as any;
+      } else if (data.type === "capture-snapshot") {
+        next.remote = { ...next.remote, lastSnapshotTime: Date.now() as any };
+      } else if (data.type === "remote-touch") {
+        next.remote = { ...next.remote, lastTouchAction: `${data.x},${data.y}` };
+      } else if (data.type === "webrtc-signal") {
+        if (data.frame) next.remote = { ...next.remote, liveFrame: data.frame as any };
       }
       return next
     })

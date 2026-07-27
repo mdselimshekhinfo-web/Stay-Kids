@@ -52,7 +52,7 @@ public class StayKidsAudioService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Notification notification = buildNotification();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
         } else {
             startForeground(NOTIFICATION_ID, notification);
@@ -93,6 +93,11 @@ public class StayKidsAudioService extends Service {
 
         recordingThread = new Thread(() -> {
             int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
+            if (minBufferSize <= 0) {
+                Log.e(TAG, "Invalid buffer size: " + minBufferSize);
+                isRecording = false;
+                return;
+            }
             int bufferSize = Math.max(minBufferSize, SAMPLE_RATE * 2 * 2); // ~2 second buffer
 
             AudioRecord audioRecord = null;
@@ -135,19 +140,6 @@ public class StayKidsAudioService extends Service {
                             });
                         }
                     }
-
-                    // Battery-aware sleep throttling for audio transmission
-                    int batteryLevel = getBatteryLevel();
-                    boolean charging = isCharging();
-                    long sleepMs = 1500; // Normal ~1.5s sleep between chunks
-
-                    if (batteryLevel <= 20 && !charging) {
-                        sleepMs = 3500; // Low battery -> 3.5s sleep to conserve battery & network
-                    } else if (batteryLevel <= 10 && !charging) {
-                        sleepMs = 5000; // Critical battery -> 5.0s sleep
-                    }
-
-                    Thread.sleep(sleepMs);
                 }
 
                 audioRecord.stop();
@@ -170,6 +162,14 @@ public class StayKidsAudioService extends Service {
     public static void stopAudioCapture() {
         isRecording = false;
         if (instance != null) {
+            if (instance.recordingThread != null) {
+                try {
+                    instance.recordingThread.join(2000);
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "Thread join interrupted", e);
+                }
+                instance.recordingThread = null;
+            }
             instance.stopForeground(true);
             instance.stopSelf();
         }
