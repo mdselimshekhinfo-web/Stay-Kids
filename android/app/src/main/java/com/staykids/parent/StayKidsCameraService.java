@@ -136,6 +136,8 @@ public class StayKidsCameraService {
         } catch (Exception e) {
             callback.onError("Camera exception: " + e.getMessage());
         }
+    }
+
     // --- Live Streaming Mode ---
     private CameraDevice liveCameraDevice;
     private CameraCaptureSession liveSession;
