@@ -95,6 +95,11 @@ export function Onboarding({
   }, [role, step])
 
   const handleNextStep = async () => {
+    if (step === 0 && role === "parent") {
+      complete(role)
+      return
+    }
+
     if (step === 1 && role === "child") {
       if (!inputPin || inputPin.length !== 6) {
         setError("Please enter a valid 6-digit PIN code.")

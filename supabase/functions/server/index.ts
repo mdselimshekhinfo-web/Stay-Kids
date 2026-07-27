@@ -292,7 +292,7 @@ async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "re
 }
 
 // Auth Sign Up Endpoint - Initiates Real Email OTP Verification
-app.post("/make-server-2d83519f/auth/signup", async (c) => {
+app.post("/server/auth/signup", async (c) => {
   try {
     const body = await c.req.json();
     const { name, email, password } = body || {};
@@ -336,7 +336,7 @@ app.post("/make-server-2d83519f/auth/signup", async (c) => {
 });
 
 // Auth Verify Email OTP Endpoint
-app.post("/make-server-2d83519f/auth/verify-otp", async (c) => {
+app.post("/server/auth/verify-otp", async (c) => {
   try {
     const body = await c.req.json();
     const { email, otp } = body || {};
@@ -386,7 +386,7 @@ app.post("/make-server-2d83519f/auth/verify-otp", async (c) => {
 });
 
 // Forgot Password - Send Reset OTP Endpoint
-app.post("/make-server-2d83519f/auth/forgot-password", async (c) => {
+app.post("/server/auth/forgot-password", async (c) => {
   try {
     const body = await c.req.json();
     const { email } = body || {};
@@ -423,7 +423,7 @@ app.post("/make-server-2d83519f/auth/forgot-password", async (c) => {
 });
 
 // Confirm Password Reset with OTP Endpoint
-app.post("/make-server-2d83519f/auth/reset-password", async (c) => {
+app.post("/server/auth/reset-password", async (c) => {
   try {
     const body = await c.req.json();
     const { email, otp, newPassword } = body || {};
@@ -473,7 +473,7 @@ app.post("/make-server-2d83519f/auth/reset-password", async (c) => {
 });
 
 // Auth Resend OTP Endpoint
-app.post("/make-server-2d83519f/auth/resend-otp", async (c) => {
+app.post("/server/auth/resend-otp", async (c) => {
   try {
     const body = await c.req.json();
     const { email } = body || {};
@@ -504,7 +504,7 @@ app.post("/make-server-2d83519f/auth/resend-otp", async (c) => {
 });
 
 // Auth Login Endpoint
-app.post("/make-server-2d83519f/auth/login", async (c) => {
+app.post("/server/auth/login", async (c) => {
   try {
     const body = await c.req.json();
     const { email, password } = body || {};
@@ -536,7 +536,7 @@ app.post("/make-server-2d83519f/auth/login", async (c) => {
 });
 
 // Pairing Code Generation Endpoint
-app.post("/make-server-2d83519f/pairing/generate", async (c) => {
+app.post("/server/pairing/generate", async (c) => {
   try {
     const authUser = await getAuthenticatedUser(c);
     if (!authUser) {
@@ -560,7 +560,7 @@ app.post("/make-server-2d83519f/pairing/generate", async (c) => {
 });
 
 // Device Claim Endpoint
-app.post("/make-server-2d83519f/pairing/claim", async (c) => {
+app.post("/server/pairing/claim", async (c) => {
   try {
     const body = await c.req.json();
     const { pin, deviceName } = body || {};
@@ -614,12 +614,12 @@ app.post("/make-server-2d83519f/pairing/claim", async (c) => {
 });
 
 // Health check endpoint
-app.get("/make-server-2d83519f/health", (c) => {
+app.get("/server/health", (c) => {
   return c.json({ status: "ok" });
 });
 
 // GET state endpoint (Accepts Parent Token & Device Token)
-app.get("/make-server-2d83519f/state", async (c) => {
+app.get("/server/state", async (c) => {
   try {
     const authCtx = await getAuthContext(c);
     if (!authCtx) {
@@ -635,7 +635,7 @@ app.get("/make-server-2d83519f/state", async (c) => {
 });
 
 // POST action endpoint for real-time state mutation & persistence (with Per-Child & Token Scoping)
-app.post("/make-server-2d83519f/action", async (c) => {
+app.post("/server/action", async (c) => {
   try {
     const authCtx = await getAuthContext(c);
     if (!authCtx) {

@@ -1,6 +1,6 @@
 import { projectId, publicAnonKey } from "../../utils/supabase/info"
 
-const base = import.meta.env.VITE_API_URL || `https://${projectId}.supabase.co/functions/v1/make-server-2d83519f`
+const base = import.meta.env.VITE_API_URL || `https://${projectId}.supabase.co/functions/v1/server`
 
 export type ChildDeviceInfo = {
   id: string
