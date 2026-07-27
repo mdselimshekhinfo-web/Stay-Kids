@@ -7,14 +7,19 @@ import android.graphics.Path;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.List;
+import java.util.Arrays;
 
 public class StayKidsAccessibilityService extends AccessibilityService {
 
     private static final String TAG = "StayKidsAccessibility";
     private static StayKidsAccessibilityService instance;
     private static final Set<String> blockedPackageNames = java.util.Collections.synchronizedSet(new HashSet<>());
+    private static boolean isWebFilterEnabled = false;
+    private static final List<String> BLOCKED_KEYWORDS = Arrays.asList("porn", "xxx", "casino", "gambling", "adult");
 
     static {
         blockedPackageNames.add("com.roblox.client");
@@ -38,6 +43,7 @@ public class StayKidsAccessibilityService extends AccessibilityService {
         if (savedApps != null) {
             blockedPackageNames.addAll(savedApps);
         }
+        isWebFilterEnabled = prefs.getBoolean("webFilter", false);
     }
 
     public static StayKidsAccessibilityService getInstance() {
@@ -60,19 +66,57 @@ public class StayKidsAccessibilityService extends AccessibilityService {
         return blockedPackageNames.contains(packageName);
     }
 
+    public static void setWebFilterEnabled(boolean enabled) {
+        isWebFilterEnabled = enabled;
+        if (instance != null) {
+            android.content.SharedPreferences prefs = instance.getSharedPreferences("StayKidsPrefs", android.content.Context.MODE_PRIVATE);
+            prefs.edit().putBoolean("webFilter", enabled).apply();
+        }
+    }
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         if (event == null) return;
 
-        if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+        int eventType = event.getEventType();
+        if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
             CharSequence packageName = event.getPackageName();
             if (packageName != null) {
                 String pkg = packageName.toString();
                 if (blockedPackageNames.contains(pkg)) {
                     Log.w(TAG, "Blocked app launched by child: " + pkg + ". Enforcing HOME redirection.");
                     performGlobalAction(GLOBAL_ACTION_HOME);
+                    return;
+                }
+                
+                if (isWebFilterEnabled && ("com.android.chrome".equals(pkg) || "org.mozilla.firefox".equals(pkg))) {
+                    AccessibilityNodeInfo source = event.getSource();
+                    if (source != null) {
+                        checkNodesForUrl(source);
+                    }
                 }
             }
+        }
+    }
+
+    private void checkNodesForUrl(AccessibilityNodeInfo node) {
+        if (node == null) return;
+        
+        if (node.getText() != null) {
+            String text = node.getText().toString().toLowerCase();
+            if (node.getViewIdResourceName() != null && node.getViewIdResourceName().contains("url_bar")) {
+                for (String keyword : BLOCKED_KEYWORDS) {
+                    if (text.contains(keyword)) {
+                        Log.w(TAG, "Blocked website detected: " + text + ". Enforcing HOME redirection.");
+                        performGlobalAction(GLOBAL_ACTION_HOME);
+                        return;
+                    }
+                }
+            }
+        }
+        
+        for (int i = 0; i < node.getChildCount(); i++) {
+            checkNodesForUrl(node.getChild(i));
         }
     }
 

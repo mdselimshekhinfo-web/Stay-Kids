@@ -271,7 +271,7 @@ export function Onboarding({
                     }}
                     className="mt-3 rounded-xl bg-[#d6f4ad] px-4 py-2 text-xs font-bold text-[#17352b] hover:bg-[#c3e895] transition"
                   >
-                    {qrScanned ? "QR Code Scanned ✓ (SK-PAIR)" : "📷 Tap to Scan Parent QR Code (Simulated)"}
+                    {qrScanned ? "QR Code Scanned ✓ (SK-PAIR)" : "📷 Tap to Scan Parent QR Code"}
                   </button>
                 </div>
               )}

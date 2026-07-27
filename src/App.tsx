@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react"
 import {
   getStayKidsState,
   sendStayKidsAction,
-  getAuthToken,
   type StayKidsState,
   type ChildDeviceInfo,
 } from "./lib/staykids-api"
@@ -27,7 +26,10 @@ import { Remote } from "./components/Remote"
 import { ChildDevice } from "./components/ChildDevice"
 
 const initialDefaultState: StayKidsState = {
+  isPremium: false,
+  activeChildId: "child-1",
   child: {
+    id: "child-1",
     name: "Child Phone",
     device: "Android Device",
     location: "Current Location",
@@ -64,8 +66,6 @@ const initialDefaultState: StayKidsState = {
     liveAudioChunk: null,
   } as any,
   blockedApps: {},
-  isPremium: true,
-  protectionStatus: { accessibility: false, admin: false },
 }
 
 export default function App() {
@@ -73,21 +73,34 @@ export default function App() {
     const saved = localStorage.getItem("staykids_selected_role")
     return saved === "parent" || saved === "child" ? saved : null
   })
-  const [authenticated, setAuthenticated] = useState<boolean>(() => Boolean(getAuthToken()))
+  const [authenticated, setAuthenticated] = useState<boolean>(false)
   const [user, setUser] = useState<{ name: string; email: string }>(() => {
     const savedName = localStorage.getItem("staykids_user_name") || ""
     const savedEmail = localStorage.getItem("staykids_user_email") || ""
     return { name: savedName, email: savedEmail }
   })
-  const [ready, setReady] = useState<boolean>(() => {
-    if (selectedRole === "child") return true
-    return Boolean(getAuthToken())
-  })
+  const [ready, setReady] = useState<boolean>(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [role, setRole] = useState<"parent" | "child">(() => selectedRole || "parent")
   const [tab, setTab] = useState("Home")
   const [state, setState] = useState<StayKidsState>(initialDefaultState)
   const [isForeground, setIsForeground] = useState(true)
 
+  useEffect(() => {
+    import('./lib/staykids-api').then(({ loadAuthToken }) => {
+      loadAuthToken().then((token) => {
+        if (selectedRole === "child") {
+          setReady(true)
+        } else {
+          if (token) {
+            setAuthenticated(true)
+            setReady(true)
+          }
+        }
+        setIsLoading(false)
+      })
+    })
+  }, [selectedRole])
   const fetchLatestState = () => {
     getStayKidsState()
       .then((data) => {
@@ -194,6 +207,57 @@ export default function App() {
     }
   }, [role, state.remote.audioActive])
 
+  // 5. Child Device Anti-Theft Siren Response
+  useEffect(() => {
+    if (role === "child" && state.remote.alarmActive) {
+      import("./lib/native").then(({ triggerSirenNative }) => {
+        triggerSirenNative().catch(() => {})
+      })
+    } else if (role === "child" && !state.remote.alarmActive) {
+      import("./lib/native").then(({ stopSirenNative }) => {
+        if (stopSirenNative) stopSirenNative().catch(() => {})
+      })
+    }
+  }, [role, state.remote.alarmActive])
+
+  // 6. Child Device Bedtime Enforcement Response
+  useEffect(() => {
+    if (role === "child" && state.controls.bedtime && state.controls.bedtimeSchedule) {
+      import("./lib/native").then(({ setBedtimeNative }) => {
+        setBedtimeNative(state.controls.bedtimeSchedule!).catch(() => {})
+      })
+    }
+  }, [role, state.controls.bedtime, state.controls.bedtimeSchedule])
+
+  // 7. Child Device Geofence Response
+  useEffect(() => {
+    if (role === "child" && state.controls.geofence) {
+      if (state.child.coordinates) {
+        import("./lib/native").then(({ addGeofenceNative }) => {
+          addGeofenceNative(state.child.coordinates!.lat, state.child.coordinates!.lng, 500).catch(() => {})
+        })
+      }
+    }
+  }, [role, state.controls.geofence, state.child.coordinates])
+
+  // 8. Child Device Web Filter Response
+  useEffect(() => {
+    if (role === "child") {
+      import("./lib/native").then(({ syncWebFilter }) => {
+        syncWebFilter(!!state.controls.filter).catch(() => {})
+      })
+    }
+  }, [role, state.controls.filter])
+
+  // 9. Child Device Daily Limit Response
+  useEffect(() => {
+    if (role === "child") {
+      import("./lib/native").then(({ syncDailyLimit }) => {
+        syncDailyLimit(state.usage.limit).catch(() => {})
+      })
+    }
+  }, [role, state.usage.limit])
+
   const action = (data: Record<string, unknown>) => {
     // Keep snapshot of previous state for rollback if server rejects
     const previousState = state
@@ -215,6 +279,8 @@ export default function App() {
         next.child = newChild
       } else if (data.type === "toggle-control" && typeof data.key === "string") {
         next.controls[data.key] = !next.controls[data.key]
+      } else if (data.type === "toggle-geofence") {
+        next.controls.geofence = !next.controls.geofence
       } else if (data.type === "set-limit" && typeof data.value === "number") {
         next.usage.limit = data.value
       } else if (data.type === "mark-all-read") {
@@ -234,6 +300,18 @@ export default function App() {
         next.remote = { ...next.remote, lastTouchAction: `${data.x},${data.y}` };
       } else if (data.type === "webrtc-signal") {
         if (data.frame) next.remote = { ...next.remote, liveFrame: data.frame as any };
+      } else if (data.type === "trigger-alarm") {
+        next.remote.alarmActive = !next.remote.alarmActive;
+      } else if (data.type === "add-reward-points" && typeof data.points === "number") {
+        next.rewards = next.rewards || { earned: 0, balance: 0 };
+        next.rewards.earned += data.points;
+        next.rewards.balance += data.points;
+      } else if (data.type === "redeem-reward-points" && typeof data.cost === "number" && typeof data.mins === "number") {
+        next.rewards = next.rewards || { earned: 0, balance: 0 };
+        if (next.rewards.balance >= data.cost) {
+          next.rewards.balance -= data.cost;
+          next.usage.limit += data.mins; // Add the redeemed time to the daily limit
+        }
       }
       return next
     })
@@ -245,10 +323,11 @@ export default function App() {
     })
   }
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     localStorage.removeItem("staykids_user_name")
     localStorage.removeItem("staykids_user_email")
-    localStorage.removeItem("staykids_jwt_token")
+    const { setAuthToken } = await import("./lib/staykids-api")
+    await setAuthToken(null)
     setUser({ name: "", email: "" })
     setAuthenticated(false)
     setReady(false)
@@ -264,7 +343,7 @@ export default function App() {
   const unreadAlertsCount = state.alerts.filter((a) => !a.read).length
 
   const pages: Record<string, React.ReactNode> = {
-    Home: <Home onRemote={() => setTab("Remote")} onProfile={() => setTab("Profile")} state={state} onAction={action} user={user} />,
+    Home: <Home onRemote={() => setTab("Remote")} onProfile={() => setTab("Profile")} state={state} onAction={action} />,
     Controls: <Controls state={state} onAction={action} />,
     Activity: <Activity state={state} />,
     Alerts: <Alerts state={state} onAction={action} />,
@@ -281,6 +360,11 @@ export default function App() {
     ["Profile", "👤"],
   ]
 
+  // Show loading while async storage resolves
+  if (isLoading) {
+    return <div className="h-screen w-full bg-[#0a0e10] text-[#71807a] flex items-center justify-center">Loading...</div>
+  }
+
   // 1. First Launch / Onboarding
   if (!selectedRole) {
     return (
@@ -290,9 +374,6 @@ export default function App() {
           localStorage.setItem("staykids_selected_role", selectedRoleChoice)
           setSelectedRole(selectedRoleChoice)
           setRole(selectedRoleChoice)
-          if (selectedRoleChoice === "child") {
-            setReady(true)
-          }
         }}
       />
     )

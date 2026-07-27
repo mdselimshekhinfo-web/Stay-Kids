@@ -38,10 +38,19 @@ android {
             buildConfigField "String", "STAYKIDS_ROLE", "\"child\""
         }
     }
+    signingConfigs {
+        release {
+            storeFile file("staykids-release.keystore")
+            storePassword "staykids123"
+            keyAlias "staykids"
+            keyPassword "staykids123"
+        }
+    }
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }
@@ -62,6 +71,7 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    implementation 'com.google.android.gms:play-services-location:21.0.1'
 }
 
 apply from: 'capacitor.build.gradle'

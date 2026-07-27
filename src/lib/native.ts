@@ -7,6 +7,8 @@ export interface StayKidsNativePlugin {
   performRemoteTouch(options: { x: number; y: number }): Promise<{ success: boolean }>
   getInstalledApps(): Promise<{ success: boolean; apps: { name: string; packageName: string; isBlocked: boolean }[] }>
   updateBlockedApp(options: { packageName: string; blocked: boolean }): Promise<{ success: boolean }>
+  updateWebFilter(options: { enabled: boolean }): Promise<{ success: boolean }>
+  setDailyLimit(options: { limit: number }): Promise<{ success: boolean }>
   checkCameraPermission(): Promise<{ granted: boolean }>
   requestCameraPermission(): Promise<{ granted: boolean; error?: string }>
   captureCameraSnapshot(): Promise<{ success: boolean; granted?: boolean; filePath?: string; error?: string }>
@@ -22,7 +24,7 @@ export interface StayKidsNativePlugin {
   isOverlayPermissionGranted(): Promise<{ granted: boolean }>
   requestOverlayPermission(): Promise<void>
   startScreenShare(): Promise<{ success: boolean; streaming?: boolean; error?: string; message?: string }>
-  stopScreenShare(): Promise<{ success: boolean; streaming?: boolean }>
+  stopScreenShare(): Promise<{ success: boolean }>
   isScreenSharingActive(): Promise<{ active: boolean }>
   startAudioCapture(): Promise<{ success: boolean; capturing?: boolean; error?: string }>
   stopAudioCapture(): Promise<{ success: boolean; capturing?: boolean }>
@@ -30,6 +32,11 @@ export interface StayKidsNativePlugin {
   startLiveCamera(options: { facing: string }): Promise<{ success: boolean; streaming?: boolean; error?: string }>
   stopLiveCamera(): Promise<{ success: boolean }>
   isLiveCameraActive(): Promise<{ active: boolean }>
+  addListener(eventName: string, listenerFunc: (data: any) => void): Promise<{ remove: () => void }>
+  triggerSiren(): Promise<{ success: boolean }>
+  stopSiren(): Promise<{ success: boolean }>
+  setBedtimeSchedule(options: { time: string }): Promise<{ success: boolean }>
+  addGeofence(options: { latitude: number; longitude: number; radius: number }): Promise<{ success: boolean }>
 }
 
 const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative")
@@ -81,6 +88,17 @@ export const triggerRemoteTouch = async (x: number, y: number): Promise<boolean>
   }
 }
 
+export const stopLiveCamera = async (): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.stopLiveCamera()
+    return res.success ?? false
+  } catch (_e) {
+    console.warn("StayKidsNative: stopLiveCamera simulated in web mode.")
+    return false
+  }
+}
+
+
 export const syncNativeAppBlock = async (appName: string, blocked: boolean): Promise<boolean> => {
   try {
     const packageName = APP_PACKAGE_MAP[appName] || appName
@@ -88,6 +106,26 @@ export const syncNativeAppBlock = async (appName: string, blocked: boolean): Pro
     return res.success ?? false
   } catch (_e) {
     console.warn(`StayKidsNative: App block ${appName} (${blocked ? "blocked" : "allowed"}) simulated in web mode.`)
+    return false
+  }
+}
+
+export const syncWebFilter = async (enabled: boolean): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.updateWebFilter({ enabled })
+    return res.success ?? false
+  } catch (_e) {
+    console.warn(`StayKidsNative: Web Filter (${enabled ? "enabled" : "disabled"}) simulated in web mode.`)
+    return false
+  }
+}
+
+export const syncDailyLimit = async (limit: number): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.setDailyLimit({ limit })
+    return res.success ?? false
+  } catch (_e) {
+    console.warn(`StayKidsNative: Daily limit (${limit} min) simulated in web mode.`)
     return false
   }
 }
@@ -334,5 +372,41 @@ export const listenCameraFrame = (callback: (frameBase64: string) => void): (() 
     }
   } catch (_e) {
     return () => {}
+  }
+}
+
+export const triggerSirenNative = async (): Promise<{ success: boolean; error?: string }> => {
+  try {
+    return await StayKidsNative.triggerSiren()
+  } catch (e: any) {
+    console.warn("StayKidsNative: Siren triggered in web mode.")
+    return { success: true }
+  }
+}
+
+export const stopSirenNative = async (): Promise<{ success: boolean; error?: string }> => {
+  try {
+    return await StayKidsNative.stopSiren()
+  } catch (e: any) {
+    console.warn("StayKidsNative: Siren stopped in web mode.")
+    return { success: true }
+  }
+}
+
+export const setBedtimeNative = async (time: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    return await StayKidsNative.setBedtimeSchedule({ time })
+  } catch (e: any) {
+    console.warn(`StayKidsNative: Bedtime set to ${time} in web mode.`)
+    return { success: true }
+  }
+}
+
+export const addGeofenceNative = async (latitude: number, longitude: number, radius = 100): Promise<{ success: boolean; error?: string }> => {
+  try {
+    return await StayKidsNative.addGeofence({ latitude, longitude, radius })
+  } catch (e: any) {
+    console.warn(`StayKidsNative: Geofence added in web mode.`)
+    return { success: true }
   }
 }

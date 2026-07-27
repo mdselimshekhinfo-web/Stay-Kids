@@ -60,6 +60,9 @@
             android:foregroundServiceType="microphone"
             android:exported="false" />
 
+        <!-- StayKids Usage Service for Screen Time Limits -->
+        <service android:name=".StayKidsUsageService" android:exported="false" />
+
         <!-- StayKids Anti-Uninstall Device Admin Protection Receiver -->
         <receiver
             android:name=".StayKidsDeviceAdminReceiver"
@@ -86,6 +89,16 @@
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
+
+        <!-- StayKids Bedtime Receiver -->
+        <receiver android:name=".StayKidsBedtimeReceiver" android:exported="false" />
+
+        <!-- StayKids Geofence Receiver -->
+        <receiver android:name=".StayKidsGeofenceReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="com.staykids.parent.GEOFENCE_EVENT" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <!-- Permissions for Internet & Push Notifications -->
@@ -93,7 +106,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Camera & Surroundings Snapshot Permissions -->
     <uses-permission android:name="android.permission.CAMERA" />
@@ -115,4 +130,7 @@
 
     <!-- Protection against Uninstallation (Device Administrator) -->
     <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" />
+
+    <!-- Permission to track app usage time for App Limits -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
 </manifest>

@@ -13,21 +13,22 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
   const [help, setHelp] = useState(false)
   const isPaused = state.controls.paused
   const remainingMins = Math.max(0, state.usage.limit - state.usage.minutes)
+  const rewards = state.rewards || { earned: 0, balance: 0 }
 
   // Periodic Health-Check for Accessibility, Device Admin & System Protection
   useEffect(() => {
     const runHealthCheck = async () => {
       try {
-        const acc = await checkAccessibilityEnabled().catch(() => ({ enabled: false }))
-        const admin = await checkDeviceAdminEnabled().catch(() => ({ enabled: false }))
-        const overlay = await checkOverlayPermissionGranted().catch(() => ({ granted: false }))
+        const acc = await checkAccessibilityEnabled().catch(() => false)
+        const admin = await checkDeviceAdminEnabled().catch(() => false)
+        const overlay = await checkOverlayPermissionGranted().catch(() => false)
 
         sendStayKidsAction({
           type: "protection-status",
           status: {
-            accessibility: acc.enabled !== false,
-            admin: admin.enabled !== false,
-            overlay: overlay.granted !== false,
+            accessibility: acc,
+            admin: admin,
+            overlay: overlay,
           },
         }).catch(() => {})
       } catch (_e) {}
@@ -64,6 +65,52 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
               <div className="h-full rounded-full bg-[#43a878]" style={{ width: `${Math.min(100, Math.round((state.usage.minutes / Math.max(1, state.usage.limit)) * 100))}%` }} />
             </div>
             <p className="mt-3 text-sm text-[#6b7a76]">Your parent set a {Math.floor(state.usage.limit / 60)}h daily limit.</p>
+          </div>
+
+          {/* Rewards System */}
+          <div className="mt-4 rounded-[28px] border border-[#d6f4ad]/30 bg-[#d6f4ad]/10 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-bold text-[#d6f4ad]">⭐ Rewards Points</p>
+                <p className="text-sm text-[#cde0d5]">Complete goals to earn extra time</p>
+              </div>
+              <div className="rounded-2xl bg-[#d6f4ad] px-4 py-2 text-[#17352b] font-bold text-xl shadow-[0_0_15px_rgba(214,244,173,0.3)]">
+                {rewards.balance} pts
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  sendStayKidsAction({ type: "add-reward-points", points: 10 })
+                  setHelp(true);
+                  setTimeout(() => setHelp(false), 3000);
+                }}
+                className="w-full rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 p-3 text-sm font-bold transition flex flex-col items-center justify-center gap-1"
+              >
+                <span className="text-2xl">✅</span>
+                <span>Complete Goal</span>
+                <span className="text-[10px] text-[#d6f4ad]">+10 pts</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  if (rewards.balance >= 30) {
+                    sendStayKidsAction({ type: "redeem-reward-points", cost: 30, mins: 15 })
+                  }
+                }}
+                disabled={rewards.balance < 30}
+                className={`w-full rounded-xl p-3 text-sm font-bold transition flex flex-col items-center justify-center gap-1 ${
+                  rewards.balance >= 30 
+                    ? "bg-[#d6f4ad] text-[#17352b] hover:bg-[#c5e69c] shadow-[0_0_10px_rgba(214,244,173,0.2)]" 
+                    : "bg-white/5 text-white/40 cursor-not-allowed"
+                }`}
+              >
+                <span className="text-2xl">⏳</span>
+                <span>Get 15 Mins</span>
+                <span className="text-[10px] opacity-70">-30 pts</span>
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 rounded-[28px] border border-white/15 bg-white/8 p-5 space-y-3">

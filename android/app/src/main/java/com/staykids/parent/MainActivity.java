@@ -5,7 +5,13 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.BroadcastReceiver;
 import android.content.pm.PackageManager;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -13,6 +19,11 @@ import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Log;
 import androidx.core.content.ContextCompat;
+import java.util.Calendar;
+import com.google.android.gms.location.Geofence;
+import com.google.android.gms.location.GeofencingClient;
+import com.google.android.gms.location.GeofencingRequest;
+import com.google.android.gms.location.LocationServices;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
@@ -55,12 +66,51 @@ public class MainActivity extends BridgeActivity {
     public static class StayKidsNativePlugin extends Plugin {
 
         private StayKidsCameraService cameraService;
+        private MediaPlayer sirenPlayer;
+        private GeofencingClient geofencingClient;
+        private BroadcastReceiver geofenceReceiver;
+
+        @Override
+        public void load() {
+            super.load();
+            geofenceReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if ("com.staykids.parent.GEOFENCE_EVENT".equals(intent.getAction())) {
+                        String transition = intent.getStringExtra("transition");
+                        JSObject data = new JSObject();
+                        data.put("transition", transition);
+                        notifyListeners("geofence_alert", data);
+                    }
+                }
+            };
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                getContext().registerReceiver(geofenceReceiver, new android.content.IntentFilter("com.staykids.parent.GEOFENCE_EVENT"), Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                getContext().registerReceiver(geofenceReceiver, new android.content.IntentFilter("com.staykids.parent.GEOFENCE_EVENT"));
+            }
+        }
+
+        @Override
+        protected void handleOnDestroy() {
+            super.handleOnDestroy();
+            if (geofenceReceiver != null) {
+                getContext().unregisterReceiver(geofenceReceiver);
+            }
+        }
 
         private StayKidsCameraService getCameraService() {
             if (cameraService == null) {
                 cameraService = new StayKidsCameraService(getContext());
             }
             return cameraService;
+        }
+
+        private GeofencingClient getGeofencingClient() {
+            if (geofencingClient == null) {
+                geofencingClient = LocationServices.getGeofencingClient(getContext());
+            }
+            return geofencingClient;
         }
 
         @PluginMethod
@@ -155,6 +205,29 @@ public class MainActivity extends BridgeActivity {
             } catch (Exception e) {
                 call.reject("Failed to query installed apps: " + e.getMessage());
             }
+        }
+
+        @PluginMethod
+        public void updateWebFilter(PluginCall call) {
+            Boolean enabled = call.getBoolean("enabled", false);
+            StayKidsAccessibilityService.setWebFilterEnabled(enabled);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        }
+
+        @PluginMethod
+        public void setDailyLimit(PluginCall call) {
+            int limit = call.getInt("limit", -1);
+            android.content.SharedPreferences prefs = getContext().getSharedPreferences("StayKidsPrefs", android.content.Context.MODE_PRIVATE);
+            prefs.edit().putInt("dailyLimit", limit).apply();
+            
+            android.content.Intent serviceIntent = new android.content.Intent(getContext(), StayKidsUsageService.class);
+            getContext().startService(serviceIntent);
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
         }
 
         @PluginMethod
@@ -553,6 +626,135 @@ public class MainActivity extends BridgeActivity {
             JSObject ret = new JSObject();
             ret.put("active", getCameraService().isLiveStreaming());
             call.resolve(ret);
+        }
+
+        // --- Phase 2: Anti-Theft Siren ---
+        @PluginMethod
+        public void triggerSiren(PluginCall call) {
+            try {
+                AudioManager audioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+                if (audioManager != null) {
+                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM, audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0);
+                }
+                if (sirenPlayer != null) {
+                    sirenPlayer.stop();
+                    sirenPlayer.release();
+                }
+                Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+                if (alarmUri == null) {
+                    alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                }
+                sirenPlayer = new MediaPlayer();
+                sirenPlayer.setDataSource(getContext(), alarmUri);
+                sirenPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
+                sirenPlayer.setLooping(true);
+                sirenPlayer.prepare();
+                sirenPlayer.start();
+                call.resolve(new JSObject().put("success", true));
+            } catch (Exception e) {
+                call.reject("Failed to trigger siren: " + e.getMessage());
+            }
+        }
+
+        @PluginMethod
+        public void stopSiren(PluginCall call) {
+            try {
+                if (sirenPlayer != null) {
+                    if (sirenPlayer.isPlaying()) {
+                        sirenPlayer.stop();
+                    }
+                    sirenPlayer.release();
+                    sirenPlayer = null;
+                }
+                call.resolve(new JSObject().put("success", true));
+            } catch (Exception e) {
+                call.reject("Failed to stop siren: " + e.getMessage());
+            }
+        }
+
+        // --- Phase 2: Bedtime Enforcement ---
+        @PluginMethod
+        public void setBedtimeSchedule(PluginCall call) {
+            String time = call.getString("time", "21:00"); // format HH:mm
+            try {
+                String[] parts = time.split(":");
+                int hour = Integer.parseInt(parts[0]);
+                int minute = Integer.parseInt(parts[1]);
+
+                Calendar calendar = Calendar.getInstance();
+                calendar.setTimeInMillis(System.currentTimeMillis());
+                calendar.set(Calendar.HOUR_OF_DAY, hour);
+                calendar.set(Calendar.MINUTE, minute);
+                calendar.set(Calendar.SECOND, 0);
+
+                if (calendar.getTimeInMillis() <= System.currentTimeMillis()) {
+                    calendar.add(Calendar.DAY_OF_YEAR, 1);
+                }
+
+                AlarmManager alarmManager = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+                Intent intent = new Intent(getContext(), StayKidsBedtimeReceiver.class);
+                
+                int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    flags |= PendingIntent.FLAG_IMMUTABLE;
+                }
+                PendingIntent pendingIntent = PendingIntent.getBroadcast(getContext(), 0, intent, flags);
+
+                if (alarmManager != null) {
+                    alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), AlarmManager.INTERVAL_DAY, pendingIntent);
+                    call.resolve(new JSObject().put("success", true).put("message", "Bedtime scheduled at " + time));
+                } else {
+                    call.reject("AlarmManager not available.");
+                }
+            } catch (Exception e) {
+                call.reject("Failed to set bedtime: " + e.getMessage());
+            }
+        }
+
+        // --- Phase 2: Geofencing ---
+        @PluginMethod
+        public void addGeofence(PluginCall call) {
+            Double lat = call.getDouble("latitude");
+            Double lng = call.getDouble("longitude");
+            Double radius = call.getDouble("radius", 100.0);
+            String geofenceId = call.getString("id", "safe_zone_1");
+
+            if (lat == null || lng == null) {
+                call.reject("Latitude and longitude are required.");
+                return;
+            }
+            
+            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                call.reject("Location permission not granted.");
+                return;
+            }
+
+            try {
+                Geofence geofence = new Geofence.Builder()
+                        .setRequestId(geofenceId)
+                        .setCircularRegion(lat, lng, radius.floatValue())
+                        .setExpirationDuration(Geofence.NEVER_EXPIRE)
+                        .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_EXIT)
+                        .build();
+
+                GeofencingRequest geofencingRequest = new GeofencingRequest.Builder()
+                        .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+                        .addGeofence(geofence)
+                        .build();
+
+                Intent intent = new Intent(getContext(), StayKidsGeofenceReceiver.class);
+                int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    flags |= PendingIntent.FLAG_MUTABLE;
+                }
+                PendingIntent pendingIntent = PendingIntent.getBroadcast(getContext(), 0, intent, flags);
+
+                getGeofencingClient().addGeofences(geofencingRequest, pendingIntent)
+                        .addOnSuccessListener(aVoid -> call.resolve(new JSObject().put("success", true)))
+                        .addOnFailureListener(e -> call.reject("Failed to add geofence: " + e.getMessage()));
+            } catch (Exception e) {
+                call.reject("Exception setting up geofence: " + e.getMessage());
+            }
         }
 
     }

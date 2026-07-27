@@ -111,31 +111,38 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
 
       {/* Geofence Zones */}
       <div className="rounded-[24px] border border-[#e1e7e8] bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="text-xl">📍</span>
-          <div>
-            <p className="font-bold text-sm text-[#172226]">Geofencing — Coming Soon</p>
-            <p className="text-xs text-[#71807a]">Set safe zones and get alerts when your child arrives or leaves.</p>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">📍</span>
+            <div>
+              <p className="font-bold text-sm text-[#172226]">Geofencing (Safe Zones)</p>
+              <p className="text-xs text-[#71807a]">Alert if {state.child.name} leaves current location (500m radius)</p>
+            </div>
           </div>
+          <button
+            onClick={() => onAction({ type: "toggle-geofence" })}
+            className={`relative h-7 w-12 rounded-full transition-colors duration-200 ${controls.geofence ? "bg-[#43a878]" : "bg-[#d8e0e3]"}`}
+          >
+            <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all duration-200 ${controls.geofence ? "left-6" : "left-1"}`} />
+          </button>
         </div>
       </div>
 
       {/* Anti-Theft Siren Alarm */}
-      <div className="flex items-center justify-between rounded-[24px] border border-[#ffcdd2] bg-[#fff5f5] p-5 shadow-sm opacity-50">
+      <div className={`flex items-center justify-between rounded-[24px] border p-5 shadow-sm transition-opacity ${state.remote?.alarmActive ? "border-[#ef4444] bg-[#fef2f2]" : "border-[#ffcdd2] bg-[#fff5f5]"}`}>
         <div className="flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#feebee] text-xl">🚨</span>
           <div>
-            <p className="font-bold text-sm text-[#172226]">Anti-Theft Siren Alarm <span className="text-[10px] bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-medium ml-1">(Coming Soon)</span></p>
-            <p className="text-xs text-[#71807a]">Ring loud alarm on child device if lost or stolen</p>
+            <p className="font-bold text-sm text-[#172226]">Anti-Theft Siren Alarm</p>
+            <p className="text-xs text-[#71807a]">{state.remote?.alarmActive ? "Alarm is currently RINGING!" : "Ring loud alarm on child device if lost or stolen"}</p>
           </div>
         </div>
         <button
           type="button"
-          disabled
-          onClick={() => {}}
-          className="rounded-xl px-3.5 py-2 text-xs font-bold transition bg-[#feebee] text-[#c62828] cursor-not-allowed"
+          onClick={() => onAction({ type: "trigger-alarm" })}
+          className={`rounded-xl px-3.5 py-2 text-xs font-bold transition ${state.remote?.alarmActive ? "bg-[#ef4444] text-white" : "bg-[#feebee] text-[#c62828] hover:bg-[#ffcdd2]"}`}
         >
-          Ring Siren 🚨
+          {state.remote?.alarmActive ? "Stop Siren ⏹" : "Ring Siren 🚨"}
         </button>
       </div>
 
@@ -143,8 +150,18 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
         <div key={key} className="flex items-center gap-3 rounded-[20px] border border-[#e1e7e8] bg-white p-4 shadow-sm">
           <Icon name={icon} />
           <div className="min-w-0 flex-1">
-            <p className="font-bold">{title}</p>
-            <p className="truncate text-sm text-[#72808a]">{desc}</p>
+            <p className="font-bold flex items-center gap-2">
+              {title}
+              {key === "bedtime" && (
+                <input 
+                  type="time" 
+                  className="bg-gray-100 text-xs px-2 py-0.5 rounded font-medium focus:outline-none"
+                  value={state.controls.bedtimeSchedule || "21:00"}
+                  onChange={(e) => onAction({ type: "set-bedtime", bedtime: e.target.value })}
+                />
+              )}
+            </p>
+            <p className="truncate text-sm text-[#72808a]">{key === "bedtime" ? "Locks phone completely at scheduled time" : desc}</p>
           </div>
           <button
             onClick={() => onAction({ type: "toggle-control", key })}
@@ -179,16 +196,36 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
                     <p className="text-xs text-[#71807a]">{app.category} · {isBlocked ? "Blocked" : "Allowed"}</p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onAction({ type: "toggle-app-lock", appName: app.name })
-                    syncNativeAppBlock(app.packageName || app.name, !isBlocked).catch(() => {})
-                  }}
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition hover:scale-105 ${isBlocked ? "bg-[#feebee] text-[#c62828] border border-[#ffcdd2]" : "bg-[#f3faee] text-[#287555] border border-[#c5e6b9]"}`}
-                >
-                  {isBlocked ? "Blocked 🚫" : "Allowed ✓"}
-                </button>
+                <div className="flex flex-col items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAction({ type: "toggle-app-lock", appName: app.name })
+                      syncNativeAppBlock(app.packageName || app.name, !isBlocked).catch(() => {})
+                    }}
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition hover:scale-105 w-[90px] text-center ${isBlocked ? "bg-[#feebee] text-[#c62828] border border-[#ffcdd2]" : "bg-[#f3faee] text-[#287555] border border-[#c5e6b9]"}`}
+                  >
+                    {isBlocked ? "Blocked 🚫" : "Allowed ✓"}
+                  </button>
+                  
+                  {!isBlocked && (
+                    <div className="flex items-center gap-1.5 bg-[#f0f4f4] px-2 py-1 rounded-lg">
+                      <span className="text-[10px] text-[#71807a]">Limit:</span>
+                      <input 
+                        type="number"
+                        placeholder="No limit"
+                        className="w-12 bg-transparent text-[11px] font-bold text-[#172226] focus:outline-none"
+                        onChange={(e) => {
+                          const val = Number(e.target.value)
+                          if (val > 0) {
+                            onAction({ type: "set-app-limit", appName: app.name, limit: val })
+                          }
+                        }}
+                      />
+                      <span className="text-[10px] text-[#71807a]">min</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )
           })}

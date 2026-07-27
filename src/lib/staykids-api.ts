@@ -1,6 +1,6 @@
 import { projectId, publicAnonKey } from "../../utils/supabase/info"
 
-const base = `https://${projectId}.supabase.co/functions/v1/make-server-2d83519f`
+const base = import.meta.env.VITE_API_URL || `https://${projectId}.supabase.co/functions/v1/make-server-2d83519f`
 
 export type ChildDeviceInfo = {
   id: string
@@ -19,21 +19,29 @@ export type StayKidsState = {
   children?: ChildDeviceInfo[]
   child: ChildDeviceInfo
   usage: { minutes: number; limit: number; topApps: string[] }
-  controls: Record<string, boolean>
+  controls: Record<string, boolean> & { bedtimeSchedule?: string }
   blockedApps?: Record<string, boolean>
   rewards: { earned: number; balance: number }
   alerts: { id: string; title: string; detail: string; time: string; read: boolean }[]
   remote: { status: string; tool: string; consentRequired: boolean; audioActive: boolean; alarmActive?: boolean; lastSnapshotTime?: string; mirrorStreamActive?: boolean; lastSignal?: any; lastTouchAction?: string; liveFrame?: string; connectionState?: string; liveAudioChunk?: string }
 }
 
-let inMemoryToken: string | null = typeof window !== "undefined" ? localStorage.getItem("staykids_jwt_token") : null
+import { Preferences } from '@capacitor/preferences'
 
-export const setAuthToken = (token: string | null) => {
+let inMemoryToken: string | null = null
+
+export const loadAuthToken = async () => {
+  const { value } = await Preferences.get({ key: 'staykids_jwt_token' })
+  inMemoryToken = value
+  return value
+}
+
+export const setAuthToken = async (token: string | null) => {
   inMemoryToken = token
   if (token) {
-    localStorage.setItem("staykids_jwt_token", token)
+    await Preferences.set({ key: 'staykids_jwt_token', value: token })
   } else {
-    localStorage.removeItem("staykids_jwt_token")
+    await Preferences.remove({ key: 'staykids_jwt_token' })
   }
 }
 
@@ -208,7 +216,7 @@ const request = async (path: string, init?: RequestInit, isIdempotentRead = fals
     throw new Error("Server unavailable. Check your internet connection.")
   }
 
-  return defaultLocalState
+  throw new Error("Failed to fetch data. Please check your connection.");
 }
 
 export const getStayKidsState = () => request("/state", undefined, true) as Promise<StayKidsState>

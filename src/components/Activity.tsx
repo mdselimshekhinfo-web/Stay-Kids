@@ -21,17 +21,12 @@ export function Activity({ state }: { state: StayKidsState }) {
         {["Today", "7 days", "30 days"].map((label) => (
           <button
             key={label}
-            onClick={() => {
-              if (label !== "Today") return;
-              setTimeframe(label)
-            }}
-            disabled={label !== "Today"}
+            onClick={() => setTimeframe(label)}
             className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition flex items-center gap-1 ${
               timeframe === label ? "bg-[#1d5946] text-white" : "bg-[#edf1f2] text-[#6f7b82]"
-            } ${label !== "Today" ? "opacity-50 cursor-not-allowed" : ""}`}
+            }`}
           >
             {label}
-            {label !== "Today" && <span className="text-[10px] font-normal ml-1">(Coming Soon)</span>}
             {timeframe === label && <span className="text-[10px] font-normal opacity-80">(Live Data)</span>}
           </button>
         ))}
@@ -59,18 +54,43 @@ export function Activity({ state }: { state: StayKidsState }) {
         <h2 className="font-bold text-[#172226] flex items-center gap-2 mb-3">
           <span className="text-[#287555]">📱</span> Top Apps
         </h2>
-        {usage.topApps && usage.topApps.length > 0 ? (
-          <ul className="space-y-2">
-            {usage.topApps.map((app, idx) => (
-              <li key={idx} className="flex items-center gap-2 text-sm font-medium text-[#46545b] bg-[#f7faf8] p-3 rounded-xl border border-[#e4eae6]">
-                <span className="text-[#287555]">✓</span> {app}
-              </li>
-            ))}
-          </ul>
+        {timeframe === "Today" ? (
+          usage.topApps && usage.topApps.length > 0 ? (
+            <ul className="space-y-2">
+              {usage.topApps.map((app, idx) => (
+                <li key={idx} className="flex items-center gap-2 text-sm font-medium text-[#46545b] bg-[#f7faf8] p-3 rounded-xl border border-[#e4eae6]">
+                  <span className="text-[#287555]">✓</span> {app}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-center py-4 bg-[#f9fbfb] rounded-xl border border-[#edf1f2]">
+              <span className="text-2xl mb-1 block">📊</span>
+              <p className="text-sm text-[#71807a]">Activity data will appear as your child uses their device</p>
+            </div>
+          )
         ) : (
-          <div className="text-center py-4 bg-[#f9fbfb] rounded-xl border border-[#edf1f2]">
-            <span className="text-2xl mb-1 block">📊</span>
-            <p className="text-sm text-[#71807a]">Activity data will appear as your child uses their device</p>
+          <div>
+            {usage.history && usage.history.length > 0 ? (
+              <div className="h-40 flex items-end justify-between gap-1 mt-4">
+                {usage.history.slice(0, timeframe === "7 days" ? 7 : 30).reverse().map((day: any, i: number) => {
+                  const h = Math.min(100, (day.minutes_used / usage.limit) * 100);
+                  return (
+                    <div key={i} className="flex flex-col items-center flex-1">
+                      <div className="w-full bg-[#edf1f2] rounded-t-sm" style={{ height: '100px', display: 'flex', alignItems: 'flex-end' }}>
+                        <div className="w-full bg-[#287555] rounded-t-sm" style={{ height: `${h}%` }}></div>
+                      </div>
+                      <span className="text-[9px] text-[#71807a] mt-1">{new Date(day.date).getDate()}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-4 bg-[#f9fbfb] rounded-xl border border-[#edf1f2]">
+                <span className="text-2xl mb-1 block">📊</span>
+                <p className="text-sm text-[#71807a]">No history data available for {timeframe}</p>
+              </div>
+            )}
           </div>
         )}
       </div>
