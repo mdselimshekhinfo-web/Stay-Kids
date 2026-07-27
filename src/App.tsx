@@ -79,7 +79,10 @@ export default function App() {
     const savedEmail = localStorage.getItem("staykids_user_email") || ""
     return { name: savedName, email: savedEmail }
   })
-  const [ready, setReady] = useState<boolean>(() => Boolean(getAuthToken() || selectedRole === "child"))
+  const [ready, setReady] = useState<boolean>(() => {
+    if (selectedRole === "child") return true
+    return Boolean(getAuthToken())
+  })
   const [role, setRole] = useState<"parent" | "child">(() => selectedRole || "parent")
   const [tab, setTab] = useState("Home")
   const [state, setState] = useState<StayKidsState>(initialDefaultState)
@@ -321,23 +324,13 @@ export default function App() {
           localStorage.setItem("staykids_user_email", authenticatedUser.email)
           setAuthenticated(true)
           setReady(true)
+          setRole("parent")
         }}
       />
     )
   }
 
-  if (!ready) {
-    return (
-      <Onboarding
-        defaultRole="parent"
-        activeChildId={state.activeChildId || state.child?.id || "child-1"}
-        complete={(nextRole) => {
-          setRole(nextRole)
-          setReady(true)
-        }}
-      />
-    )
-  }
+  // Parent is authenticated — go straight to main app (no second onboarding gate)
 
   return (
     <main className="min-h-screen bg-[#dfe8df] font-[#172226] font-sans">
