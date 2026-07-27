@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import type { StayKidsState } from "../lib/staykids-api"
 import {
   captureNativeSnapshot,
@@ -7,6 +7,9 @@ import {
   stopNativeScreenShare,
   triggerRemoteNavigation,
   stopNativeAudioCapture,
+  startNativeLiveCamera,
+  stopNativeLiveCamera,
+  listenCameraFrame,
 } from "../lib/native"
 import { triggerToast } from "./Toast"
 
@@ -15,7 +18,17 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
   const [fullscreen, setFullscreen] = useState(true)
   const [activeSession, setActiveSession] = useState<string | null>("Live Camera")
   const [camFacing, setCamFacing] = useState<"environment" | "user">("environment")
+  const [cameraStreaming, setCameraStreaming] = useState(false)
+  const [liveCamFrame, setLiveCamFrame] = useState<string | null>(null)
   const audio = state.remote.audioActive
+
+  useEffect(() => {
+    if (!cameraStreaming) return
+    const unlisten = listenCameraFrame((frame) => {
+      setLiveCamFrame(frame)
+    })
+    return () => unlisten()
+  }, [cameraStreaming])
 
   const tools = [
     ["Live Camera", "📷", "View child surroundings"],
@@ -58,6 +71,11 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               setTool(name)
               setFullscreen(true)
               setActiveSession(name)
+              if (cameraStreaming) {
+                stopNativeLiveCamera()
+                setCameraStreaming(false)
+                setLiveCamFrame(null)
+              }
               onAction({ type: "select-remote-tool", tool: name })
             }}
             className={`rounded-[20px] border p-4 text-left transition ${tool === name ? "border-[#43a878] bg-[#f3faee] shadow-sm" : "border-[#e1e7e8] bg-white"}`}
@@ -82,49 +100,106 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
 
         {/* 1. Live Camera Surroundings View */}
         {tool === "Live Camera" && (
-          <div className="fixed inset-0 z-[100] bg-black flex flex-col p-4 space-y-4 overflow-y-auto">
-            <div className="relative overflow-hidden rounded-2xl bg-[#111c18] border border-[#287555] p-4 text-white text-center flex flex-col items-center justify-center flex-1">
-              <button type="button" onClick={() => setFullscreen(false)} className="absolute top-4 right-4 z-[110] text-xl text-white bg-white/20 rounded-full h-10 w-10 flex items-center justify-center backdrop-blur-md">✕</button>
-              <span className="absolute top-3 left-3 rounded-full bg-[#feebee] px-2.5 py-0.5 text-[10px] font-bold text-[#c62828] animate-pulse flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#c62828]" /> 🔴 SURROUNDINGS FEED ({camFacing === "environment" ? "Rear Camera" : "Front Camera"})
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col p-4 space-y-3 overflow-y-auto text-white">
+            <button type="button" onClick={() => setFullscreen(false)} className="absolute top-4 right-4 z-[110] text-xl text-white bg-white/20 rounded-full h-10 w-10 flex items-center justify-center backdrop-blur-md">✕</button>
+            
+            <div className="flex items-center justify-between pr-14">
+              <span className="rounded-full bg-[#feebee] px-2.5 py-0.5 text-[10px] font-bold text-[#c62828] animate-pulse flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#c62828]" /> 📷 SURROUNDINGS ({camFacing === "environment" ? "Rear Camera" : "Front Camera"})
               </span>
-
-              <div className="my-6 space-y-2">
-                <span className="text-4xl">📷</span>
-                <p className="text-xs font-bold text-[#d6f4ad]">Live Camera Stream & Instant Photo View</p>
-                <p className="text-[11px] text-[#a1b8ae]">
-                  সন্তান বিপদে পড়লে আশপাশের পরিস্থিতি রিয়েল-টাইমে দেখতে নিচে সাইলেন্ট স্ন্যাপশট বাটনে চাপ দিন।
-                </p>
-              </div>
-
-              {state.remote.lastSnapshotTime && (
-                <div className="w-full rounded-xl bg-black/60 p-2.5 text-[11px] text-[#d6f4ad]">
-                  ✓ Last Surroundings Snapshot Captured: {state.remote.lastSnapshotTime}
+              <span className={`text-[10px] font-mono font-bold ${cameraStreaming && liveCamFrame ? "text-[#baf26b]" : cameraStreaming ? "text-[#ffe082] animate-pulse" : "text-[#869690]"}`}>
+                {cameraStreaming && liveCamFrame ? "🔴 LIVE STREAMING" : cameraStreaming ? "🟡 CONNECTING..." : "⚪ IDLE"}
+              </span>
+            </div>
+            
+            <div className="relative flex flex-1 w-full flex-col items-center justify-center rounded-xl border border-[#287555] bg-black text-center overflow-hidden">
+              {liveCamFrame && cameraStreaming ? (
+                <div className="relative h-full w-full flex items-center justify-center bg-black">
+                  <img src={liveCamFrame} alt="Live Camera Feed" className="flex-1 w-full h-full object-contain shadow-2xl" />
+                  <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold text-[#baf26b] border border-[#baf26b]/40 backdrop-blur-md">
+                    <span className="h-2 w-2 rounded-full bg-[#baf26b] animate-ping" />
+                    <span>🔴 LIVE SURROUNDINGS FEED</span>
+                  </div>
+                </div>
+              ) : cameraStreaming ? (
+                <div className="space-y-3 p-6">
+                  <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[#baf26b] border-t-transparent" />
+                  <p className="text-sm font-bold text-[#e1ece7]">Connecting to Child Camera...</p>
+                  <p className="text-xs text-[#869690]">Initializing {camFacing === "environment" ? "rear" : "front"} camera stream.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 p-6">
+                  <span className="text-4xl">📷</span>
+                  <p className="text-sm font-bold text-[#e1ece7]">Live Camera Stream Ready</p>
+                  <p className="text-xs text-[#869690] max-w-xs">
+                    Tap "Start Live Camera" below to begin continuous real-time surroundings video stream from child device camera.
+                  </p>
                 </div>
               )}
             </div>
-
-            <div className="flex gap-2">
+            
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setCamFacing(camFacing === "environment" ? "user" : "environment")}
-                className="flex-1 rounded-xl border border-[#a9c9b2] bg-[#f3faee] py-3 text-xs font-bold text-[#287555] hover:bg-[#e7f5e1] transition"
+                onClick={async () => {
+                  if (!cameraStreaming) {
+                    setCameraStreaming(true)
+                    setLiveCamFrame(null)
+                    const res = await startNativeLiveCamera(camFacing)
+                    if (res.error) {
+                      setCameraStreaming(false)
+                      triggerToast("Camera Error: " + res.error, "error")
+                    }
+                  } else {
+                    await stopNativeLiveCamera()
+                    setCameraStreaming(false)
+                    setLiveCamFrame(null)
+                  }
+                }}
+                className={`w-full rounded-xl py-3 text-xs font-bold transition shadow-sm ${cameraStreaming ? "bg-[#c62828] text-white hover:bg-[#b71c1c]" : "bg-[#287555] text-white hover:bg-[#1f5c43]"}`}
               >
-                🔄 Switch ({camFacing === "environment" ? "Rear → Front" : "Front → Rear"})
+                {cameraStreaming ? "Stop Live Camera ⏹" : "Start Live Camera 🔴"}
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  onAction({ type: "capture-snapshot", facing: camFacing })
-                  captureNativeSnapshot().catch(() => {
-                    triggerToast("Snapshot failed — check child camera permissions & connection", "error")
-                  })
+                onClick={async () => {
+                  const newFacing = camFacing === "environment" ? "user" : "environment"
+                  setCamFacing(newFacing)
+                  if (cameraStreaming) {
+                    await stopNativeLiveCamera()
+                    setLiveCamFrame(null)
+                    setCameraStreaming(true)
+                    const res = await startNativeLiveCamera(newFacing)
+                    if (res.error) {
+                      setCameraStreaming(false)
+                      triggerToast("Camera switch failed: " + res.error, "error")
+                    }
+                  }
                 }}
-                className="flex-1 rounded-xl bg-[#287555] py-3 text-xs font-bold text-white hover:bg-[#1f5c43] transition shadow-md"
+                className="w-full rounded-xl bg-[#287555]/30 border border-[#287555] py-3 text-xs font-bold text-white hover:bg-[#287555]/50 transition"
               >
-                📷 Capture Surroundings Photo
+                🔄 {camFacing === "environment" ? "Switch to Front" : "Switch to Rear"}
               </button>
             </div>
+            
+            <button
+              type="button"
+              onClick={() => {
+                onAction({ type: "capture-snapshot", facing: camFacing })
+                captureNativeSnapshot().catch(() => {
+                  triggerToast("Snapshot failed — check child camera permissions & connection", "error")
+                })
+              }}
+              className="w-full rounded-xl bg-white/10 border border-white/20 py-2.5 text-xs font-bold text-white/80 hover:bg-white/20 transition"
+            >
+              📷 Take Single Snapshot
+            </button>
+            
+            {state.remote.lastSnapshotTime && (
+              <p className="text-xs text-center text-[#baf26b] font-semibold">
+                ✓ Snapshot captured at {state.remote.lastSnapshotTime}
+              </p>
+            )}
           </div>
         )}
 

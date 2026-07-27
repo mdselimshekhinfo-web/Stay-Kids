@@ -27,6 +27,9 @@ export interface StayKidsNativePlugin {
   startAudioCapture(): Promise<{ success: boolean; capturing?: boolean; error?: string }>
   stopAudioCapture(): Promise<{ success: boolean; capturing?: boolean }>
   isAudioCapturing(): Promise<{ capturing: boolean }>
+  startLiveCamera(options: { facing: string }): Promise<{ success: boolean; streaming?: boolean; error?: string }>
+  stopLiveCamera(): Promise<{ success: boolean }>
+  isLiveCameraActive(): Promise<{ active: boolean }>
 }
 
 const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative")
@@ -298,5 +301,38 @@ export const fetchNativeInstalledApps = async (): Promise<{ name: string; packag
   } catch (_e) {
     console.warn("StayKidsNative: Query installed apps simulated in web mode.")
     return []
+  }
+}
+
+export const startNativeLiveCamera = async (facing: "environment" | "user" = "environment"): Promise<{ success: boolean; error?: string }> => {
+  try {
+    return await StayKidsNative.startLiveCamera({ facing })
+  } catch (e: any) {
+    console.warn("StayKidsNative: Live camera simulated in web mode.")
+    return { success: true }
+  }
+}
+
+export const stopNativeLiveCamera = async (): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.stopLiveCamera()
+    return res.success ?? false
+  } catch (_e) {
+    return true
+  }
+}
+
+export const listenCameraFrame = (callback: (frameBase64: string) => void): (() => void) => {
+  try {
+    const handlePromise = StayKidsNative.addListener("cameraFrame", (data: any) => {
+      if (data && data.frame) {
+        callback(data.frame)
+      }
+    })
+    return () => {
+      handlePromise.then((h) => h.remove()).catch(() => {})
+    }
+  } catch (_e) {
+    return () => {}
   }
 }

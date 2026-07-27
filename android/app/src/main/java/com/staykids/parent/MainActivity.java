@@ -54,6 +54,15 @@ public class MainActivity extends BridgeActivity {
     )
     public static class StayKidsNativePlugin extends Plugin {
 
+        private StayKidsCameraService cameraService;
+
+        private StayKidsCameraService getCameraService() {
+            if (cameraService == null) {
+                cameraService = new StayKidsCameraService(getContext());
+            }
+            return cameraService;
+        }
+
         @PluginMethod
         public void isAccessibilityEnabled(PluginCall call) {
             boolean enabled = false;
@@ -504,6 +513,46 @@ public class MainActivity extends BridgeActivity {
             } catch (Exception e) {
                 call.resolve(new JSObject().put("capturing", false));
             }
+        }
+
+        @PluginMethod
+        public void startLiveCamera(PluginCall call) {
+            String facing = call.getString("facing", "environment");
+            getCameraService().startLiveStream(facing, new StayKidsCameraService.LiveFrameCallback() {
+                @Override
+                public void onFrame(byte[] jpegData) {
+                    String base64 = android.util.Base64.encodeToString(jpegData, android.util.Base64.NO_WRAP);
+                    JSObject frameEvent = new JSObject();
+                    frameEvent.put("frame", "data:image/jpeg;base64," + base64);
+                    notifyListeners("cameraFrame", frameEvent);
+                }
+                @Override
+                public void onError(String error) {
+                    JSObject ret = new JSObject();
+                    ret.put("success", false);
+                    ret.put("error", error);
+                    call.reject(error);
+                }
+            });
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("streaming", true);
+            call.resolve(ret);
+        }
+
+        @PluginMethod
+        public void stopLiveCamera(PluginCall call) {
+            getCameraService().stopLiveStream();
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        }
+
+        @PluginMethod
+        public void isLiveCameraActive(PluginCall call) {
+            JSObject ret = new JSObject();
+            ret.put("active", getCameraService().isLiveStreaming());
+            call.resolve(ret);
         }
 
     }
