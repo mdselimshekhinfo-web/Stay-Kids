@@ -3,9 +3,7 @@
 function getSecretKey(): string {
   const secret = Deno.env.get("JWT_SECRET") || Deno.env.get("SUPABASE_AUTH_JWT_SECRET");
   if (!secret || secret.trim() === "") {
-    const devFallback = "staykids-dev-secret-key-v1-not-for-production";
-    console.warn("[SECURITY WARNING] JWT_SECRET environment variable is missing. Using local dev secret.");
-    return devFallback;
+    throw new Error("JWT_SECRET environment variable is required and must be set in Supabase project secrets.");
   }
   return secret;
 }

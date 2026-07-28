@@ -18,18 +18,26 @@ export function Activity({ state }: { state: StayKidsState }) {
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {["Today", "7 days", "30 days"].map((label) => (
-          <button
-            key={label}
-            onClick={() => setTimeframe(label)}
-            className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition flex items-center gap-1 ${
-              timeframe === label ? "bg-[#1d5946] text-white" : "bg-[#edf1f2] text-[#6f7b82]"
-            }`}
-          >
-            {label}
-            {timeframe === label && <span className="text-[10px] font-normal opacity-80">(Live Data)</span>}
-          </button>
-        ))}
+        {["Today", "7 days", "30 days"].map((label) => {
+          const isAvailable = label === "Today" || (state.usage?.history && state.usage.history.length > 0);
+          return (
+            <button
+              key={label}
+              onClick={() => isAvailable && setTimeframe(label)}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold transition flex items-center gap-1 ${
+                timeframe === label
+                  ? "bg-[#1d5946] text-white"
+                  : isAvailable
+                  ? "bg-[#edf1f2] text-[#6f7b82]"
+                  : "bg-[#edf1f2] text-[#6f7b82]/50 cursor-not-allowed opacity-60"
+              }`}
+            >
+              {label}
+              {timeframe === label && <span className="text-[10px] font-normal opacity-80">(Live Data)</span>}
+              {!isAvailable && <span className="text-[10px] font-normal opacity-60">(Coming Soon)</span>}
+            </button>
+          )
+        })}
       </div>
 
       <div className="rounded-[22px] border border-[#e1e7e8] bg-white p-5 shadow-sm">

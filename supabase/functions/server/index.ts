@@ -162,6 +162,12 @@ app.use(
   }),
 );
 
+// Email Format Validator Helper
+function isValidEmail(email: string): boolean {
+  if (!email || typeof email !== "string") return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
 // Rate Limiter Helper
 async function checkRateLimit(ipOrEmail: string, limit = 5, windowMs = 60000): Promise<boolean> {
   try {
@@ -322,8 +328,8 @@ app.post("/server/auth/signup", async (c) => {
   try {
     const body = await c.req.json();
     const { name, email, password } = body || {};
-    if (!email || !password) {
-      return c.json({ error: "Email and password are required" }, 400);
+    if (!email || !password || !isValidEmail(email)) {
+      return c.json({ error: "A valid email address and password are required." }, 400);
     }
 
     const allowed = await checkRateLimit(email, 5, 60000);
@@ -366,8 +372,8 @@ app.post("/server/auth/verify-otp", async (c) => {
   try {
     const body = await c.req.json();
     const { email, otp } = body || {};
-    if (!email || !otp) {
-      return c.json({ error: "Email and 6-digit OTP code are required" }, 400);
+    if (!email || !otp || !isValidEmail(email)) {
+      return c.json({ error: "A valid email address and 6-digit OTP code are required." }, 400);
     }
 
     const verifyRateKey = `verify-otp:${email.toLowerCase()}`;
@@ -416,7 +422,7 @@ app.post("/server/auth/forgot-password", async (c) => {
   try {
     const body = await c.req.json();
     const { email } = body || {};
-    if (!email) return c.json({ error: "Email is required" }, 400);
+    if (!email || !isValidEmail(email)) return c.json({ error: "A valid email address is required." }, 400);
 
     const allowed = await checkRateLimit(`forgot-pwd:${email.toLowerCase()}`, 3, 10 * 60000);
     if (!allowed) {
@@ -453,8 +459,8 @@ app.post("/server/auth/reset-password", async (c) => {
   try {
     const body = await c.req.json();
     const { email, otp, newPassword } = body || {};
-    if (!email || !otp || !newPassword) {
-      return c.json({ error: "Email, OTP code, and new password are required." }, 400);
+    if (!email || !otp || !newPassword || !isValidEmail(email)) {
+      return c.json({ error: "A valid email address, OTP code, and new password are required." }, 400);
     }
 
     const allowed = await checkRateLimit(`reset-pwd:${email.toLowerCase()}`, 10, 5 * 60000);
@@ -503,7 +509,7 @@ app.post("/server/auth/resend-otp", async (c) => {
   try {
     const body = await c.req.json();
     const { email } = body || {};
-    if (!email) return c.json({ error: "Email is required" }, 400);
+    if (!email || !isValidEmail(email)) return c.json({ error: "A valid email address is required." }, 400);
 
     const allowed = await checkRateLimit(`resend-otp:${email.toLowerCase()}`, 3, 10 * 60000);
     if (!allowed) {
@@ -539,8 +545,8 @@ app.post("/server/auth/login", async (c) => {
   try {
     const body = await c.req.json();
     const { email, password } = body || {};
-    if (!email || !password) {
-      return c.json({ error: "Email and password are required" }, 400);
+    if (!email || !password || !isValidEmail(email)) {
+      return c.json({ error: "A valid email address and password are required." }, 400);
     }
 
     const allowed = await checkRateLimit(email, 5, 60000);

@@ -49,8 +49,10 @@ export const setAuthToken = async (token: string | null) => {
   inMemoryToken = token
   if (token) {
     await Preferences.set({ key: 'staykids_jwt_token', value: token })
+    try { localStorage.setItem('staykids_jwt_token', token) } catch (_e) {}
   } else {
     await Preferences.remove({ key: 'staykids_jwt_token' })
+    try { localStorage.removeItem('staykids_jwt_token') } catch (_e) {}
     await authManager.clearSession()
   }
 }
