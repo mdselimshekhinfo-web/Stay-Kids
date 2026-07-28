@@ -21,12 +21,18 @@ public class StayKidsAccessibilityService extends AccessibilityService {
     private static boolean isWebFilterEnabled = false;
     private static final List<String> BLOCKED_KEYWORDS = Arrays.asList("porn", "xxx", "casino", "gambling", "adult");
 
-    static {
-        blockedPackageNames.add("com.roblox.client");
-        blockedPackageNames.add("com.zhiliaoapp.musically"); // TikTok
-        blockedPackageNames.add("com.google.android.youtube");
-        blockedPackageNames.add("com.instagram.android");
-    }
+    // A.3 Browser coverage for web filter: Chrome, Firefox, Samsung, Xiaomi, Opera, Edge, UC
+    private static final Set<String> BROWSER_PACKAGES = new HashSet<>(Arrays.asList(
+        "com.android.chrome",
+        "org.mozilla.firefox",
+        "com.sec.android.app.sbrowser",
+        "com.mi.globalbrowser",
+        "com.opera.browser",
+        "com.microsoft.emmx",
+        "com.UCMobile.intl"
+    ));
+
+    private static final int MAX_TREE_DEPTH = 20;
 
     @Override
     public void onCreate() {
@@ -89,34 +95,54 @@ public class StayKidsAccessibilityService extends AccessibilityService {
                     return;
                 }
                 
-                if (isWebFilterEnabled && ("com.android.chrome".equals(pkg) || "org.mozilla.firefox".equals(pkg))) {
+                if (isWebFilterEnabled && BROWSER_PACKAGES.contains(pkg)) {
                     AccessibilityNodeInfo source = event.getSource();
                     if (source != null) {
-                        checkNodesForUrl(source);
+                        checkNodesForUrl(source, 0);
                     }
                 }
             }
         }
     }
 
-    private void checkNodesForUrl(AccessibilityNodeInfo node) {
-        if (node == null) return;
+    /**
+     * A.4 Web Filter URL Bar Inspector
+     * Limitation Note: Address-bar URL inspection checks visible url-bar node text against blocked keywords.
+     * Modern browsers may obscure full URLs, display only domain names, run incognito tabs, or use custom
+     * in-app web views. This is an accessibility-layer heuristic, not deep packet content filtering.
+     *
+     * A.5 Tree Walk Depth Limit & Node Recycling Guard
+     */
+    private void checkNodesForUrl(AccessibilityNodeInfo node, int depth) {
+        if (node == null || depth > MAX_TREE_DEPTH) return;
         
-        if (node.getText() != null) {
-            String text = node.getText().toString().toLowerCase();
-            if (node.getViewIdResourceName() != null && node.getViewIdResourceName().contains("url_bar")) {
-                for (String keyword : BLOCKED_KEYWORDS) {
-                    if (text.contains(keyword)) {
-                        Log.w(TAG, "Blocked website detected: " + text + ". Enforcing HOME redirection.");
-                        performGlobalAction(GLOBAL_ACTION_HOME);
-                        return;
+        try {
+            if (node.getText() != null) {
+                String text = node.getText().toString().toLowerCase();
+                if (node.getViewIdResourceName() != null && node.getViewIdResourceName().contains("url_bar")) {
+                    for (String keyword : BLOCKED_KEYWORDS) {
+                        if (text.contains(keyword)) {
+                            Log.w(TAG, "Blocked website detected: " + text + ". Enforcing HOME redirection.");
+                            performGlobalAction(GLOBAL_ACTION_HOME);
+                            return;
+                        }
                     }
                 }
             }
-        }
-        
-        for (int i = 0; i < node.getChildCount(); i++) {
-            checkNodesForUrl(node.getChild(i));
+            
+            int childCount = node.getChildCount();
+            for (int i = 0; i < childCount; i++) {
+                AccessibilityNodeInfo child = node.getChild(i);
+                if (child != null) {
+                    checkNodesForUrl(child, depth + 1);
+                }
+            }
+        } finally {
+            if (android.os.Build.VERSION.SDK_INT < 33) {
+                try {
+                    node.recycle();
+                } catch (Exception ignored) {}
+            }
         }
     }
 

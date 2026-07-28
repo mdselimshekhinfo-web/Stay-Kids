@@ -296,7 +296,6 @@ const defaultState = {
 
 async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "reset" = "signup") {
   const brevoApiKey = Deno.env.get("BREVO_API_KEY") || "";
-  const resendApiKey = Deno.env.get("RESEND_API_KEY") || "";
 
   const subject = type === "signup" 
     ? `StayKids Security Code: ${otp}` 
@@ -334,30 +333,13 @@ async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "re
         }),
       });
       if (res.ok) return true;
+      const errJson = await res.json().catch(() => ({}));
+      console.error(`Brevo API Email Delivery Failure HTTP ${res.status}:`, JSON.stringify(errJson));
     } catch (e) {
       console.error("Brevo fetch error:", e);
     }
-  }
-
-  if (resendApiKey) {
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: "StayKids Security <onboarding@resend.dev>",
-          to: [email],
-          subject,
-          html: htmlContent,
-        }),
-      });
-      if (res.ok) return true;
-    } catch (e) {
-      console.error("Resend fetch error:", e);
-    }
+  } else {
+    console.error("BREVO_API_KEY is not configured in environment variables.");
   }
 
   console.log(`[STAYKIDS OTP CODE FOR ${email}]: ${otp}`);
