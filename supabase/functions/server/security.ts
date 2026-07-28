@@ -206,6 +206,7 @@ export async function signDeviceJwt(payload: { parentEmail: string; deviceId: st
 }
 
 // 3. Persistent, Shared Rate Limiter Backed by KV Store
+// Note on Concurrency (0.1): Performs a read-modify-write via the KV store. Acceptable low-severity trade-off for serverless Edge Functions where atomic increments are not supported by the simple key-value schema.
 export async function checkRateLimit(key: string, maxHits = 5, windowMs = 60000): Promise<boolean> {
   try {
     const storageKey = `ratelimit:${key.toLowerCase()}`;
@@ -222,7 +223,7 @@ export async function checkRateLimit(key: string, maxHits = 5, windowMs = 60000)
     await kv.set(storageKey, record);
     return record.count <= maxHits;
   } catch (_e) {
-    // Fail safe on transient database errors
+    // Fail-Open Trade-Off (0.2): In the event of a transient KV/database error, this catch block returns true (fail-open) to prioritize system availability so legitimate user requests are not locked out during brief DB blips.
     return true;
   }
 }

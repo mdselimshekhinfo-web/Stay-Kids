@@ -2,7 +2,7 @@ import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import * as kv from "./kv_store.tsx";
-import { hashPassword, verifyPassword, signJwt, verifyJwt, signDeviceJwt } from "./security.ts";
+import { hashPassword, verifyPassword, signJwt, verifyJwt, signDeviceJwt, checkRateLimit } from "./security.ts";
 import { createClient } from "npm:@supabase/supabase-js";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -10,12 +10,13 @@ const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function getProfile(email: string) {
-  const { data } = await supabase.from('profiles').select('*').eq('email', email.toLowerCase()).single();
+  const { data } = await supabase.from('profiles').select('*').eq('email', email.toLowerCase()).maybeSingle();
   if (data) return data;
   const { data: newProfile } = await supabase.from('profiles').insert({ email: email.toLowerCase(), full_name: email.split('@')[0] }).select().single();
   return newProfile;
 }
 
+// Optimized getStateFromDB with batched concurrent queries (N+1 pattern eliminated)
 async function getStateFromDB(email: string) {
   try {
     const profile = await getProfile(email);
@@ -36,14 +37,51 @@ async function getStateFromDB(email: string) {
       }));
       state.child = state.children[0];
       state.activeChildId = state.child.id;
-      
       state.perChild = {};
+
+      const childIds = children.map((ch: any) => ch.id);
+
+      // Execute queries concurrently for all children in 1 round-trip batch
+      const [controlsRes, usageRes, alertsRes, blockedRes, historyRes] = await Promise.all([
+        supabase.from('device_controls').select('*').in('child_id', childIds),
+        supabase.from('app_usage').select('*').in('child_id', childIds),
+        supabase.from('alerts').select('*').in('child_id', childIds).order('created_at', { ascending: false }).limit(50),
+        supabase.from('blocked_apps').select('*').in('child_id', childIds),
+        supabase.from('daily_usage_logs').select('*').in('child_id', childIds).order('date', { ascending: false }).limit(30),
+      ]);
+
+      const controlsMap = new Map((controlsRes.data || []).map((c: any) => [c.child_id, c]));
+      const usageMap = new Map((usageRes.data || []).map((u: any) => [u.child_id, u]));
+      
+      const alertsByChild = new Map<string, any[]>();
+      (alertsRes.data || []).forEach((a: any) => {
+        const list = alertsByChild.get(a.child_id) || [];
+        list.push(a);
+        alertsByChild.set(a.child_id, list);
+      });
+
+      const blockedByChild = new Map<string, any[]>();
+      (blockedRes.data || []).forEach((b: any) => {
+        const list = blockedByChild.get(b.child_id) || [];
+        list.push(b);
+        blockedByChild.set(b.child_id, list);
+      });
+
+      const historyByChild = new Map<string, any[]>();
+      (historyRes.data || []).forEach((h: any) => {
+        const list = historyByChild.get(h.child_id) || [];
+        list.push(h);
+        historyByChild.set(h.child_id, list);
+      });
+
+      const allAlerts: any[] = [];
+
       for (const ch of children) {
-        const { data: controls } = await supabase.from('device_controls').select('*').eq('child_id', ch.id).single();
-        const { data: usage } = await supabase.from('app_usage').select('*').eq('child_id', ch.id).order('date', { ascending: false }).limit(1).single();
-        const { data: alerts } = await supabase.from('alerts').select('*').eq('child_id', ch.id);
-        const { data: blockedApps } = await supabase.from('blocked_apps').select('*').eq('child_id', ch.id);
-        const { data: history } = await supabase.from('daily_usage_logs').select('*').eq('child_id', ch.id).order('date', { ascending: false }).limit(30);
+        const controls = controlsMap.get(ch.id);
+        const usage = usageMap.get(ch.id);
+        const alerts = alertsByChild.get(ch.id) || [];
+        const blockedApps = blockedByChild.get(ch.id) || [];
+        const history = historyByChild.get(ch.id) || [];
 
         const chControls = controls ? {
           paused: controls.is_paused,
@@ -56,10 +94,21 @@ async function getStateFromDB(email: string) {
           minutes: usage.total_minutes,
           limit: controls?.daily_limit_minutes || 120,
           topApps: usage.top_apps || [],
-          history: history || []
-        } : { ...state.usage, history: history || [] };
+          history: history
+        } : { ...state.usage, history: history };
         
-        const chBlockedApps = blockedApps ? blockedApps.reduce((acc: any, curr: any) => ({...acc, [curr.package_name]: curr.is_blocked}), {}) : {};
+        const chBlockedApps = blockedApps.reduce((acc: any, curr: any) => ({...acc, [curr.package_name]: curr.is_blocked}), {});
+
+        alerts.forEach((a: any) => {
+          allAlerts.push({
+            id: a.id,
+            category: a.category || "activity",
+            title: a.title || "Notification",
+            detail: a.description || a.detail || "",
+            time: a.created_at ? new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recently",
+            read: !!a.is_read,
+          });
+        });
 
         state.perChild[ch.id] = {
           controls: chControls,
@@ -67,6 +116,8 @@ async function getStateFromDB(email: string) {
           blockedApps: chBlockedApps,
         };
       }
+
+      state.alerts = allAlerts.sort((a, b) => Number(b.id) - Number(a.id));
       
       const activeData = state.perChild[state.activeChildId];
       if (activeData) {
@@ -124,11 +175,24 @@ async function saveStateToDB(email: string, state: any) {
         }
       }
     }
+
+    // Persist active alerts to database
+    if (state.alerts && Array.isArray(state.alerts)) {
+      for (const alert of state.alerts.slice(0, 20)) {
+        await supabase.from('alerts').upsert({
+          id: alert.id,
+          child_id: state.activeChildId || state.child?.id || "child-1",
+          title: alert.title,
+          description: alert.detail || alert.description || "",
+          category: alert.category || "activity",
+          is_read: !!alert.read,
+        });
+      }
+    }
   } catch(e) {
     console.error('Failed to save to DB', e);
   }
 }
-
 
 const app = new Hono();
 
@@ -166,24 +230,6 @@ app.use(
 function isValidEmail(email: string): boolean {
   if (!email || typeof email !== "string") return false;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-}
-
-// Rate Limiter Helper
-async function checkRateLimit(ipOrEmail: string, limit = 5, windowMs = 60000): Promise<boolean> {
-  try {
-    const key = `ratelimit:${ipOrEmail.toLowerCase()}`;
-    const record = (await kv.get(key)) || { count: 0, expiresAt: Date.now() + windowMs };
-    if (Date.now() > record.expiresAt) {
-      record.count = 1;
-      record.expiresAt = Date.now() + windowMs;
-    } else {
-      record.count += 1;
-    }
-    await kv.set(key, record);
-    return record.count <= limit;
-  } catch (_e) {
-    return true;
-  }
 }
 
 // Unified Auth Helper for Parent & Device Tokens
@@ -248,7 +294,6 @@ const defaultState = {
   isPremium: true,
 };
 
-
 async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "reset" = "signup") {
   const brevoApiKey = Deno.env.get("BREVO_API_KEY") || "";
   const resendApiKey = Deno.env.get("RESEND_API_KEY") || "";
@@ -272,7 +317,6 @@ async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "re
     </div>
   `;
 
-  // 1. Try Brevo API first (allows sending to ANY recipient email without restriction)
   if (brevoApiKey) {
     try {
       const res = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -290,14 +334,11 @@ async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "re
         }),
       });
       if (res.ok) return true;
-      const errJson = await res.json().catch(() => ({}));
-      console.error("Brevo API error:", errJson);
     } catch (e) {
       console.error("Brevo fetch error:", e);
     }
   }
 
-  // 2. Fallback to Resend API
   if (resendApiKey) {
     try {
       const res = await fetch("https://api.resend.com/emails", {
@@ -323,7 +364,7 @@ async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "re
   return false;
 }
 
-// Auth Sign Up Endpoint - Initiates Real Email OTP Verification
+// Auth Sign Up Endpoint
 app.post("/server/auth/signup", async (c) => {
   try {
     const body = await c.req.json();
@@ -337,7 +378,7 @@ app.post("/server/auth/signup", async (c) => {
       return c.json({ error: "Too many registration attempts. Please try again in 1 minute." }, 429);
     }
 
-    const { data: existing } = await supabase.from('profiles').select('email').eq('email', email.toLowerCase()).single();
+    const { data: existing } = await supabase.from('profiles').select('email').eq('email', email.toLowerCase()).maybeSingle();
     if (existing) {
       return c.json({ error: "Account already exists with this email address." }, 400);
     }
@@ -417,7 +458,7 @@ app.post("/server/auth/verify-otp", async (c) => {
   }
 });
 
-// Forgot Password - Send Reset OTP Endpoint
+// Forgot Password - Send Reset OTP Endpoint (4.2 Email Enumeration Guard)
 app.post("/server/auth/forgot-password", async (c) => {
   try {
     const body = await c.req.json();
@@ -429,25 +470,25 @@ app.post("/server/auth/forgot-password", async (c) => {
       return c.json({ error: "Too many password reset requests. Please wait 10 minutes before requesting again." }, 429);
     }
 
-    const { data: user } = await supabase.from('profiles').select('email').eq('email', email.toLowerCase()).single();
-    if (!user) {
-      return c.json({ error: "No registered account found with this email address." }, 404);
+    const { data: user } = await supabase.from('profiles').select('email').eq('email', email.toLowerCase()).maybeSingle();
+    
+    // Generic response regardless of email existence to prevent email enumeration attacks
+    if (user) {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const resetKey = `reset:${email.toLowerCase()}`;
+      await kv.set(resetKey, {
+        email: email.toLowerCase(),
+        otp,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      });
+
+      await sendRealEmailOtp(email.toLowerCase(), otp, "reset");
     }
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const resetKey = `reset:${email.toLowerCase()}`;
-    await kv.set(resetKey, {
-      email: email.toLowerCase(),
-      otp,
-      expiresAt: Date.now() + 5 * 60 * 1000,
-    });
-
-    await sendRealEmailOtp(email.toLowerCase(), otp, "reset");
 
     return c.json({
       success: true,
       email: email.toLowerCase(),
-      message: `A 6-digit password reset OTP has been sent to ${email}. Check your inbox or spam folder.`,
+      message: `If this email address is registered, a 6-digit password reset OTP code has been sent. Check your inbox or spam folder.`,
     });
   } catch (_e) {
     return c.json({ error: "Failed to process forgot password request" }, 500);
@@ -483,13 +524,12 @@ app.post("/server/auth/reset-password", async (c) => {
       return c.json({ error: "Invalid 6-digit OTP code." }, 400);
     }
 
-    const { data: user } = await supabase.from('profiles').select('*').eq('email', email.toLowerCase()).single();
+    const { data: user } = await supabase.from('profiles').select('*').eq('email', email.toLowerCase()).maybeSingle();
     if (!user) return c.json({ error: "Account not found." }, 404);
 
-    // Hash New Password with PBKDF2
     const hashedPassword = await hashPassword(newPassword);
     await supabase.from('profiles').update({ password_hash: hashedPassword }).eq('email', email.toLowerCase());
-    await kv.set(resetKey, null); // Clear reset record
+    await kv.set(resetKey, null);
 
     const token = await signJwt({ email: user.email, name: user.full_name });
 
@@ -504,7 +544,7 @@ app.post("/server/auth/reset-password", async (c) => {
   }
 });
 
-// Auth Resend OTP Endpoint
+// Auth Resend OTP Endpoint (1.1 OTP Leak Fix)
 app.post("/server/auth/resend-otp", async (c) => {
   try {
     const body = await c.req.json();
@@ -529,11 +569,13 @@ app.post("/server/auth/resend-otp", async (c) => {
 
     const emailSent = await sendRealEmailOtp(email.toLowerCase(), newOtp, "signup");
 
+    if (!emailSent) {
+      return c.json({ error: "Failed to send verification email. Please try again shortly or contact support." }, 500);
+    }
+
     return c.json({
       success: true,
-      message: emailSent
-        ? `New 6-digit OTP code sent to ${email}`
-        : `[Test Mode / Resend Limit] Your new OTP code is: ${newOtp}`,
+      message: `New 6-digit OTP code sent to ${email}`,
     });
   } catch (_e) {
     return c.json({ error: "Failed to resend OTP" }, 500);
@@ -554,7 +596,7 @@ app.post("/server/auth/login", async (c) => {
       return c.json({ error: "Too many login attempts. Please wait 1 minute before trying again." }, 429);
     }
 
-    const { data: user } = await supabase.from('profiles').select('*').eq('email', email.toLowerCase()).single();
+    const { data: user } = await supabase.from('profiles').select('*').eq('email', email.toLowerCase()).maybeSingle();
     if (!user || !user.password_hash) {
       return c.json({ error: "Invalid email address or password." }, 401);
     }
@@ -596,7 +638,7 @@ app.post("/server/pairing/generate", async (c) => {
   }
 });
 
-// Device Claim Endpoint
+// Device Claim Endpoint (3.2 Hardcoded Email Removal)
 app.post("/server/pairing/claim", async (c) => {
   try {
     const body = await c.req.json();
@@ -622,7 +664,11 @@ app.post("/server/pairing/claim", async (c) => {
       return c.json({ error: "Pairing PIN has expired (valid for 10 minutes). Please request a new code from the Parent app." }, 400);
     }
 
-    const parentEmail = pairing.parentId || pairing.parentEmail || "parent@staykids.family";
+    const parentEmail = pairing.parentId || pairing.parentEmail;
+    if (!parentEmail) {
+      return c.json({ error: "Invalid pairing record: missing parent information." }, 400);
+    }
+
     const targetChildId = pairing.childId || "child-1";
     await kv.set(`pairing:${pin}`, {
       active: false,
@@ -655,23 +701,36 @@ app.get("/server/health", (c) => {
   return c.json({ status: "ok" });
 });
 
-// GET state endpoint (Accepts Parent Token & Device Token)
+// GET state endpoint (With 2.2 Ephemeral Live Streams KV Merging)
 app.get("/server/state", async (c) => {
   try {
     const authCtx = await getAuthContext(c);
     if (!authCtx) {
       return c.json({ error: "Unauthorized. Valid JWT Authorization token is required." }, 401);
     }
-    const parentStateKey = `state:${authCtx.email.toLowerCase()}`;
     const state = await getStateFromDB(authCtx.email);
     if (!state) return c.json(JSON.parse(JSON.stringify(defaultState)));
+
+    // Merge transient live stream state from KV store (2.2)
+    const targetChildId = authCtx.childId || state.activeChildId || "child-1";
+    const liveKey = `live:${authCtx.email.toLowerCase()}:${targetChildId}`;
+    const liveData = await kv.get(liveKey);
+    if (liveData && Date.now() - liveData.timestamp < 15000) {
+      state.remote = {
+        ...state.remote,
+        liveFrame: liveData.liveFrame || state.remote.liveFrame,
+        liveAudioChunk: liveData.liveAudioChunk || state.remote.liveAudioChunk,
+        connectionState: liveData.connectionState || state.remote.connectionState,
+      };
+    }
+
     return c.json(state);
   } catch (_e) {
     return c.json({ error: "Failed to load state" }, 500);
   }
 });
 
-// POST action endpoint for real-time state mutation & persistence (with Per-Child & Token Scoping)
+// POST action endpoint for real-time state mutation & persistence
 app.post("/server/action", async (c) => {
   try {
     const authCtx = await getAuthContext(c);
@@ -692,6 +751,34 @@ app.post("/server/action", async (c) => {
     if (authCtx.isDevice && !authCtx.childId) {
       return c.json({ success: false, error: "Device token missing childId" }, 400);
     }
+
+    const targetChildId = authCtx.isDevice
+      ? (authCtx.childId || "child-1")
+      : (action.childId || "child-1");
+
+    // 2.2 Ephemeral Bypass for High-Frequency Streaming Actions (audio-chunk & webrtc-signal)
+    if (action.type === "audio-chunk" || (action.type === "webrtc-signal" && action.frame)) {
+      const liveKey = `live:${authCtx.email.toLowerCase()}:${targetChildId}`;
+      const existingLive = (await kv.get(liveKey)) || {};
+      await kv.set(liveKey, {
+        ...existingLive,
+        liveFrame: action.frame || existingLive.liveFrame,
+        liveAudioChunk: action.chunk || existingLive.liveAudioChunk,
+        connectionState: action.signalState || existingLive.connectionState || "live",
+        timestamp: Date.now(),
+      });
+
+      return c.json({
+        success: true,
+        ephemeral: true,
+        remote: {
+          audioActive: true,
+          liveFrame: action.frame,
+          liveAudioChunk: action.chunk,
+        }
+      });
+    }
+
     let state: any;
     try {
       state = (await getStateFromDB(authCtx.email)) || JSON.parse(JSON.stringify(defaultState));
@@ -700,12 +787,6 @@ app.post("/server/action", async (c) => {
     }
 
     if (!state.perChild) state.perChild = {};
-
-    // For device tokens, force targetChildId to be token's embedded childId (preventing cross-child data mutation)
-    // Backward compatibility: fallback to activeChildId or "child-1" for legacy device tokens
-    const targetChildId = authCtx.isDevice
-      ? (authCtx.childId || state.activeChildId || state.child?.id || "child-1")
-      : (action.childId || state.activeChildId || state.child?.id || "child-1");
 
     if (!state.perChild[targetChildId]) {
       state.perChild[targetChildId] = {
@@ -748,13 +829,38 @@ app.post("/server/action", async (c) => {
     } else if (action.type === "toggle-control" && typeof action.key === "string") {
       childState.controls[action.key] = !childState.controls[action.key];
       state.controls = { ...childState.controls };
+
+      // 2.3 Narrow Blast Radius: Direct targeted DB update
+      await supabase.from('device_controls').upsert({
+        child_id: targetChildId,
+        is_paused: childState.controls.paused || false,
+        limits_enabled: childState.controls.limits || false,
+        bedtime_enabled: childState.controls.bedtime || false,
+        web_filter_enabled: childState.controls.filter || false,
+        daily_limit_minutes: childState.usage?.limit || 120
+      });
     } else if (action.type === "toggle-app-lock" && typeof action.appName === "string") {
       if (!childState.blockedApps) childState.blockedApps = {};
       childState.blockedApps[action.appName] = !childState.blockedApps[action.appName];
       state.blockedApps = { ...childState.blockedApps };
+
+      // 2.3 Narrow Blast Radius: Direct targeted DB update
+      await supabase.from('blocked_apps').upsert({
+        id: targetChildId + '_' + action.appName,
+        child_id: targetChildId,
+        package_name: action.appName,
+        app_name: action.appName,
+        is_blocked: childState.blockedApps[action.appName]
+      });
     } else if (action.type === "update-location" && typeof action.location === "string") {
       state.child.location = action.location;
       if (action.coordinates) state.child.coordinates = action.coordinates;
+
+      await supabase.from('children').update({
+        last_location: action.location,
+        latitude: action.coordinates?.lat,
+        longitude: action.coordinates?.lng
+      }).eq('id', targetChildId);
     } else if (action.type === "toggle-geofence") {
       childState.controls.geofence = !childState.controls.geofence;
       state.controls = { ...childState.controls };
@@ -764,21 +870,37 @@ app.post("/server/action", async (c) => {
       }
       childState.usage.limit = action.value;
       state.usage = { ...childState.usage };
+
+      await supabase.from('device_controls').upsert({
+        child_id: targetChildId,
+        daily_limit_minutes: action.value
+      });
     } else if (action.type === "mark-all-read") {
       state.alerts = state.alerts.map((a: any) => ({ ...a, read: true }));
+      await supabase.from('alerts').update({ is_read: true }).eq('child_id', targetChildId);
     } else if (action.type === "mark-read" && typeof action.id === "string") {
       state.alerts = state.alerts.map((a: any) => (a.id === action.id ? { ...a, read: true } : a));
+      await supabase.from('alerts').update({ is_read: true }).eq('id', action.id);
     } else if (action.type === "trigger-alarm") {
       if (!state.remote) state.remote = { status: "idle", tool: "Screen Mirror", consentRequired: false, audioActive: false };
       state.remote.alarmActive = !state.remote.alarmActive;
       if (state.remote.alarmActive) {
-        state.alerts.unshift({
+        const newAlert = {
           id: String(Date.now()),
           category: "security",
           title: "🚨 Anti-Theft Alarm Triggered",
           detail: `Loud siren alarm activated remotely on ${state.child.name}'s device.`,
           time: "Just now",
           read: false,
+        };
+        state.alerts.unshift(newAlert);
+        await supabase.from('alerts').insert({
+          id: newAlert.id,
+          child_id: targetChildId,
+          title: newAlert.title,
+          description: newAlert.detail,
+          category: newAlert.category,
+          is_read: false,
         });
       }
     } else if (action.type === "select-remote-tool" && typeof action.tool === "string") {
@@ -787,13 +909,22 @@ app.post("/server/action", async (c) => {
     } else if (action.type === "capture-snapshot") {
       if (!state.remote) state.remote = { status: "idle", tool: "Camera Snapshot", consentRequired: false, audioActive: false };
       state.remote.lastSnapshotTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      state.alerts.unshift({
+      const newAlert = {
         id: String(Date.now()),
         category: "security",
         title: "📷 Remote Snapshot Captured",
         detail: `Camera snapshot captured safely on ${state.child.name}'s device.`,
         time: "Just now",
         read: false,
+      };
+      state.alerts.unshift(newAlert);
+      await supabase.from('alerts').insert({
+        id: newAlert.id,
+        child_id: targetChildId,
+        title: newAlert.title,
+        description: newAlert.detail,
+        category: newAlert.category,
+        is_read: false,
       });
     } else if (action.type === "mirror-toggle") {
       if (!state.remote) state.remote = { status: "idle", tool: "Screen Mirror", consentRequired: false, audioActive: false };
@@ -805,13 +936,22 @@ app.post("/server/action", async (c) => {
         state.remote.liveFrame = null;
       }
       if (nextActive) {
-        state.alerts.unshift({
+        const newAlert = {
           id: String(Date.now()),
           category: "activity",
           title: "▣ Live Screen Mirror Requested",
           detail: `MediaProjection WebRTC stream session initiated for ${state.child.name}.`,
           time: "Just now",
           read: false,
+        };
+        state.alerts.unshift(newAlert);
+        await supabase.from('alerts').insert({
+          id: newAlert.id,
+          child_id: targetChildId,
+          title: newAlert.title,
+          description: newAlert.detail,
+          category: newAlert.category,
+          is_read: false,
         });
       }
     } else if (action.type === "add-reward-points" && typeof action.points === "number") {
@@ -833,45 +973,45 @@ app.post("/server/action", async (c) => {
       if (!state.remote) state.remote = { status: "idle", tool: "Remote access", consentRequired: false, audioActive: false };
       state.remote.lastTouchAction = `${action.actionType || 'click'} (${action.x || 0}, ${action.y || 0})`;
       childState.lastTouch = { x: action.x, y: action.y, actionType: action.actionType || "TOUCH", timestamp: Date.now() };
-    } else if (action.type === "webrtc-signal") {
-      if (!state.remote) state.remote = { status: "idle", tool: "Screen Mirror", consentRequired: false, audioActive: false };
-      if (action.signalState) {
-        state.remote.connectionState = action.signalState; // "idle" | "requesting-consent" | "connecting" | "live" | "denied" | "disconnected"
-      }
-      if (action.frame) {
-        state.remote.liveFrame = action.frame;
-        state.remote.connectionState = "live";
-      }
-      if (action.signal) {
-        childState.signals = childState.signals || [];
-        childState.signals.push({ signal: action.signal, sender: action.sender || "parent", timestamp: Date.now() });
-        if (childState.signals.length > 20) childState.signals.shift();
-      }
     } else if (action.type === "trigger-sos") {
-      state.alerts.unshift({
+      const newAlert = {
         id: String(Date.now()),
         category: "sos",
         title: "🆘 EMERGENCY SOS SIGNAL RECEIVED",
         detail: `${state.child.name} triggered Emergency SOS button! Immediate attention required.`,
         time: "JUST NOW",
         read: false,
+      };
+      state.alerts.unshift(newAlert);
+      await supabase.from('alerts').insert({
+        id: newAlert.id,
+        child_id: targetChildId,
+        title: newAlert.title,
+        description: newAlert.detail,
+        category: newAlert.category,
+        is_read: false,
       });
     } else if (action.type === "log-call-sms" && typeof action.detail === "string") {
-      state.alerts.unshift({
+      const newAlert = {
         id: String(Date.now()),
         category: "activity",
         title: action.title || "📞 Call / SMS Activity Alert",
         detail: action.detail,
         time: "Just now",
         read: false,
+      };
+      state.alerts.unshift(newAlert);
+      await supabase.from('alerts').insert({
+        id: newAlert.id,
+        child_id: targetChildId,
+        title: newAlert.title,
+        description: newAlert.detail,
+        category: newAlert.category,
+        is_read: false,
       });
     } else if (action.type === "set-bedtime" && typeof action.bedtime === "string") {
       childState.controls.bedtimeSchedule = action.bedtime;
       state.controls.bedtimeSchedule = action.bedtime;
-    } else if (action.type === "audio-chunk") {
-      if (!state.remote) state.remote = { status: "idle", tool: "One-way audio", consentRequired: false, audioActive: false };
-      state.remote.liveAudioChunk = action.chunk;
-      state.remote.audioActive = true;
     } else if (action.type === "audio-toggle") {
       if (!state.remote) state.remote = { status: "idle", tool: "One-way audio", consentRequired: false, audioActive: false };
       const nextActive = typeof action.active === "boolean" ? action.active : !state.remote.audioActive;
@@ -889,13 +1029,22 @@ app.post("/server/action", async (c) => {
           (now - parseInt(a.id.split('-').pop() || "0") < 3600000)
         );
         if (!hasExistingAccAlert) {
-          state.alerts.unshift({
+          const newAlert = {
             id: "alert-acc-" + Date.now(),
             category: "security",
             title: "⚠️ Accessibility Service Disabled",
             detail: `Accessibility Service was turned off on ${state.child.name}'s phone. App blocking & remote protection are paused!`,
             time: "Just now",
             read: false,
+          };
+          state.alerts.unshift(newAlert);
+          await supabase.from('alerts').insert({
+            id: newAlert.id,
+            child_id: targetChildId,
+            title: newAlert.title,
+            description: newAlert.detail,
+            category: newAlert.category,
+            is_read: false,
           });
         }
       }
@@ -907,13 +1056,22 @@ app.post("/server/action", async (c) => {
           (now - parseInt(a.id.split('-').pop() || "0") < 3600000)
         );
         if (!hasExistingAdminAlert) {
-          state.alerts.unshift({
+          const newAlert = {
             id: "alert-admin-" + Date.now(),
             category: "security",
             title: "⚠️ Device Admin Protection Disabled",
             detail: `Device Admin protection was revoked on ${state.child.name}'s phone. Anti-uninstall protection is inactive.`,
             time: "Just now",
             read: false,
+          };
+          state.alerts.unshift(newAlert);
+          await supabase.from('alerts').insert({
+            id: newAlert.id,
+            child_id: targetChildId,
+            title: newAlert.title,
+            description: newAlert.detail,
+            category: newAlert.category,
+            is_read: false,
           });
         }
       }
@@ -982,7 +1140,14 @@ app.all("/kv/cleanup", async (c) => {
       }
     }
 
-    // Execute bulk deletion using existing kv.mdel helper
+    // 5. Cleanup expired ephemeral streaming keys
+    const lives = await kv.getByPrefixEntries("live:");
+    for (const item of lives) {
+      if (item.value && item.value.timestamp && now - item.value.timestamp > 60000) {
+        keysToDelete.push(item.key);
+      }
+    }
+
     if (keysToDelete.length > 0) {
       await kv.mdel(keysToDelete);
     }
