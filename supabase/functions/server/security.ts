@@ -1,4 +1,5 @@
 // WebCrypto-based Secure PBKDF2 Password Hashing, JWT Sign/Verify & Security Helper
+import * as kv from "./kv_store.tsx";
 
 function getSecretKey(): string {
   const secret = Deno.env.get("JWT_SECRET") || Deno.env.get("SUPABASE_AUTH_JWT_SECRET");
@@ -8,6 +9,15 @@ function getSecretKey(): string {
   return secret;
 }
 
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
 function buf2hex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -15,6 +25,9 @@ function buf2hex(buffer: ArrayBuffer): string {
 }
 
 function hex2buf(hex: string): Uint8Array {
+  if (!hex || typeof hex !== "string" || hex.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(hex)) {
+    throw new Error("Invalid hex string provided to hex2buf");
+  }
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
     bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
@@ -98,7 +111,7 @@ export async function verifyPassword(password: string, storedHash: string): Prom
       );
       
       const actualHashHex = buf2hex(derivedBits);
-      return actualHashHex === expectedHashHex;
+      return timingSafeEqual(actualHashHex, expectedHashHex);
     }
     
     if (storedHash.startsWith("sha256:")) {
@@ -109,7 +122,7 @@ export async function verifyPassword(password: string, storedHash: string): Prom
       const encoder = new TextEncoder();
       const keyBuffer = encoder.encode(password + saltHex);
       const hashBuffer = await crypto.subtle.digest("SHA-256", keyBuffer);
-      return buf2hex(hashBuffer) === expectedHashHex;
+      return timingSafeEqual(buf2hex(hashBuffer), expectedHashHex);
     }
     
     return false;
@@ -192,32 +205,30 @@ export async function signDeviceJwt(payload: { parentEmail: string; deviceId: st
   }, expiresInSeconds);
 }
 
-// 3. Sliding Window Rate Limiter Class
-export class RateLimiter {
-  private hits: Map<string, number[]> = new Map();
-
-  isAllowed(key: string, maxHits: number, windowMs: number): boolean {
+// 3. Persistent, Shared Rate Limiter Backed by KV Store
+export async function checkRateLimit(key: string, maxHits = 5, windowMs = 60000): Promise<boolean> {
+  try {
+    const storageKey = `ratelimit:${key.toLowerCase()}`;
     const now = Date.now();
-    const windowStart = now - windowMs;
-    const timestamps = (this.hits.get(key) || []).filter((t) => t > windowStart);
-
-    if (timestamps.length >= maxHits) {
-      this.hits.set(key, timestamps);
-      return false;
+    const record = (await kv.get(storageKey)) || { count: 0, expiresAt: now + windowMs };
+    
+    if (now > record.expiresAt) {
+      record.count = 1;
+      record.expiresAt = now + windowMs;
+    } else {
+      record.count += 1;
     }
 
-    timestamps.push(now);
-    this.hits.set(key, timestamps);
+    await kv.set(storageKey, record);
+    return record.count <= maxHits;
+  } catch (_e) {
+    // Fail safe on transient database errors
     return true;
-  }
-
-  reset(key: string): void {
-    this.hits.delete(key);
   }
 }
 
-const globalLimiter = new RateLimiter();
-
-export async function checkRateLimit(key: string, maxHits = 5, windowMs = 60000): Promise<boolean> {
-  return globalLimiter.isAllowed(key, maxHits, windowMs);
+export class RateLimiter {
+  async isAllowed(key: string, maxHits = 5, windowMs = 60000): Promise<boolean> {
+    return checkRateLimit(key, maxHits, windowMs);
+  }
 }
