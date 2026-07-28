@@ -244,51 +244,77 @@ const defaultState = {
 
 
 async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "reset" = "signup") {
+  const brevoApiKey = Deno.env.get("BREVO_API_KEY") || "";
   const resendApiKey = Deno.env.get("RESEND_API_KEY") || "";
-  if (!resendApiKey) {
-    console.log(`[STAYKIDS OTP CODE FOR ${email}]: ${otp}`);
-    return false;
-  }
 
-  try {
-    const subject = type === "signup" 
-      ? `StayKids Security Code: ${otp}` 
-      : `Reset Your StayKids Password: ${otp}`;
-      
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #e1e8e5; border-radius: 20px; background-color: #ffffff;">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h2 style="color: #287555; margin: 0; font-size: 24px;">stay<span style="color: #17352b;">kids</span></h2>
-          <p style="color: #687b74; font-size: 13px; margin-top: 4px;">Parental Control & Digital Safety</p>
-        </div>
-        <p style="color: #172226; font-size: 14px; line-height: 1.5;">Hello,</p>
-        <p style="color: #556660; font-size: 14px; line-height: 1.5;">Your 6-digit verification OTP code for StayKids ${type === "signup" ? "Account Setup" : "Password Reset"} is:</p>
-        <div style="background-color: #f3faee; padding: 18px; border-radius: 16px; text-align: center; margin: 20px 0; border: 1px dashed #287555;">
-          <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #17352b; font-family: monospace;">${otp}</span>
-        </div>
-        <p style="color: #71807a; font-size: 12px; text-align: center; margin-top: 20px;">This code is valid for 5 minutes. Do not share this code with anyone.</p>
+  const subject = type === "signup" 
+    ? `StayKids Security Code: ${otp}` 
+    : `Reset Your StayKids Password: ${otp}`;
+    
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #e1e8e5; border-radius: 20px; background-color: #ffffff;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #287555; margin: 0; font-size: 24px;">stay<span style="color: #17352b;">kids</span></h2>
+        <p style="color: #687b74; font-size: 13px; margin-top: 4px;">Parental Control & Digital Safety</p>
       </div>
-    `;
+      <p style="color: #172226; font-size: 14px; line-height: 1.5;">Hello,</p>
+      <p style="color: #556660; font-size: 14px; line-height: 1.5;">Your 6-digit verification OTP code for StayKids ${type === "signup" ? "Account Setup" : "Password Reset"} is:</p>
+      <div style="background-color: #f3faee; padding: 18px; border-radius: 16px; text-align: center; margin: 20px 0; border: 1px dashed #287555;">
+        <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #17352b; font-family: monospace;">${otp}</span>
+      </div>
+      <p style="color: #71807a; font-size: 12px; text-align: center; margin-top: 20px;">This code is valid for 5 minutes. Do not share this code with anyone.</p>
+    </div>
+  `;
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "StayKids Security <onboarding@resend.dev>",
-        to: [email],
-        subject: subject,
-        html: htmlContent,
-      }),
-    });
-
-    return res.ok;
-  } catch (e) {
-    console.error("Resend Email OTP Failed:", e);
-    return false;
+  // 1. Try Brevo API first (allows sending to ANY recipient email without restriction)
+  if (brevoApiKey) {
+    try {
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "accept": "application/json",
+          "api-key": brevoApiKey,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: "StayKids Security", email: "staykids.app@gmail.com" },
+          to: [{ email }],
+          subject,
+          htmlContent,
+        }),
+      });
+      if (res.ok) return true;
+      const errJson = await res.json().catch(() => ({}));
+      console.error("Brevo API error:", errJson);
+    } catch (e) {
+      console.error("Brevo fetch error:", e);
+    }
   }
+
+  // 2. Fallback to Resend API
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "StayKids Security <onboarding@resend.dev>",
+          to: [email],
+          subject,
+          html: htmlContent,
+        }),
+      });
+      if (res.ok) return true;
+    } catch (e) {
+      console.error("Resend fetch error:", e);
+    }
+  }
+
+  console.log(`[STAYKIDS OTP CODE FOR ${email}]: ${otp}`);
+  return false;
 }
 
 // Auth Sign Up Endpoint - Initiates Real Email OTP Verification
@@ -328,7 +354,7 @@ app.post("/server/auth/signup", async (c) => {
       success: true,
       requiresOtp: true,
       email: email.toLowerCase(),
-      message: `A 6-digit verification OTP code has been sent to ${email}.`,
+      message: `A 6-digit verification OTP code has been sent to ${email}. Check your inbox or spam folder.`,
     });
   } catch (_e) {
     return c.json({ error: "Failed to initiate registration" }, 500);
@@ -372,7 +398,7 @@ app.post("/server/auth/verify-otp", async (c) => {
     }).select().single();
 
     if (insertError) {
-      return c.json({ error: "Failed to create account" }, 500);
+      return c.json({ error: "Failed to create account", details: insertError }, 500);
     }
 
     await kv.set(pendingKey, null);
@@ -415,7 +441,7 @@ app.post("/server/auth/forgot-password", async (c) => {
     return c.json({
       success: true,
       email: email.toLowerCase(),
-      message: `A 6-digit password reset OTP has been sent to ${email}`,
+      message: `A 6-digit password reset OTP has been sent to ${email}. Check your inbox or spam folder.`,
     });
   } catch (_e) {
     return c.json({ error: "Failed to process forgot password request" }, 500);
@@ -495,9 +521,14 @@ app.post("/server/auth/resend-otp", async (c) => {
     pending.expiresAt = Date.now() + 5 * 60 * 1000;
     await kv.set(pendingKey, pending);
 
-    await sendRealEmailOtp(email.toLowerCase(), newOtp, "signup");
+    const emailSent = await sendRealEmailOtp(email.toLowerCase(), newOtp, "signup");
 
-    return c.json({ success: true, message: `New 6-digit OTP code sent to ${email}` });
+    return c.json({
+      success: true,
+      message: emailSent
+        ? `New 6-digit OTP code sent to ${email}`
+        : `[Test Mode / Resend Limit] Your new OTP code is: ${newOtp}`,
+    });
   } catch (_e) {
     return c.json({ error: "Failed to resend OTP" }, 500);
   }

@@ -1,10 +1,8 @@
 // WebCrypto-based Secure PBKDF2 Password Hashing, JWT Sign/Verify & Security Helper
 
 function getSecretKey(): string {
-  // Read JWT_SECRET from Deno Environment variables
   const secret = Deno.env.get("JWT_SECRET") || Deno.env.get("SUPABASE_AUTH_JWT_SECRET");
   if (!secret || secret.trim() === "") {
-    // If running in development without env config, log warning and use fallback
     const devFallback = "staykids-dev-secret-key-v1-not-for-production";
     console.warn("[SECURITY WARNING] JWT_SECRET environment variable is missing. Using local dev secret.");
     return devFallback;
@@ -12,7 +10,6 @@ function getSecretKey(): string {
   return secret;
 }
 
-// Helper: Convert ArrayBuffer to Hex String
 function buf2hex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -27,7 +24,6 @@ function hex2buf(hex: string): Uint8Array {
   return bytes;
 }
 
-// Helper: Convert Base64URL string
 function base64urlEncode(str: string): string {
   return btoa(str)
     .replace(/\+/g, "-")
@@ -76,7 +72,6 @@ export async function verifyPassword(password: string, storedHash: string): Prom
   try {
     if (!storedHash) return false;
     
-    // Support modern PBKDF2 slow hash
     if (storedHash.startsWith("pbkdf2:")) {
       const parts = storedHash.split(":");
       if (parts.length !== 3) return false;
@@ -108,7 +103,6 @@ export async function verifyPassword(password: string, storedHash: string): Prom
       return actualHashHex === expectedHashHex;
     }
     
-    // Support fallback salted SHA-256 for backward compatibility
     if (storedHash.startsWith("sha256:")) {
       const parts = storedHash.split(":");
       if (parts.length !== 3) return false;
@@ -182,7 +176,7 @@ export async function verifyJwt(token: string): Promise<Record<string, any> | nu
     
     const payload = JSON.parse(base64urlDecode(encodedPayload));
     const now = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < now) return null; // Token expired
+    if (payload.exp && payload.exp < now) return null;
     
     return payload;
   } catch (_e) {
@@ -198,4 +192,34 @@ export async function signDeviceJwt(payload: { parentEmail: string; deviceId: st
     deviceName: payload.deviceName,
     childId: payload.childId || "child-1",
   }, expiresInSeconds);
+}
+
+// 3. Sliding Window Rate Limiter Class
+export class RateLimiter {
+  private hits: Map<string, number[]> = new Map();
+
+  isAllowed(key: string, maxHits: number, windowMs: number): boolean {
+    const now = Date.now();
+    const windowStart = now - windowMs;
+    const timestamps = (this.hits.get(key) || []).filter((t) => t > windowStart);
+
+    if (timestamps.length >= maxHits) {
+      this.hits.set(key, timestamps);
+      return false;
+    }
+
+    timestamps.push(now);
+    this.hits.set(key, timestamps);
+    return true;
+  }
+
+  reset(key: string): void {
+    this.hits.delete(key);
+  }
+}
+
+const globalLimiter = new RateLimiter();
+
+export async function checkRateLimit(key: string, maxHits = 5, windowMs = 60000): Promise<boolean> {
+  return globalLimiter.isAllowed(key, maxHits, windowMs);
 }

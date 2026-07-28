@@ -15,7 +15,7 @@ CREATE POLICY "Parents can view their children's usage logs"
     FOR SELECT
     USING (
         child_id IN (
-            SELECT id FROM public.children WHERE parent_id = (SELECT id FROM public.profiles WHERE auth_id = auth.uid())
+            SELECT id FROM public.children WHERE parent_id = (SELECT id FROM public.profiles WHERE id = auth.uid())
         )
     );
 
@@ -24,6 +24,6 @@ CREATE POLICY "Parents can insert/update usage logs"
     FOR ALL
     USING (
         child_id IN (
-            SELECT id FROM public.children WHERE parent_id = (SELECT id FROM public.profiles WHERE auth_id = auth.uid())
+            SELECT id FROM public.children WHERE parent_id = (SELECT id FROM public.profiles WHERE id = auth.uid())
         )
     );

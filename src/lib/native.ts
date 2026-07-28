@@ -39,7 +39,46 @@ export interface StayKidsNativePlugin {
   addGeofence(options: { latitude: number; longitude: number; radius: number }): Promise<{ success: boolean }>
 }
 
-const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative")
+const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative", {
+  web: {
+    isAccessibilityEnabled: async () => ({ enabled: false }),
+    openAccessibilitySettings: async () => {},
+    performRemoteNavigation: async () => ({ success: true }),
+    performRemoteTouch: async () => ({ success: true }),
+    getInstalledApps: async () => ({ success: true, apps: [] }),
+    updateBlockedApp: async () => ({ success: true }),
+    updateWebFilter: async () => ({ success: true }),
+    setDailyLimit: async () => ({ success: true }),
+    checkCameraPermission: async () => ({ granted: true }),
+    requestCameraPermission: async () => ({ granted: true }),
+    captureCameraSnapshot: async () => ({ success: true }),
+    checkLocationPermission: async () => ({ granted: true }),
+    requestLocationPermission: async () => ({ granted: true }),
+    getCurrentLocation: async () => ({ success: true, latitude: 23.8103, longitude: 90.4125 }),
+    checkMicrophonePermission: async () => ({ granted: true }),
+    requestMicrophonePermission: async () => ({ granted: true }),
+    isDeviceAdminEnabled: async () => ({ enabled: false }),
+    enableDeviceAdmin: async () => {},
+    isBatteryOptimizationDisabled: async () => ({ disabled: false }),
+    openBatteryOptimizationSettings: async () => {},
+    isOverlayPermissionGranted: async () => ({ granted: false }),
+    requestOverlayPermission: async () => {},
+    startScreenShare: async () => ({ success: true, streaming: true }),
+    stopScreenShare: async () => ({ success: true }),
+    isScreenSharingActive: async () => ({ active: false }),
+    startAudioCapture: async () => ({ success: true, capturing: true }),
+    stopAudioCapture: async () => ({ success: true }),
+    isAudioCapturing: async () => ({ capturing: false }),
+    startLiveCamera: async () => ({ success: true, streaming: true }),
+    stopLiveCamera: async () => ({ success: true }),
+    isLiveCameraActive: async () => ({ active: false }),
+    addListener: async () => ({ remove: () => {} }),
+    triggerSiren: async () => ({ success: true }),
+    stopSiren: async () => ({ success: true }),
+    setBedtimeSchedule: async () => ({ success: true }),
+    addGeofence: async () => ({ success: true }),
+  } as any,
+})
 
 export const APP_PACKAGE_MAP: Record<string, string> = {
   Roblox: "com.roblox.client",

@@ -122,6 +122,7 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
       const res = await requestPasswordReset({ email })
       if (res.error) throw new Error(res.error)
       setResetStep(true)
+      if (res.message) setOtpMsg(res.message)
     } catch (err: any) {
       setError(err.message || "Failed to request password reset. Please check your email.")
     } finally {
@@ -181,6 +182,7 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
                 </p>
               </div>
 
+              {otpMsg && <div className="rounded-xl bg-[#f3faee] p-3 text-xs font-bold text-[#287555] border border-[#cbe2d4]">{otpMsg}</div>}
               {error && <div className="rounded-xl bg-[#feebee] p-3 text-xs font-bold text-[#c62828] border border-[#ffcdd2]">{error}</div>}
 
               {!resetStep ? (

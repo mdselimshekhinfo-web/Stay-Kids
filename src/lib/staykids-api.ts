@@ -1,4 +1,15 @@
 import { projectId, publicAnonKey } from "../../utils/supabase/info"
+import { Preferences } from '@capacitor/preferences'
+import { authManager } from './auth-manager'
+import { encryptData, decryptData } from './crypto'
+import {
+  SignUpSchema,
+  LoginSchema,
+  OtpSchema,
+  PasswordResetSchema,
+  PairingClaimSchema,
+  ActionSchema,
+} from './validation-schemas'
 
 const base = import.meta.env.VITE_API_URL || `https://${projectId}.supabase.co/functions/v1/server`
 
@@ -18,7 +29,7 @@ export type StayKidsState = {
   activeChildId?: string
   children?: ChildDeviceInfo[]
   child: ChildDeviceInfo
-  usage: { minutes: number; limit: number; topApps: string[] }
+  usage: { minutes: number; limit: number; topApps: string[]; history?: any[] }
   controls: Record<string, boolean> & { bedtimeSchedule?: string }
   blockedApps?: Record<string, boolean>
   rewards: { earned: number; balance: number }
@@ -26,14 +37,12 @@ export type StayKidsState = {
   remote: { status: string; tool: string; consentRequired: boolean; audioActive: boolean; alarmActive?: boolean; lastSnapshotTime?: string; mirrorStreamActive?: boolean; lastSignal?: any; lastTouchAction?: string; liveFrame?: string; connectionState?: string; liveAudioChunk?: string }
 }
 
-import { Preferences } from '@capacitor/preferences'
-
 let inMemoryToken: string | null = null
 
 export const loadAuthToken = async () => {
-  const { value } = await Preferences.get({ key: 'staykids_jwt_token' })
-  inMemoryToken = value
-  return value
+  const token = await authManager.getToken()
+  inMemoryToken = token
+  return token
 }
 
 export const setAuthToken = async (token: string | null) => {
@@ -42,6 +51,7 @@ export const setAuthToken = async (token: string | null) => {
     await Preferences.set({ key: 'staykids_jwt_token', value: token })
   } else {
     await Preferences.remove({ key: 'staykids_jwt_token' })
+    await authManager.clearSession()
   }
 }
 
@@ -89,49 +99,52 @@ const defaultLocalState: StayKidsState = {
   },
 }
 
-
-// Offline Action Queue Implementation
+// AES-256 Encrypted Offline Action Queue Implementation
 type QueuedAction = {
   id: string
   action: Record<string, unknown>
   timestamp: number
 }
 
-const OFFLINE_QUEUE_KEY = "staykids_offline_queue"
+const OFFLINE_QUEUE_KEY = "staykids_offline_queue_enc"
 const MAX_QUEUE_AGE_MS = 5 * 60 * 1000 // Discard actions older than 5 minutes
 const MAX_QUEUE_SIZE = 10
 
-function getOfflineQueue(): QueuedAction[] {
+async function getOfflineQueue(): Promise<QueuedAction[]> {
   try {
     const raw = localStorage.getItem(OFFLINE_QUEUE_KEY)
-    return raw ? JSON.parse(raw) : []
+    if (!raw) return []
+    const decrypted = await decryptData(raw)
+    return decrypted ? JSON.parse(decrypted) : []
   } catch (_e) {
     return []
   }
 }
 
-function saveOfflineQueue(queue: QueuedAction[]) {
+async function saveOfflineQueue(queue: QueuedAction[]) {
   try {
-    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue))
+    const jsonStr = JSON.stringify(queue)
+    const encrypted = await encryptData(jsonStr)
+    localStorage.setItem(OFFLINE_QUEUE_KEY, encrypted)
   } catch (_e) {}
 }
 
-export function enqueueOfflineAction(action: Record<string, unknown>) {
+export async function enqueueOfflineAction(action: Record<string, unknown>) {
   if (action.type === "audio-chunk" || action.type === "webrtc-signal") return // Exclude high-frequency streaming frames
 
-  const queue = getOfflineQueue().filter((item) => Date.now() - item.timestamp < MAX_QUEUE_AGE_MS)
+  const queue = (await getOfflineQueue()).filter((item) => Date.now() - item.timestamp < MAX_QUEUE_AGE_MS)
   queue.push({
     id: String(Date.now() + Math.random()),
     action,
     timestamp: Date.now(),
   })
   if (queue.length > MAX_QUEUE_SIZE) queue.shift()
-  saveOfflineQueue(queue)
+  await saveOfflineQueue(queue)
 }
 
 export async function flushOfflineQueue() {
   if (typeof window === "undefined" || !navigator.onLine) return
-  const queue = getOfflineQueue()
+  const queue = await getOfflineQueue()
   if (!queue.length) return
 
   const remaining = [...queue]
@@ -140,7 +153,7 @@ export async function flushOfflineQueue() {
       await sendStayKidsAction(remaining[i].action)
       remaining.splice(i, 1)
       i--
-      saveOfflineQueue(remaining)
+      await saveOfflineQueue(remaining)
     } catch {
       break // stop on first failure
     }
@@ -161,7 +174,7 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
   while (true) {
     attempt++
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10-second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
 
     try {
       const response = await fetch(url, { ...options, signal: controller.signal })
@@ -171,18 +184,20 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
       clearTimeout(timeoutId)
       if (attempt > maxRetries) throw err
       await new Promise((r) => setTimeout(r, delay))
-      delay *= 2 // Exponential backoff (500ms -> 1000ms)
+      delay *= 2
     }
   }
 }
 
-
 const request = async (path: string, init?: RequestInit, isIdempotentRead = false) => {
-  const token = inMemoryToken || publicAnonKey
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
-    ...(init?.headers as Record<string, string>),
+    apikey: publicAnonKey,
+  }
+
+  const token = inMemoryToken || (await loadAuthToken())
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`
   }
 
   try {
@@ -191,83 +206,101 @@ const request = async (path: string, init?: RequestInit, isIdempotentRead = fals
       : await fetchWithRetry(`${base}${path}`, { ...init, headers }, 0)
 
     if (!response.ok) {
-      const errData = await response.json().catch(() => ({}))
-      if (errData.error) throw new Error(errData.error)
+      const errorData = await response.json().catch(() => ({}))
+      const msg = errorData.error || `HTTP Error ${response.status}`
+      const detailStr = errorData.details ? ` - Details: ${JSON.stringify(errorData.details)}` : ""
+      throw new Error(msg + detailStr)
     } else {
       return await response.json()
     }
   } catch (err: any) {
-    // If request failed due to offline network connection, enqueue for reconnection flush
-    if (init?.method === "POST" && init?.body) {
+    if (path.startsWith("/auth/")) {
+      throw err
+    }
+    if (path === "/pairing/generate" || path === "/pairing/claim") {
+      throw err
+    }
+    if (path === "/action" && init?.body) {
       try {
-        const bodyObj = JSON.parse(init.body as string)
-        enqueueOfflineAction(bodyObj)
+        const actionData = JSON.parse(init.body as string)
+        await enqueueOfflineAction(actionData)
       } catch (_e) {}
     }
 
-    if (err.message && err.message !== "Failed to fetch" && !err.message.includes("data service is unavailable")) {
-      throw err
+    if (path === "/state") {
+      return defaultLocalState
     }
-    console.warn(`[StayKids API Fallback] ${path} using resilient local state:`, err)
   }
 
-  // Resilient Local Fallbacks
-  if (path.startsWith("/auth/") || path.startsWith("/pairing/")) {
-    throw new Error("Server unavailable. Check your internet connection.")
-  }
-
-  throw new Error("Failed to fetch data. Please check your connection.");
+  throw new Error("Failed to fetch data. Please check your connection.")
 }
 
 export const getStayKidsState = () => request("/state", undefined, true) as Promise<StayKidsState>
 
-export const sendStayKidsAction = (action: Record<string, unknown>) => {
-  // Idempotent signals get automatic retries
+export const sendStayKidsAction = async (action: Record<string, unknown>) => {
+  ActionSchema.parse(action)
   const isIdempotentSignal = action.type === "protection-status" || action.type === "webrtc-signal" || action.type === "select-child" || action.type === "mark-all-read"
   return request("/action", { method: "POST", body: JSON.stringify(action) }, isIdempotentSignal) as Promise<StayKidsState>
 }
 
 export const signUpParent = async (data: { name?: string; email: string; password?: string }) => {
-  return await request("/auth/signup", { method: "POST", body: JSON.stringify(data) })
+  const validated = SignUpSchema.parse(data)
+  return await request("/auth/signup", { method: "POST", body: JSON.stringify(validated) })
 }
 
 export const verifyEmailOtp = async (data: { email: string; otp: string }) => {
-  const result = await request("/auth/verify-otp", { method: "POST", body: JSON.stringify(data) })
-  if (result.token) setAuthToken(result.token)
+  const validated = OtpSchema.parse(data)
+  const result = await request("/auth/verify-otp", { method: "POST", body: JSON.stringify(validated) })
+  if (result.token) {
+    await setAuthToken(result.token)
+    await authManager.setSession({ name: result.user?.name || data.email.split('@')[0], email: data.email }, result.token, 'parent')
+  }
   return result
 }
 
 export const resendEmailOtp = async (data: { email: string }) => {
-  return await request("/auth/resend-otp", { method: "POST", body: JSON.stringify(data) })
+  const validated = OtpSchema.pick({ email: true }).parse(data)
+  return await request("/auth/resend-otp", { method: "POST", body: JSON.stringify(validated) })
 }
 
 export const requestPasswordReset = async (data: { email: string }) => {
-  return await request("/auth/forgot-password", { method: "POST", body: JSON.stringify(data) })
+  const validated = OtpSchema.pick({ email: true }).parse(data)
+  return await request("/auth/forgot-password", { method: "POST", body: JSON.stringify(validated) })
 }
 
 export const confirmPasswordReset = async (data: { email: string; otp: string; newPassword?: string }) => {
-  const result = await request("/auth/reset-password", { method: "POST", body: JSON.stringify(data) })
-  if (result.token) setAuthToken(result.token)
+  const validated = PasswordResetSchema.parse(data)
+  const result = await request("/auth/reset-password", { method: "POST", body: JSON.stringify(validated) })
+  if (result.token) {
+    await setAuthToken(result.token)
+    await authManager.setSession({ name: result.user?.name || data.email.split('@')[0], email: data.email }, result.token, 'parent')
+  }
   return result
 }
 
 export const loginParent = async (data: { email: string; password?: string }) => {
-  const result = await request("/auth/login", { method: "POST", body: JSON.stringify(data) })
-  if (result.token) setAuthToken(result.token)
+  const validated = LoginSchema.parse(data)
+  const result = await request("/auth/login", { method: "POST", body: JSON.stringify(validated) })
+  if (result.token) {
+    await setAuthToken(result.token)
+    await authManager.setSession({ name: result.user?.name || data.email.split('@')[0], email: data.email }, result.token, 'parent')
+  }
   return result
 }
 
-export const logoutParent = () => {
-  setAuthToken(null)
+export const logoutParent = async () => {
+  await setAuthToken(null)
+  await authManager.clearSession()
 }
 
 export const generatePairingCode = (childId?: string) =>
   request("/pairing/generate", { method: "POST", body: JSON.stringify({ childId }) }) as Promise<{ pin: string; qrCode: string }>
 
 export const claimDevicePairing = async (data: { pin: string; deviceName?: string }) => {
-  const result = await request("/pairing/claim", { method: "POST", body: JSON.stringify(data) })
+  const validated = PairingClaimSchema.parse(data)
+  const result = await request("/pairing/claim", { method: "POST", body: JSON.stringify(validated) })
   if (result.deviceToken) {
-    setAuthToken(result.deviceToken)
+    await setAuthToken(result.deviceToken)
     try {
       localStorage.setItem("staykids_device_token", result.deviceToken)
     } catch (_e) {}
