@@ -342,7 +342,7 @@ async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "re
     console.error("BREVO_API_KEY is not configured in environment variables.");
   }
 
-  console.log(`[STAYKIDS OTP CODE FOR ${email}]: ${otp}`);
+  console.error(`[STAYKIDS OTP DELIVERY FAILED] Could not send OTP email to ${email} — Brevo unavailable.`);
   return false;
 }
 

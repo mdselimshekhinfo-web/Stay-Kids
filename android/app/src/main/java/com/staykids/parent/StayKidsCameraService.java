@@ -12,6 +12,7 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.util.Log;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -21,7 +22,27 @@ import java.util.Collections;
 public class StayKidsCameraService {
 
     private static final String TAG = "StayKidsCameraService";
+    private static final long MAX_STREAM_DURATION_MS = 10 * 60 * 1000L; // 10 minutes max safety limit
     private final Context context;
+
+    private volatile boolean isSnapshotInProgress = false;
+    private volatile boolean isStreaming = false;
+
+    private CameraDevice liveCameraDevice;
+    private CameraCaptureSession liveSession;
+    private ImageReader liveImageReader;
+    private HandlerThread liveThread;
+    private Handler liveHandler;
+    private String currentFacing = "environment";
+    private LiveFrameCallback frameCallback;
+
+    private final Handler autoStopHandler = new Handler(Looper.getMainLooper());
+    private final Runnable autoStopRunnable = () -> {
+        if (isStreaming) {
+            Log.w(TAG, "Live stream reached maximum safety duration (10 mins). Automatically stopping.");
+            stopLiveStream();
+        }
+    };
 
     public StayKidsCameraService(Context context) {
         this.context = context;
@@ -32,9 +53,26 @@ public class StayKidsCameraService {
         void onError(String error);
     }
 
+    public interface LiveFrameCallback {
+        void onFrame(byte[] jpegData);
+        void onError(String error);
+    }
+
     public void captureSilentSnapshot(SnapshotCallback callback) {
+        // A.3 Mutual exclusion check
+        if (isStreaming) {
+            callback.onError("Camera is currently in use for live streaming. Stop the live view first.");
+            return;
+        }
+        if (isSnapshotInProgress) {
+            callback.onError("A camera snapshot capture is already in progress.");
+            return;
+        }
+
+        isSnapshotInProgress = true;
         CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
         if (manager == null) {
+            isSnapshotInProgress = false;
             callback.onError("Camera service unavailable");
             return;
         }
@@ -53,13 +91,26 @@ public class StayKidsCameraService {
                 cameraId = manager.getCameraIdList()[0];
             }
             if (cameraId == null) {
+                isSnapshotInProgress = false;
                 callback.onError("No camera device found");
                 return;
             }
 
-            HandlerThread backgroundThread = new HandlerThread("CameraBackground");
+            final HandlerThread backgroundThread = new HandlerThread("CameraBackground");
             backgroundThread.start();
             Handler backgroundHandler = new Handler(backgroundThread.getLooper());
+
+            // A.1 Idempotent Thread Cleanup Helper
+            final boolean[] bgThreadCleanedUp = new boolean[]{false};
+            Runnable cleanupBgThread = () -> {
+                synchronized (bgThreadCleanedUp) {
+                    if (!bgThreadCleanedUp[0]) {
+                        bgThreadCleanedUp[0] = true;
+                        isSnapshotInProgress = false;
+                        try { backgroundThread.quitSafely(); } catch (Exception ignored) {}
+                    }
+                }
+            };
 
             ImageReader imageReader = ImageReader.newInstance(640, 480, ImageFormat.JPEG, 1);
             imageReader.setOnImageAvailableListener(reader -> {
@@ -83,7 +134,7 @@ public class StayKidsCameraService {
                     callback.onError("Failed to save snapshot: " + e.getMessage());
                 } finally {
                     if (image != null) image.close();
-                    backgroundThread.quitSafely();
+                    cleanupBgThread.run();
                 }
             }, backgroundHandler);
 
@@ -101,74 +152,75 @@ public class StayKidsCameraService {
                                     session.capture(builder.build(), new CameraCaptureSession.CaptureCallback() {
                                         @Override
                                         public void onCaptureCompleted(CameraCaptureSession captureSession, CaptureRequest request, android.hardware.camera2.TotalCaptureResult result) {
-                                            try { captureSession.close(); } catch(Exception e) {}
-                                            try { camera.close(); } catch(Exception e) {}
-                                            try { imageReader.close(); } catch(Exception e) {}
+                                            try { captureSession.close(); } catch(Exception ignored) {}
+                                            try { camera.close(); } catch(Exception ignored) {}
+                                            try { imageReader.close(); } catch(Exception ignored) {}
                                         }
                                     }, backgroundHandler);
                                 } catch (CameraAccessException e) {
+                                    cleanupBgThread.run();
                                     callback.onError("Camera access exception during capture: " + e.getMessage());
                                 }
                             }
 
                             @Override
                             public void onConfigureFailed(CameraCaptureSession session) {
+                                cleanupBgThread.run();
                                 callback.onError("Camera configuration failed");
                             }
                         }, backgroundHandler);
                     } catch (Exception e) {
+                        cleanupBgThread.run();
                         callback.onError("Error setting up capture session: " + e.getMessage());
                     }
                 }
 
                 @Override
                 public void onDisconnected(CameraDevice camera) {
-                    camera.close();
+                    try { camera.close(); } catch (Exception ignored) {}
+                    cleanupBgThread.run();
                 }
 
                 @Override
                 public void onError(CameraDevice camera, int error) {
-                    camera.close();
+                    try { camera.close(); } catch (Exception ignored) {}
+                    cleanupBgThread.run();
                     callback.onError("Camera device error code: " + error);
                 }
             }, backgroundHandler);
 
         } catch (Exception e) {
+            isSnapshotInProgress = false;
             callback.onError("Camera exception: " + e.getMessage());
         }
     }
 
-    // --- Live Streaming Mode ---
-    private CameraDevice liveCameraDevice;
-    private CameraCaptureSession liveSession;
-    private ImageReader liveImageReader;
-    private HandlerThread liveThread;
-    private Handler liveHandler;
-    private volatile boolean isStreaming = false;
-    private String currentFacing = "environment"; // "environment" = back, "user" = front
-    private LiveFrameCallback frameCallback;
-
-    public interface LiveFrameCallback {
-        void onFrame(byte[] jpegData);
-        void onError(String error);
-    }
-
     public void startLiveStream(String facing, LiveFrameCallback callback) {
+        // A.3 Mutual exclusion check
+        if (isSnapshotInProgress) {
+            callback.onError("Camera is currently in use for a snapshot capture. Please wait.");
+            return;
+        }
+
         if (isStreaming) {
             stopLiveStream();
         }
         this.currentFacing = facing;
         this.frameCallback = callback;
         this.isStreaming = true;
+
+        // A.2 Schedule 10-minute auto-stop safety timer
+        autoStopHandler.removeCallbacks(autoStopRunnable);
+        autoStopHandler.postDelayed(autoStopRunnable, MAX_STREAM_DURATION_MS);
         
         CameraManager manager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
         if (manager == null) {
+            cleanupLiveStreamResources();
             callback.onError("Camera service unavailable");
             return;
         }
         
         try {
-            // Select camera based on facing
             String cameraId = null;
             int targetFacing = "user".equals(facing) 
                 ? CameraCharacteristics.LENS_FACING_FRONT 
@@ -186,6 +238,7 @@ public class StayKidsCameraService {
                 cameraId = manager.getCameraIdList()[0];
             }
             if (cameraId == null) {
+                cleanupLiveStreamResources();
                 callback.onError("No camera found");
                 return;
             }
@@ -194,7 +247,6 @@ public class StayKidsCameraService {
             liveThread.start();
             liveHandler = new Handler(liveThread.getLooper());
             
-            // Lower resolution for streaming (320x240 for bandwidth)
             liveImageReader = ImageReader.newInstance(320, 240, ImageFormat.JPEG, 2);
             liveImageReader.setOnImageAvailableListener(reader -> {
                 Image image = null;
@@ -221,7 +273,6 @@ public class StayKidsCameraService {
                     try {
                         CaptureRequest.Builder builder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
                         builder.addTarget(liveImageReader.getSurface());
-                        // Auto-focus and auto-exposure for live view
                         builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
                         builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
                         
@@ -232,7 +283,6 @@ public class StayKidsCameraService {
                                 public void onConfigured(CameraCaptureSession session) {
                                     liveSession = session;
                                     try {
-                                        // Use setRepeatingRequest for continuous frames
                                         session.setRepeatingRequest(builder.build(), null, liveHandler);
                                         Log.i(TAG, "Live camera stream started (" + facing + ")");
                                     } catch (CameraAccessException e) {
@@ -241,45 +291,56 @@ public class StayKidsCameraService {
                                 }
                                 @Override
                                 public void onConfigureFailed(CameraCaptureSession session) {
+                                    cleanupLiveStreamResources();
                                     if (frameCallback != null) frameCallback.onError("Camera config failed");
                                 }
                             },
                             liveHandler
                         );
                     } catch (Exception e) {
+                        cleanupLiveStreamResources();
                         if (frameCallback != null) frameCallback.onError("Session setup failed: " + e.getMessage());
                     }
                 }
                 
                 @Override
                 public void onDisconnected(CameraDevice camera) {
-                    camera.close();
-                    liveCameraDevice = null;
+                    // A.4 Shared resource cleanup & state sync on disconnect
+                    cleanupLiveStreamResources();
                 }
                 
                 @Override
                 public void onError(CameraDevice camera, int error) {
-                    camera.close();
-                    liveCameraDevice = null;
-                    if (frameCallback != null) frameCallback.onError("Camera error: " + error);
+                    // A.4 Shared resource cleanup & state sync on camera error
+                    LiveFrameCallback cb = frameCallback;
+                    cleanupLiveStreamResources();
+                    if (cb != null) cb.onError("Camera error: " + error);
                 }
             }, liveHandler);
             
         } catch (SecurityException e) {
+            cleanupLiveStreamResources();
             callback.onError("Camera permission not granted");
         } catch (Exception e) {
+            cleanupLiveStreamResources();
             callback.onError("Camera exception: " + e.getMessage());
         }
     }
 
     public void stopLiveStream() {
-        isStreaming = false;
-        frameCallback = null;
-        try { if (liveSession != null) { liveSession.close(); liveSession = null; } } catch (Exception e) {}
-        try { if (liveCameraDevice != null) { liveCameraDevice.close(); liveCameraDevice = null; } } catch (Exception e) {}
-        try { if (liveImageReader != null) { liveImageReader.close(); liveImageReader = null; } } catch (Exception e) {}
-        try { if (liveThread != null) { liveThread.quitSafely(); liveThread = null; } } catch (Exception e) {}
+        cleanupLiveStreamResources();
         Log.i(TAG, "Live camera stream stopped");
+    }
+
+    // A.4 Shared Private Cleanup Helper for Live Stream State & Hardware Resources
+    private void cleanupLiveStreamResources() {
+        isStreaming = false;
+        autoStopHandler.removeCallbacks(autoStopRunnable);
+        try { if (liveSession != null) { liveSession.close(); liveSession = null; } } catch (Exception ignored) {}
+        try { if (liveCameraDevice != null) { liveCameraDevice.close(); liveCameraDevice = null; } } catch (Exception ignored) {}
+        try { if (liveImageReader != null) { liveImageReader.close(); liveImageReader = null; } } catch (Exception ignored) {}
+        try { if (liveThread != null) { liveThread.quitSafely(); liveThread = null; } } catch (Exception ignored) {}
+        frameCallback = null;
     }
 
     public boolean isLiveStreaming() {
