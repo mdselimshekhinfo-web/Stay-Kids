@@ -49,10 +49,8 @@ export const setAuthToken = async (token: string | null) => {
   inMemoryToken = token
   if (token) {
     await Preferences.set({ key: 'staykids_jwt_token', value: token })
-    try { localStorage.setItem('staykids_jwt_token', token) } catch (_e) {}
   } else {
     await Preferences.remove({ key: 'staykids_jwt_token' })
-    try { localStorage.removeItem('staykids_jwt_token') } catch (_e) {}
     await authManager.clearSession()
   }
 }
@@ -112,11 +110,17 @@ const OFFLINE_QUEUE_KEY = "staykids_offline_queue_enc"
 const MAX_QUEUE_AGE_MS = 5 * 60 * 1000 // Discard actions older than 5 minutes
 const MAX_QUEUE_SIZE = 10
 
+async function getEncryptionPassphrase(): Promise<string> {
+  const token = inMemoryToken || (await loadAuthToken())
+  return token || "staykids-unauthenticated-device-fallback-key"
+}
+
 async function getOfflineQueue(): Promise<QueuedAction[]> {
   try {
     const raw = localStorage.getItem(OFFLINE_QUEUE_KEY)
     if (!raw) return []
-    const decrypted = await decryptData(raw)
+    const passphrase = await getEncryptionPassphrase()
+    const decrypted = await decryptData(raw, passphrase)
     return decrypted ? JSON.parse(decrypted) : []
   } catch (_e) {
     return []
@@ -126,7 +130,8 @@ async function getOfflineQueue(): Promise<QueuedAction[]> {
 async function saveOfflineQueue(queue: QueuedAction[]) {
   try {
     const jsonStr = JSON.stringify(queue)
-    const encrypted = await encryptData(jsonStr)
+    const passphrase = await getEncryptionPassphrase()
+    const encrypted = await encryptData(jsonStr, passphrase)
     localStorage.setItem(OFFLINE_QUEUE_KEY, encrypted)
   } catch (_e) {}
 }

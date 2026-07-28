@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Signature-level custom permission to protect internal broadcast receivers -->
+    <permission android:name="com.staykids.parent.PERMISSION_GEOFENCE" android:protectionLevel="signature" />
+
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
@@ -41,7 +44,7 @@
             android:name=".StayKidsAccessibilityService"
             android:label="@string/accessibility_service_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>
@@ -71,7 +74,7 @@
             android:label="StayKids Parental Anti-Uninstall Protection"
             android:description="@string/accessibility_service_description"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
-            android:exported="true">
+            android:exported="false">
             <meta-data
                 android:name="android.app.device_admin"
                 android:resource="@xml/device_admin_policies" />
@@ -84,7 +87,7 @@
         <receiver
             android:name=".StayKidsBootReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
@@ -95,8 +98,11 @@
         <!-- StayKids Bedtime Receiver -->
         <receiver android:name=".StayKidsBedtimeReceiver" android:exported="false" />
 
-        <!-- StayKids Geofence Receiver -->
-        <receiver android:name=".StayKidsGeofenceReceiver" android:exported="true">
+        <!-- StayKids Geofence Receiver (Protected via signature-level custom permission) -->
+        <receiver
+            android:name=".StayKidsGeofenceReceiver"
+            android:exported="true"
+            android:permission="com.staykids.parent.PERMISSION_GEOFENCE">
             <intent-filter>
                 <action android:name="com.staykids.parent.GEOFENCE_EVENT" />
             </intent-filter>

@@ -19,11 +19,19 @@ export function sanitizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
+// Strong Password Validation: Min 10 chars, 1 uppercase, 1 lowercase, 1 number
+const StrongPasswordSchema = z
+  .string()
+  .min(10, 'Password must be at least 10 characters long')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number')
+
 // 1. Auth Schemas
 export const SignUpSchema = z.object({
   name: z.string().transform(sanitizeInput).optional(),
   email: z.string().email('Invalid email address format').transform(sanitizeEmail),
-  password: z.string().min(6, 'Password must be at least 6 characters long'),
+  password: StrongPasswordSchema,
 })
 
 export const LoginSchema = z.object({
@@ -39,7 +47,7 @@ export const OtpSchema = z.object({
 export const PasswordResetSchema = z.object({
   email: z.string().email('Invalid email address format').transform(sanitizeEmail),
   otp: z.string().length(6, 'OTP code must be exactly 6 digits').regex(/^\d+$/, 'OTP must contain only numbers'),
-  newPassword: z.string().min(6, 'Password must be at least 6 characters long'),
+  newPassword: StrongPasswordSchema,
 })
 
 // 2. Pairing Schemas
