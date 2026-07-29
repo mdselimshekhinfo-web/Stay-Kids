@@ -12,6 +12,8 @@ import {
   startNativeAudioCapture,
   stopNativeAudioCapture,
   listenAudioChunk,
+  handleNativeWebRTCSignal,
+  listenWebRTCSignal,
 } from "./lib/native"
 import { triggerToast } from "./components/Toast"
 
@@ -153,6 +155,55 @@ export default function App() {
       }
     }
   }, [role, state.remote.mirrorStreamActive])
+
+  // Fix 2: Child Device WebRTC Signal Bridge & Native Forwarding
+  const forwardedOfferRef = React.useRef<string | null>(null)
+  const forwardedCandidatesCountRef = React.useRef<number>(0)
+
+  useEffect(() => {
+    let unsubscribeWebRTCSignalListener: (() => void) | null = null
+
+    if (role === "child") {
+      // Forward native WebRTC signal events (answers & candidates) to backend
+      unsubscribeWebRTCSignalListener = listenWebRTCSignal((signal) => {
+        sendStayKidsAction({
+          type: "webrtc-signal",
+          ...signal,
+        }).catch(() => {})
+      })
+    }
+
+    return () => {
+      if (unsubscribeWebRTCSignalListener) {
+        unsubscribeWebRTCSignalListener()
+      }
+    }
+  }, [role])
+
+  useEffect(() => {
+    if (role !== "child") return
+
+    // Forward SDP Offer from backend state to native WebRTC manager
+    if (state.remote.webrtcOffer && JSON.stringify(state.remote.webrtcOffer) !== forwardedOfferRef.current) {
+      forwardedOfferRef.current = JSON.stringify(state.remote.webrtcOffer)
+      handleNativeWebRTCSignal({ offer: state.remote.webrtcOffer }).catch(() => {})
+    }
+
+    // Forward ICE Candidates from backend state to native WebRTC manager
+    if (state.remote.webrtcCandidates && Array.isArray(state.remote.webrtcCandidates)) {
+      const candidates = state.remote.webrtcCandidates
+      if (candidates.length > forwardedCandidatesCountRef.current) {
+        const newCandidates = candidates.slice(forwardedCandidatesCountRef.current)
+        forwardedCandidatesCountRef.current = candidates.length
+        handleNativeWebRTCSignal({ candidates: newCandidates }).catch(() => {})
+      }
+    }
+
+    if (!state.remote.mirrorStreamActive) {
+      forwardedOfferRef.current = null
+      forwardedCandidatesCountRef.current = 0
+    }
+  }, [role, state.remote.webrtcOffer, state.remote.webrtcCandidates, state.remote.mirrorStreamActive])
 
   // 3. Child Device MediaProjection Auto-Start Response
   useEffect(() => {

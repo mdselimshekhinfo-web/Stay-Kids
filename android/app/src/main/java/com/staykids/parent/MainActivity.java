@@ -535,6 +535,20 @@ public class MainActivity extends BridgeActivity {
                         getContext().startService(serviceIntent);
                     }
 
+                    // Fix 1: Actually start WebRTC screen capture session on consent grant!
+                    try {
+                        StayKidsWebRTCManager.getInstance(getContext()).startScreenCaptureWebRTC(result.getData(), new android.media.projection.MediaProjection.Callback() {
+                            @Override
+                            public void onStop() {
+                                try {
+                                    StayKidsWebRTCManager.getInstance(getContext()).stopWebRTC();
+                                } catch (Exception ignored) {}
+                            }
+                        });
+                    } catch (Exception e) {
+                        Log.w("MainActivity", "WebRTC startScreenCaptureWebRTC initialization warning: " + e.getMessage());
+                    }
+
                     call.resolve(new JSObject()
                         .put("success", true)
                         .put("streaming", true)
@@ -555,6 +569,9 @@ public class MainActivity extends BridgeActivity {
             try {
                 Intent stopIntent = new Intent(getContext(), StayKidsScreenCaptureService.class);
                 getContext().stopService(stopIntent);
+                try {
+                    StayKidsWebRTCManager.getInstance(getContext()).stopWebRTC();
+                } catch (Exception ignored) {}
                 JSObject ret = new JSObject();
                 ret.put("success", true);
                 call.resolve(ret);
