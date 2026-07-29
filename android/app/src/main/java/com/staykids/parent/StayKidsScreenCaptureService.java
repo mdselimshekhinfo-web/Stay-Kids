@@ -31,6 +31,7 @@ public class StayKidsScreenCaptureService extends Service {
     private static final String TAG = "StayKidsScreenCapture";
     private static final String CHANNEL_ID = "staykids_screen_stream";
     private static final int NOTIFICATION_ID = 8842;
+    private static final long MAX_STREAM_DURATION_MS = 10 * 60 * 1000L; // 10 minutes max safety limit
 
     private static MediaProjection mediaProjection;
     private static VirtualDisplay virtualDisplay;
@@ -41,6 +42,14 @@ public class StayKidsScreenCaptureService extends Service {
     private static final int WIDTH = 540;
     private static final int HEIGHT = 960;
     private static long lastFrameTime = 0;
+
+    private final Handler autoStopHandler = new Handler(Looper.getMainLooper());
+    private final Runnable autoStopRunnable = () -> {
+        if (isStreaming()) {
+            Log.w(TAG, "Screen capture reached maximum safety duration (10 mins). Automatically stopping.");
+            stopScreenShare();
+        }
+    };
 
     public interface FrameListener {
         void onFrameAvailable(String base64Jpeg);
@@ -63,6 +72,12 @@ public class StayKidsScreenCaptureService extends Service {
             int resultCode = intent.getIntExtra("resultCode", -1);
             Intent data = intent.getParcelableExtra("data");
             if (resultCode != -1 && data != null) {
+                // 4. Guard against starting a new session while one is already active
+                if (isStreaming()) {
+                    Log.i(TAG, "Active screen capture session detected. Stopping previous session before starting new one.");
+                    stopScreenShare();
+                }
+
                 Notification notification = buildNotification();
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
@@ -123,6 +138,10 @@ public class StayKidsScreenCaptureService extends Service {
                 null
             );
 
+            // 1. Schedule 10-minute max-duration safety auto-stop timer
+            autoStopHandler.removeCallbacks(autoStopRunnable);
+            autoStopHandler.postDelayed(autoStopRunnable, MAX_STREAM_DURATION_MS);
+
             HandlerThread bgThread = new HandlerThread("ScreenCaptureThread");
             bgThread.start();
             Handler bgHandler = new Handler(bgThread.getLooper());
@@ -164,13 +183,20 @@ public class StayKidsScreenCaptureService extends Service {
                             int rowStride = planes[0].getRowStride();
                             int rowPadding = rowStride - pixelStride * WIDTH;
 
-                            Bitmap bitmap = Bitmap.createBitmap(WIDTH + rowPadding / pixelStride, HEIGHT, Bitmap.Config.ARGB_8888);
-                            bitmap.copyPixelsFromBuffer(buffer);
+                            Bitmap paddedBitmap = Bitmap.createBitmap(WIDTH + rowPadding / pixelStride, HEIGHT, Bitmap.Config.ARGB_8888);
+                            paddedBitmap.copyPixelsFromBuffer(buffer);
+
+                            // 2. Crop bitmap back to exact true WIDTH before JPEG compression if rowPadding > 0
+                            Bitmap finalBitmap = paddedBitmap;
+                            if (rowPadding > 0) {
+                                finalBitmap = Bitmap.createBitmap(paddedBitmap, 0, 0, WIDTH, HEIGHT);
+                                paddedBitmap.recycle();
+                            }
 
                             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            bitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, baos);
+                            finalBitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, baos);
                             byte[] jpegData = baos.toByteArray();
-                            bitmap.recycle();
+                            finalBitmap.recycle();
 
                             String base64 = "data:image/jpeg;base64," + Base64.encodeToString(jpegData, Base64.NO_WRAP);
                             if (frameListener != null) {
@@ -190,6 +216,11 @@ public class StayKidsScreenCaptureService extends Service {
             }, bgHandler);
         } catch (Exception e) {
             Log.e(TAG, "Failed to create VirtualDisplay: " + e.getMessage());
+            // 3. Close imageReader if createVirtualDisplay fails after imageReader allocation
+            if (imageReader != null) {
+                try { imageReader.close(); } catch (Exception ignored) {}
+                imageReader = null;
+            }
         }
     }
 
@@ -207,6 +238,9 @@ public class StayKidsScreenCaptureService extends Service {
 
     public static void stopScreenShare() {
         try {
+            if (instance != null) {
+                instance.autoStopHandler.removeCallbacks(instance.autoStopRunnable);
+            }
             if (virtualDisplay != null) {
                 virtualDisplay.release();
                 virtualDisplay = null;
