@@ -508,6 +508,27 @@ public class MainActivity extends BridgeActivity {
                         }
                     });
 
+                    StayKidsWebRTCManager.getInstance(getContext()).setSignalListener(new StayKidsWebRTCManager.WebRTCSignalListener() {
+                        @Override
+                        public void sendSignal(org.json.JSONObject signalData) {
+                            try {
+                                JSObject eventData = new JSObject();
+                                if (signalData.has("answer")) {
+                                    eventData.put("answer", signalData.getJSONObject("answer"));
+                                }
+                                if (signalData.has("candidate")) {
+                                    eventData.put("candidate", signalData.getJSONObject("candidate"));
+                                }
+                                if (signalData.has("signalState")) {
+                                    eventData.put("signalState", signalData.getString("signalState"));
+                                }
+                                notifyListeners("webrtcSignal", eventData);
+                            } catch (Exception e) {
+                                Log.e("MainActivity", "Error sending WebRTC signal event: " + e.getMessage());
+                            }
+                        }
+                    });
+
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         getContext().startForegroundService(serviceIntent);
                     } else {
@@ -539,6 +560,31 @@ public class MainActivity extends BridgeActivity {
                 call.resolve(ret);
             } catch (Exception e) {
                 call.reject("Failed to stop screen share: " + e.getMessage());
+            }
+        }
+
+        @PluginMethod
+        public void handleWebRTCSignal(PluginCall call) {
+            try {
+                JSObject data = call.getData();
+                if (data != null) {
+                    StayKidsWebRTCManager manager = StayKidsWebRTCManager.getInstance(getContext());
+                    if (data.has("offer")) {
+                        org.json.JSONObject offerObj = data.getJSObject("offer");
+                        if (offerObj != null) {
+                            manager.handleIncomingOffer(offerObj);
+                        }
+                    }
+                    if (data.has("candidates")) {
+                        org.json.JSONArray candArray = data.getJSONArray("candidates");
+                        if (candArray != null) {
+                            manager.handleIncomingCandidates(candArray);
+                        }
+                    }
+                }
+                call.resolve(new JSObject().put("success", true));
+            } catch (Exception e) {
+                call.reject("Failed to handle WebRTC signal: " + e.getMessage());
             }
         }
 

@@ -43,12 +43,15 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     return () => unlisten()
   }, [cameraStreaming])
 
-  // STUN-only WebRTC Peer Connection Initialization
+  // Part A: Complete WebRTC SDP Offer, Answer & Candidate Negotiation Logic
+  const appliedCandidatesCount = React.useRef(0)
+
   useEffect(() => {
     if (tool !== "Screen Mirror" || !state.remote.mirrorStreamActive) {
       if (pcRef.current) {
         pcRef.current.close()
-        pcRef.current = null;
+        pcRef.current = null
+        appliedCandidatesCount.current = 0
         setWebrtcConnected(false)
       }
       return
@@ -59,6 +62,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         const pc = new RTCPeerConnection({
           iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
         })
+
+        // Require receiving video track from child device
+        pc.addTransceiver("video", { direction: "recvonly" })
 
         pc.ontrack = (event) => {
           if (videoRef.current && event.streams && event.streams[0]) {
@@ -74,17 +80,56 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         }
 
         pc.oniceconnectionstatechange = () => {
-          if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
+          if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+            setWebrtcConnected(true)
+          } else if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
             setWebrtcConnected(false)
           }
         }
 
         pcRef.current = pc
+
+        // 1. Create and send SDP Offer to child device
+        pc.createOffer({ offerToReceiveVideo: true })
+          .then((offer) => pc.setLocalDescription(offer))
+          .then(() => {
+            if (pc.localDescription) {
+              onAction({
+                type: "webrtc-signal",
+                offer: { type: pc.localDescription.type, sdp: pc.localDescription.sdp },
+                signalState: "connecting",
+              })
+            }
+          })
+          .catch((err) => console.warn("Failed to create WebRTC offer:", err))
       } catch (e) {
         console.warn("Browser WebRTC initialization fallback:", e)
       }
     }
   }, [tool, state.remote.mirrorStreamActive])
+
+  // 2. Watch for state.remote.webrtcAnswer & state.remote.webrtcCandidates
+  useEffect(() => {
+    if (!pcRef.current) return
+
+    // Apply SDP Answer from child device
+    if (state.remote.webrtcAnswer && !pcRef.current.currentRemoteDescription) {
+      const desc = new RTCSessionDescription(state.remote.webrtcAnswer as RTCSessionDescriptionInit)
+      pcRef.current.setRemoteDescription(desc).catch((err) => console.warn("Error setting remote answer:", err))
+    }
+
+    // Apply backend-accumulated ICE candidates
+    if (state.remote.webrtcCandidates && Array.isArray(state.remote.webrtcCandidates)) {
+      const candidates = state.remote.webrtcCandidates
+      for (let i = appliedCandidatesCount.current; i < candidates.length; i++) {
+        const cand = candidates[i]
+        if (cand && pcRef.current) {
+          pcRef.current.addIceCandidate(new RTCIceCandidate(cand)).catch((err) => console.warn("Error adding candidate:", err))
+        }
+      }
+      appliedCandidatesCount.current = candidates.length
+    }
+  }, [state.remote.webrtcAnswer, state.remote.webrtcCandidates])
 
   const tools = [
     ["Live Camera", "📷", "View child surroundings"],

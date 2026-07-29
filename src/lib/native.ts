@@ -368,6 +368,29 @@ export const listenAudioChunk = (callback: (chunkBase64: string) => void): (() =
   }
 }
 
+export const handleNativeWebRTCSignal = async (signal: Record<string, unknown>): Promise<{ success: boolean; error?: string }> => {
+  try {
+    return await StayKidsNative.handleWebRTCSignal(signal)
+  } catch (e: any) {
+    return { success: false, error: e?.message || "Failed to handle WebRTC signal" }
+  }
+}
+
+export const listenWebRTCSignal = (callback: (signal: Record<string, unknown>) => void): (() => void) => {
+  try {
+    const handlePromise = StayKidsNative.addListener("webrtcSignal", (data: any) => {
+      if (data) {
+        callback(data)
+      }
+    })
+    return () => {
+      handlePromise.then((h) => h.remove()).catch(() => {})
+    }
+  } catch (_e) {
+    return () => {}
+  }
+}
+
 export const fetchNativeInstalledApps = async (): Promise<{ name: string; packageName: string; isBlocked: boolean }[]> => {
   try {
     const res = await StayKidsNative.getInstalledApps()

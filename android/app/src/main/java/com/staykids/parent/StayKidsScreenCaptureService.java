@@ -90,7 +90,18 @@ public class StayKidsScreenCaptureService extends Service {
                     mediaProjection = projectionManager.getMediaProjection(resultCode, data);
                     if (mediaProjection != null) {
                         startVirtualDisplay();
-                        Log.i(TAG, "MediaProjection session & VirtualDisplay started successfully.");
+                        try {
+                            StayKidsWebRTCManager webrtc = StayKidsWebRTCManager.getInstance(getApplicationContext());
+                            webrtc.startScreenCaptureWebRTC(data, new MediaProjection.Callback() {
+                                @Override
+                                public void onStop() {
+                                    stopScreenShare();
+                                }
+                            });
+                        } catch (Exception e) {
+                            Log.w(TAG, "Native WebRTC Screen Capture initialization warning: " + e.getMessage());
+                        }
+                        Log.i(TAG, "MediaProjection session, VirtualDisplay & WebRTC PeerConnection started successfully.");
                     }
                 }
             }
@@ -240,6 +251,9 @@ public class StayKidsScreenCaptureService extends Service {
         try {
             if (instance != null) {
                 instance.autoStopHandler.removeCallbacks(instance.autoStopRunnable);
+                try {
+                    StayKidsWebRTCManager.getInstance(instance.getApplicationContext()).stopWebRTC();
+                } catch (Exception ignored) {}
             }
             if (virtualDisplay != null) {
                 virtualDisplay.release();
