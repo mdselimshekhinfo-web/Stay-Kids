@@ -80,8 +80,10 @@ public class MainActivity extends BridgeActivity {
                 public void onReceive(Context context, Intent intent) {
                     if ("com.staykids.parent.GEOFENCE_EVENT".equals(intent.getAction())) {
                         String transition = intent.getStringExtra("transition");
+                        String geofenceId = intent.getStringExtra("geofenceId");
                         JSObject data = new JSObject();
                         data.put("transition", transition);
+                        data.put("geofenceId", geofenceId != null ? geofenceId : "safe_zone_1");
                         notifyListeners("geofence_alert", data);
                     }
                 }
@@ -241,7 +243,11 @@ public class MainActivity extends BridgeActivity {
             prefs.edit().putInt("dailyLimit", limit).apply();
             
             android.content.Intent serviceIntent = new android.content.Intent(getContext(), StayKidsUsageService.class);
-            getContext().startService(serviceIntent);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                getContext().startForegroundService(serviceIntent);
+            } else {
+                getContext().startService(serviceIntent);
+            }
 
             JSObject ret = new JSObject();
             ret.put("success", true);

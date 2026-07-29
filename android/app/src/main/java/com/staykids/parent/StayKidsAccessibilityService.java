@@ -19,7 +19,20 @@ public class StayKidsAccessibilityService extends AccessibilityService {
     private static StayKidsAccessibilityService instance;
     private static final Set<String> blockedPackageNames = java.util.Collections.synchronizedSet(new HashSet<>());
     private static boolean isWebFilterEnabled = false;
+    private static boolean isBedtimeModeActive = false;
     private static final List<String> BLOCKED_KEYWORDS = Arrays.asList("porn", "xxx", "casino", "gambling", "adult");
+
+    // Allowed system/emergency packages during Bedtime mode
+    private static final Set<String> ALLOWED_BEDTIME_PACKAGES = new HashSet<>(Arrays.asList(
+        "com.staykids.parent",
+        "com.android.dialer",
+        "com.google.android.dialer",
+        "com.sec.android.provider.badge",
+        "com.samsung.android.dialer",
+        "com.android.phone",
+        "com.android.systemui",
+        "android"
+    ));
 
     // A.3 Browser coverage for web filter: Chrome, Firefox, Samsung, Xiaomi, Opera, Edge, UC
     private static final Set<String> BROWSER_PACKAGES = new HashSet<>(Arrays.asList(
@@ -50,10 +63,23 @@ public class StayKidsAccessibilityService extends AccessibilityService {
             blockedPackageNames.addAll(savedApps);
         }
         isWebFilterEnabled = prefs.getBoolean("webFilter", false);
+        isBedtimeModeActive = prefs.getBoolean("bedtimeActive", false);
     }
 
     public static StayKidsAccessibilityService getInstance() {
         return instance;
+    }
+
+    public static void setBedtimeActive(boolean active) {
+        isBedtimeModeActive = active;
+        if (instance != null) {
+            android.content.SharedPreferences prefs = instance.getSharedPreferences("StayKidsPrefs", android.content.Context.MODE_PRIVATE);
+            prefs.edit().putBoolean("bedtimeActive", active).apply();
+        }
+    }
+
+    public static boolean isBedtimeActive() {
+        return isBedtimeModeActive;
     }
 
     public static void setAppBlocked(String packageName, boolean blocked) {
@@ -89,6 +115,13 @@ public class StayKidsAccessibilityService extends AccessibilityService {
             CharSequence packageName = event.getPackageName();
             if (packageName != null) {
                 String pkg = packageName.toString();
+
+                if (isBedtimeModeActive && !ALLOWED_BEDTIME_PACKAGES.contains(pkg)) {
+                    Log.w(TAG, "Bedtime active. Non-essential app launch blocked: " + pkg + ". Enforcing HOME redirection.");
+                    performGlobalAction(GLOBAL_ACTION_HOME);
+                    return;
+                }
+
                 if (blockedPackageNames.contains(pkg)) {
                     Log.w(TAG, "Blocked app launched by child: " + pkg + ". Enforcing HOME redirection.");
                     performGlobalAction(GLOBAL_ACTION_HOME);

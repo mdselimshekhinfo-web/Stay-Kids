@@ -1,13 +1,18 @@
 package com.staykids.parent;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 
 import java.util.Calendar;
@@ -15,14 +20,21 @@ import java.util.List;
 
 public class StayKidsUsageService extends Service {
     private static final String TAG = "StayKidsUsageService";
+    private static final String CHANNEL_ID = "staykids_usage_channel";
+    private static final int NOTIFICATION_ID = 8845;
+    private static final long POLL_INTERVAL = 60000; // 1 minute
+
     private Handler handler;
     private Runnable runnable;
-    private static final long POLL_INTERVAL = 60000; // 1 minute
 
     @Override
     public void onCreate() {
         super.onCreate();
-        handler = new Handler();
+        createNotificationChannel();
+        Notification notification = buildNotification();
+        startForeground(NOTIFICATION_ID, notification);
+
+        handler = new Handler(Looper.getMainLooper());
         runnable = new Runnable() {
             @Override
             public void run() {
@@ -31,7 +43,45 @@ public class StayKidsUsageService extends Service {
             }
         };
         handler.post(runnable);
-        Log.i(TAG, "Usage Service started");
+        Log.i(TAG, "StayKidsUsageService started as a Foreground Service.");
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        Notification notification = buildNotification();
+        startForeground(NOTIFICATION_ID, notification);
+        return START_STICKY;
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "StayKids Screen Time Guard",
+                NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Monitors daily screen time limits to keep your child safe.");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private Notification buildNotification() {
+        Notification.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            builder = new Notification.Builder(this, CHANNEL_ID);
+        } else {
+            builder = new Notification.Builder(this);
+        }
+
+        return builder
+            .setContentTitle("Screen Time Protection Active")
+            .setContentText("Monitoring daily app usage limits.")
+            .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+            .setOngoing(true)
+            .build();
     }
 
     private void checkScreenTime() {
@@ -52,10 +102,12 @@ public class StayKidsUsageService extends Service {
         List<UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime);
         long totalForegroundTime = 0;
         
-        for (UsageStats stat : stats) {
-            String pkg = stat.getPackageName();
-            if (!pkg.equals("android") && !pkg.equals("com.android.systemui") && !pkg.equals("com.staykids.parent")) {
-                totalForegroundTime += stat.getTotalTimeInForeground();
+        if (stats != null) {
+            for (UsageStats stat : stats) {
+                String pkg = stat.getPackageName();
+                if (!pkg.equals("android") && !pkg.equals("com.android.systemui") && !pkg.equals(getPackageName())) {
+                    totalForegroundTime += stat.getTotalTimeInForeground();
+                }
             }
         }
 
@@ -68,7 +120,7 @@ public class StayKidsUsageService extends Service {
     }
 
     private void enforceTimeLimit() {
-        Log.w(TAG, "Screen time limit exceeded! Locking device via Accessibility.");
+        Log.w(TAG, "Screen time limit exceeded! Enforcing HOME redirection via Accessibility.");
         StayKidsAccessibilityService service = StayKidsAccessibilityService.getInstance();
         if (service != null) {
             service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME);
@@ -82,9 +134,10 @@ public class StayKidsUsageService extends Service {
 
     @Override
     public void onDestroy() {
-        super.onDestroy();
         if (handler != null && runnable != null) {
             handler.removeCallbacks(runnable);
         }
+        stopForeground(true);
+        super.onDestroy();
     }
 }

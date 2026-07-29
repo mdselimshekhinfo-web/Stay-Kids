@@ -12,13 +12,26 @@ public class StayKidsBedtimeReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        Log.i(TAG, "Bedtime reached. Locking device.");
+        boolean isWake = intent != null && intent.getBooleanExtra("isWake", false);
+
+        if (isWake) {
+            Log.i(TAG, "Wake time reached. Deactivating bedtime enforcement mode.");
+            StayKidsAccessibilityService.setBedtimeActive(false);
+            return;
+        }
+
+        Log.i(TAG, "Bedtime reached. Enforcing device lock & Accessibility app blocking.");
+        
+        // 1. Lock screen immediately
         DevicePolicyManager dpm = (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
         ComponentName compName = new ComponentName(context, StayKidsDeviceAdminReceiver.class);
         if (dpm != null && dpm.isAdminActive(compName)) {
             dpm.lockNow();
         } else {
-            Log.w(TAG, "Device Admin not active. Cannot lock device.");
+            Log.w(TAG, "Device Admin not active. Immediate screen lock skipped.");
         }
+
+        // 2. Activate continuous accessibility bedtime mode (blocks non-emergency app launches)
+        StayKidsAccessibilityService.setBedtimeActive(true);
     }
 }
