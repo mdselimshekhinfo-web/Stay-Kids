@@ -782,38 +782,65 @@ public class MainActivity extends BridgeActivity {
         @PluginMethod
         public void setBedtimeSchedule(PluginCall call) {
             String time = call.getString("time", "21:00"); // format HH:mm
+            String wakeTime = call.getString("wakeTime", "07:00"); // format HH:mm
             try {
-                String[] parts = time.split(":");
-                int hour = Integer.parseInt(parts[0]);
-                int minute = Integer.parseInt(parts[1]);
-
-                Calendar calendar = Calendar.getInstance();
-                calendar.setTimeInMillis(System.currentTimeMillis());
-                calendar.set(Calendar.HOUR_OF_DAY, hour);
-                calendar.set(Calendar.MINUTE, minute);
-                calendar.set(Calendar.SECOND, 0);
-
-                if (calendar.getTimeInMillis() <= System.currentTimeMillis()) {
-                    calendar.add(Calendar.DAY_OF_YEAR, 1);
+                AlarmManager alarmManager = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+                if (alarmManager == null) {
+                    call.reject("AlarmManager not available.");
+                    return;
                 }
 
-                AlarmManager alarmManager = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
-                Intent intent = new Intent(getContext(), StayKidsBedtimeReceiver.class);
-                
                 int flags = PendingIntent.FLAG_UPDATE_CURRENT;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     flags |= PendingIntent.FLAG_IMMUTABLE;
                 }
-                PendingIntent pendingIntent = PendingIntent.getBroadcast(getContext(), 0, intent, flags);
 
-                if (alarmManager != null) {
-                    alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), AlarmManager.INTERVAL_DAY, pendingIntent);
-                    call.resolve(new JSObject().put("success", true).put("message", "Bedtime scheduled at " + time));
-                } else {
-                    call.reject("AlarmManager not available.");
+                // 1. Schedule Bedtime Lock Alarm (Request Code 0, isWake = false)
+                String[] bedtimeParts = time.split(":");
+                int bedHour = Integer.parseInt(bedtimeParts[0]);
+                int bedMinute = Integer.parseInt(bedtimeParts[1]);
+
+                Calendar bedCal = Calendar.getInstance();
+                bedCal.setTimeInMillis(System.currentTimeMillis());
+                bedCal.set(Calendar.HOUR_OF_DAY, bedHour);
+                bedCal.set(Calendar.MINUTE, bedMinute);
+                bedCal.set(Calendar.SECOND, 0);
+
+                if (bedCal.getTimeInMillis() <= System.currentTimeMillis()) {
+                    bedCal.add(Calendar.DAY_OF_YEAR, 1);
                 }
+
+                Intent bedIntent = new Intent(getContext(), StayKidsBedtimeReceiver.class);
+                bedIntent.putExtra("isWake", false);
+                PendingIntent bedPendingIntent = PendingIntent.getBroadcast(getContext(), 0, bedIntent, flags);
+                alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, bedCal.getTimeInMillis(), AlarmManager.INTERVAL_DAY, bedPendingIntent);
+
+                // 2. Schedule Wake-Time Alarm (Request Code 1, isWake = true)
+                String[] wakeParts = wakeTime.split(":");
+                int wakeHour = Integer.parseInt(wakeParts[0]);
+                int wakeMinute = Integer.parseInt(wakeParts[1]);
+
+                Calendar wakeCal = Calendar.getInstance();
+                wakeCal.setTimeInMillis(System.currentTimeMillis());
+                wakeCal.set(Calendar.HOUR_OF_DAY, wakeHour);
+                wakeCal.set(Calendar.MINUTE, wakeMinute);
+                wakeCal.set(Calendar.SECOND, 0);
+
+                if (wakeCal.getTimeInMillis() <= System.currentTimeMillis()) {
+                    wakeCal.add(Calendar.DAY_OF_YEAR, 1);
+                }
+
+                Intent wakeIntent = new Intent(getContext(), StayKidsBedtimeReceiver.class);
+                wakeIntent.putExtra("isWake", true);
+                PendingIntent wakePendingIntent = PendingIntent.getBroadcast(getContext(), 1, wakeIntent, flags);
+                alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, wakeCal.getTimeInMillis(), AlarmManager.INTERVAL_DAY, wakePendingIntent);
+
+                Log.i("MainActivity", "Bedtime scheduled at " + time + " (Lock) and " + wakeTime + " (Wake)");
+                call.resolve(new JSObject()
+                    .put("success", true)
+                    .put("message", "Bedtime scheduled at " + time + " and Wake Time at " + wakeTime));
             } catch (Exception e) {
-                call.reject("Failed to set bedtime: " + e.getMessage());
+                call.reject("Failed to set bedtime schedule: " + e.getMessage());
             }
         }
 

@@ -1011,9 +1011,13 @@ app.post("/server/action", async (c) => {
         category: newAlert.category,
         is_read: false,
       });
-    } else if (action.type === "set-bedtime" && typeof action.bedtime === "string") {
-      childState.controls.bedtimeSchedule = action.bedtime;
-      state.controls.bedtimeSchedule = action.bedtime;
+    } else if (action.type === "set-bedtime" && (typeof action.bedtime === "string" || typeof action.time === "string")) {
+      const bedtimeVal = action.bedtime || action.time || "21:00";
+      const wakeTimeVal = action.wakeTime || "07:00";
+      childState.controls.bedtimeSchedule = bedtimeVal;
+      childState.controls.wakeTime = wakeTimeVal;
+      state.controls.bedtimeSchedule = bedtimeVal;
+      (state.controls as any).wakeTime = wakeTimeVal;
     } else if (action.type === "audio-toggle") {
       if (!state.remote) state.remote = { status: "idle", tool: "One-way audio", consentRequired: false, audioActive: false };
       const nextActive = typeof action.active === "boolean" ? action.active : !state.remote.audioActive;

@@ -455,11 +455,11 @@ export const stopSirenNative = async (): Promise<{ success: boolean; error?: str
   }
 }
 
-export const setBedtimeNative = async (time: string): Promise<{ success: boolean; error?: string }> => {
+export const setBedtimeNative = async (time: string, wakeTime = "07:00"): Promise<{ success: boolean; error?: string }> => {
   try {
-    return await StayKidsNative.setBedtimeSchedule({ time })
+    return await StayKidsNative.setBedtimeSchedule({ time, wakeTime })
   } catch (e: any) {
-    console.warn(`StayKidsNative: Bedtime set to ${time} in web mode.`)
+    console.warn(`StayKidsNative: Bedtime set to ${time} (wake: ${wakeTime}) in web mode.`)
     return { success: true }
   }
 }

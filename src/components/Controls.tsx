@@ -153,15 +153,35 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
             <p className="font-bold flex items-center gap-2">
               {title}
               {key === "bedtime" && (
-                <input 
-                  type="time" 
-                  className="bg-gray-100 text-xs px-2 py-0.5 rounded font-medium focus:outline-none"
-                  value={state.controls.bedtimeSchedule || "21:00"}
-                  onChange={(e) => onAction({ type: "set-bedtime", bedtime: e.target.value })}
-                />
+                <div className="flex flex-wrap items-center gap-1.5 text-xs mt-1 sm:mt-0">
+                  <span className="font-normal text-[#71807a]">Start:</span>
+                  <input 
+                    type="time" 
+                    className="bg-gray-100 text-xs px-2 py-0.5 rounded font-medium focus:outline-none"
+                    value={state.controls.bedtimeSchedule || "21:00"}
+                    onChange={(e) => onAction({
+                      type: "set-bedtime",
+                      bedtime: e.target.value,
+                      wakeTime: (state.controls as any).wakeTime || "07:00"
+                    })}
+                  />
+                  <span className="font-normal text-[#71807a]">Wake:</span>
+                  <input 
+                    type="time" 
+                    className="bg-gray-100 text-xs px-2 py-0.5 rounded font-medium focus:outline-none"
+                    value={(state.controls as any).wakeTime || "07:00"}
+                    onChange={(e) => onAction({
+                      type: "set-bedtime",
+                      bedtime: state.controls.bedtimeSchedule || "21:00",
+                      wakeTime: e.target.value
+                    })}
+                  />
+                </div>
               )}
             </p>
-            <p className="truncate text-sm text-[#72808a]">{key === "bedtime" ? "Locks phone completely at scheduled time" : desc}</p>
+            <p className="truncate text-sm text-[#72808a]">
+              {key === "bedtime" ? "Blocks non-essential apps between bedtime and wake time" : desc}
+            </p>
           </div>
           <button
             onClick={() => onAction({ type: "toggle-control", key })}
