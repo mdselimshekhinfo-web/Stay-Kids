@@ -29,6 +29,10 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
   const [camFacing, setCamFacing] = useState<"environment" | "user">("environment")
   const [cameraStreaming, setCameraStreaming] = useState(false)
   const [liveCamFrame, setLiveCamFrame] = useState<string | null>(null)
+  const [streamMode, setStreamMode] = useState<"webrtc" | "jpeg">("webrtc")
+  const [webrtcConnected, setWebrtcConnected] = useState(false)
+  const videoRef = React.useRef<HTMLVideoElement | null>(null)
+  const pcRef = React.useRef<RTCPeerConnection | null>(null)
   const audio = state.remote.audioActive
 
   useEffect(() => {
@@ -38,6 +42,49 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     })
     return () => unlisten()
   }, [cameraStreaming])
+
+  // STUN-only WebRTC Peer Connection Initialization
+  useEffect(() => {
+    if (tool !== "Screen Mirror" || !state.remote.mirrorStreamActive) {
+      if (pcRef.current) {
+        pcRef.current.close()
+        pcRef.current = null;
+        setWebrtcConnected(false)
+      }
+      return
+    }
+
+    if (!pcRef.current) {
+      try {
+        const pc = new RTCPeerConnection({
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        })
+
+        pc.ontrack = (event) => {
+          if (videoRef.current && event.streams && event.streams[0]) {
+            videoRef.current.srcObject = event.streams[0]
+            setWebrtcConnected(true)
+          }
+        }
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            onAction({ type: "webrtc-signal", candidate: event.candidate.toJSON() })
+          }
+        }
+
+        pc.oniceconnectionstatechange = () => {
+          if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
+            setWebrtcConnected(false)
+          }
+        }
+
+        pcRef.current = pc
+      } catch (e) {
+        console.warn("Browser WebRTC initialization fallback:", e)
+      }
+    }
+  }, [tool, state.remote.mirrorStreamActive])
 
   const tools = [
     ["Live Camera", "📷", "View child surroundings"],
@@ -66,7 +113,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             if (tool === "Screen Mirror" && state.remote.mirrorStreamActive) {
               await stopNativeScreenShare().catch(() => {})
               onAction({ type: "mirror-toggle", active: false })
-              onAction({ type: "webrtc-signal", signalState: "idle" })
+              onAction({ type: "webrtc-signal", signalState: "idle", clearSignal: true })
             }
             setTool(null)
           }}
@@ -207,7 +254,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 📱 MediaProjection
               </span>
               <span className={`text-[10px] font-mono font-bold ${
-                state.remote.connectionState === "live" || state.remote.liveFrame
+                state.remote.connectionState === "live" || state.remote.liveFrame || webrtcConnected
                   ? "text-[#baf26b]"
                   : state.remote.connectionState === "connecting" || state.remote.connectionState === "requesting-consent"
                   ? "text-[#ffe082] animate-pulse"
@@ -215,8 +262,10 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                   ? "text-[#ef5350]"
                   : "text-[#869690]"
               }`}>
-                {state.remote.liveFrame || state.remote.connectionState === "live"
-                  ? "🔴 LIVE STREAMING"
+                {webrtcConnected && streamMode === "webrtc"
+                  ? "⚡ WEBRTC LIVE"
+                  : state.remote.liveFrame || state.remote.connectionState === "live"
+                  ? "🔴 JPEG STREAMING"
                   : state.remote.connectionState === "connecting"
                   ? "🟡 CONNECTING STREAM..."
                   : state.remote.connectionState === "requesting-consent"
@@ -229,7 +278,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
 
             <div
               onClick={(e) => {
-                if (!state.remote.mirrorStreamActive && !state.remote.liveFrame) return
+                if (!state.remote.mirrorStreamActive && !state.remote.liveFrame && !webrtcConnected) return
                 const rect = e.currentTarget.getBoundingClientRect()
                 const clickX = e.clientX - rect.left
                 const clickY = e.clientY - rect.top
@@ -244,12 +293,34 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               }}
               className="relative flex flex-1 w-full cursor-crosshair flex-col items-center justify-center rounded-xl border border-[#287555] bg-[#0a0a0a] text-center select-none overflow-hidden"
             >
-              {state.remote.liveFrame ? (
+              {state.remote.liveFrame || webrtcConnected ? (
                 <div className="relative h-full w-full flex items-center justify-center">
-                  <img src={state.remote.liveFrame} alt="Child Device Live Screen" className="flex-1 w-full h-full object-contain" />
-                  <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold text-[#baf26b] border border-[#baf26b]/40 backdrop-blur-md">
-                    <span className="h-2 w-2 rounded-full bg-[#baf26b] animate-ping" />
-                    <span>🔴 REAL-TIME CHILD SCREEN</span>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    className={`flex-1 w-full h-full object-contain ${webrtcConnected && streamMode === "webrtc" ? "block" : "hidden"}`}
+                  />
+                  <img
+                    src={state.remote.liveFrame}
+                    alt="Child Device Live Screen"
+                    className={`flex-1 w-full h-full object-contain ${!webrtcConnected || streamMode === "jpeg" ? "block" : "hidden"}`}
+                  />
+                  <div className="absolute top-2 left-2 flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-bold text-[#baf26b] border border-[#baf26b]/40 backdrop-blur-md">
+                      <span className="h-2 w-2 rounded-full bg-[#baf26b] animate-ping" />
+                      <span>{webrtcConnected && streamMode === "webrtc" ? "⚡ WEBRTC SCREEN" : "🔴 JPEG MIRROR"}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setStreamMode(streamMode === "webrtc" ? "jpeg" : "webrtc")
+                      }}
+                      className="rounded-full bg-black/70 px-2.5 py-1 text-[9px] font-mono text-[#ffe082] border border-[#ffe082]/40 backdrop-blur-md hover:bg-black/90 transition"
+                    >
+                      Mode: {streamMode.toUpperCase()} 🔄
+                    </button>
                   </div>
                   {state.remote.lastTouchAction && (
                     <div className="absolute bottom-2 right-2 rounded-lg bg-[#287555]/90 px-2.5 py-1 text-[10px] font-mono text-white shadow-lg backdrop-blur-md">

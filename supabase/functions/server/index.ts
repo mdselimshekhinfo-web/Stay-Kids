@@ -693,15 +693,18 @@ app.get("/server/state", async (c) => {
     const state = await getStateFromDB(authCtx.email);
     if (!state) return c.json(JSON.parse(JSON.stringify(defaultState)));
 
-    // Merge transient live stream state from KV store (2.2)
+    // Merge transient live stream state & WebRTC signaling from KV store (2.2)
     const targetChildId = authCtx.childId || state.activeChildId || "child-1";
     const liveKey = `live:${authCtx.email.toLowerCase()}:${targetChildId}`;
     const liveData = await kv.get(liveKey);
-    if (liveData && Date.now() - liveData.timestamp < 15000) {
+    if (liveData && Date.now() - liveData.timestamp < 30000) {
       state.remote = {
         ...state.remote,
         liveFrame: liveData.liveFrame || state.remote.liveFrame,
         liveAudioChunk: liveData.liveAudioChunk || state.remote.liveAudioChunk,
+        webrtcOffer: liveData.webrtcOffer || state.remote.webrtcOffer,
+        webrtcAnswer: liveData.webrtcAnswer || state.remote.webrtcAnswer,
+        webrtcCandidates: liveData.webrtcCandidates || state.remote.webrtcCandidates || [],
         connectionState: liveData.connectionState || state.remote.connectionState,
       };
     }
@@ -738,25 +741,42 @@ app.post("/server/action", async (c) => {
       ? (authCtx.childId || "child-1")
       : (action.childId || "child-1");
 
-    // 2.2 Ephemeral Bypass for High-Frequency Streaming Actions (audio-chunk & webrtc-signal)
-    if (action.type === "audio-chunk" || (action.type === "webrtc-signal" && action.frame)) {
+    // 2.2 Ephemeral Bypass for High-Frequency Streaming Actions & WebRTC Signaling
+    if (action.type === "audio-chunk" || action.type === "webrtc-signal") {
       const liveKey = `live:${authCtx.email.toLowerCase()}:${targetChildId}`;
       const existingLive = (await kv.get(liveKey)) || {};
-      await kv.set(liveKey, {
+
+      let pendingCandidates = existingLive.webrtcCandidates || [];
+      if (action.candidate) {
+        pendingCandidates.push(action.candidate);
+      }
+      if (action.clearSignal) {
+        pendingCandidates = [];
+      }
+
+      const updatedLive = {
         ...existingLive,
         liveFrame: action.frame || existingLive.liveFrame,
         liveAudioChunk: action.chunk || existingLive.liveAudioChunk,
+        webrtcOffer: action.offer !== undefined ? action.offer : existingLive.webrtcOffer,
+        webrtcAnswer: action.answer !== undefined ? action.answer : existingLive.webrtcAnswer,
+        webrtcCandidates: pendingCandidates,
         connectionState: action.signalState || existingLive.connectionState || "live",
         timestamp: Date.now(),
-      });
+      };
+      await kv.set(liveKey, updatedLive);
 
       return c.json({
         success: true,
         ephemeral: true,
         remote: {
           audioActive: true,
-          liveFrame: action.frame,
-          liveAudioChunk: action.chunk,
+          liveFrame: updatedLive.liveFrame,
+          liveAudioChunk: updatedLive.liveAudioChunk,
+          webrtcOffer: updatedLive.webrtcOffer,
+          webrtcAnswer: updatedLive.webrtcAnswer,
+          webrtcCandidates: updatedLive.webrtcCandidates,
+          connectionState: updatedLive.connectionState,
         }
       });
     }
