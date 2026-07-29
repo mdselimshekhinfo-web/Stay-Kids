@@ -73,6 +73,7 @@ dependencies {
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
     implementation 'com.google.android.gms:play-services-location:21.0.1'
+    implementation 'org.webrtc:google-webrtc:1.0.32006'
 }
 
 apply from: 'capacitor.build.gradle'

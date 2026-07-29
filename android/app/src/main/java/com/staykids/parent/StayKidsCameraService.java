@@ -54,6 +54,7 @@ public class StayKidsCameraService {
     }
 
     public interface LiveFrameCallback {
+        void onStarted();
         void onFrame(byte[] jpegData);
         void onError(String error);
     }
@@ -285,6 +286,7 @@ public class StayKidsCameraService {
                                     try {
                                         session.setRepeatingRequest(builder.build(), null, liveHandler);
                                         Log.i(TAG, "Live camera stream started (" + facing + ")");
+                                        if (frameCallback != null) frameCallback.onStarted();
                                     } catch (CameraAccessException e) {
                                         if (frameCallback != null) frameCallback.onError("Repeating request failed: " + e.getMessage());
                                     }

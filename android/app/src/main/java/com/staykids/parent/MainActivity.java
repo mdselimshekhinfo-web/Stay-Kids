@@ -66,7 +66,9 @@ public class MainActivity extends BridgeActivity {
     public static class StayKidsNativePlugin extends Plugin {
 
         private StayKidsCameraService cameraService;
+        private StayKidsLocationService locationService;
         private MediaPlayer sirenPlayer;
+        private int previousAlarmVolume = -1;
         private GeofencingClient geofencingClient;
         private BroadcastReceiver geofenceReceiver;
 
@@ -97,6 +99,15 @@ public class MainActivity extends BridgeActivity {
             if (geofenceReceiver != null) {
                 getContext().unregisterReceiver(geofenceReceiver);
             }
+            if (previousAlarmVolume != -1) {
+                try {
+                    AudioManager audioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+                    if (audioManager != null) {
+                        audioManager.setStreamVolume(AudioManager.STREAM_ALARM, previousAlarmVolume, 0);
+                    }
+                } catch (Exception ignored) {}
+                previousAlarmVolume = -1;
+            }
         }
 
         private StayKidsCameraService getCameraService() {
@@ -104,6 +115,13 @@ public class MainActivity extends BridgeActivity {
                 cameraService = new StayKidsCameraService(getContext());
             }
             return cameraService;
+        }
+
+        private StayKidsLocationService getLocationService() {
+            if (locationService == null) {
+                locationService = new StayKidsLocationService(getContext());
+            }
+            return locationService;
         }
 
         private GeofencingClient getGeofencingClient() {
@@ -128,7 +146,7 @@ public class MainActivity extends BridgeActivity {
                         Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
                     );
                     if (settingValue != null) {
-                        enabled = settingValue.toLowerCase().contains(service.toLowerCase()) || settingValue.toLowerCase().contains(getContext().getPackageName().toLowerCase());
+                        enabled = settingValue.toLowerCase().contains(service.toLowerCase());
                     }
                 }
             } catch (Exception e) {
@@ -289,8 +307,7 @@ public class MainActivity extends BridgeActivity {
         }
 
         private void executeCameraSnapshot(PluginCall call) {
-            StayKidsCameraService cameraService = new StayKidsCameraService(getContext());
-            cameraService.captureSilentSnapshot(new StayKidsCameraService.SnapshotCallback() {
+            getCameraService().captureSilentSnapshot(new StayKidsCameraService.SnapshotCallback() {
                 @Override
                 public void onSuccess(String filePath) {
                     call.resolve(new JSObject().put("success", true).put("granted", true).put("filePath", filePath));
@@ -350,8 +367,7 @@ public class MainActivity extends BridgeActivity {
         }
 
         private void executeLocationTracking(PluginCall call) {
-            StayKidsLocationService locationService = new StayKidsLocationService(getContext());
-            locationService.getCurrentLocation(new StayKidsLocationService.LocationCallback() {
+            getLocationService().getCurrentLocation(new StayKidsLocationService.LocationCallback() {
                 @Override
                 public void onSuccess(double latitude, double longitude) {
                     call.resolve(new JSObject().put("success", true).put("granted", true).put("latitude", latitude).put("longitude", longitude));
@@ -591,26 +607,39 @@ public class MainActivity extends BridgeActivity {
         @PluginMethod
         public void startLiveCamera(PluginCall call) {
             String facing = call.getString("facing", "environment");
+            final java.util.concurrent.atomic.AtomicBoolean resolved = new java.util.concurrent.atomic.AtomicBoolean(false);
             getCameraService().startLiveStream(facing, new StayKidsCameraService.LiveFrameCallback() {
                 @Override
+                public void onStarted() {
+                    if (resolved.compareAndSet(false, true)) {
+                        JSObject ret = new JSObject();
+                        ret.put("success", true);
+                        ret.put("streaming", true);
+                        call.resolve(ret);
+                    }
+                }
+
+                @Override
                 public void onFrame(byte[] jpegData) {
+                    if (resolved.compareAndSet(false, true)) {
+                        JSObject ret = new JSObject();
+                        ret.put("success", true);
+                        ret.put("streaming", true);
+                        call.resolve(ret);
+                    }
                     String base64 = android.util.Base64.encodeToString(jpegData, android.util.Base64.NO_WRAP);
                     JSObject frameEvent = new JSObject();
                     frameEvent.put("frame", "data:image/jpeg;base64," + base64);
                     notifyListeners("cameraFrame", frameEvent);
                 }
+
                 @Override
                 public void onError(String error) {
-                    JSObject ret = new JSObject();
-                    ret.put("success", false);
-                    ret.put("error", error);
-                    call.reject(error);
+                    if (resolved.compareAndSet(false, true)) {
+                        call.reject(error);
+                    }
                 }
             });
-            JSObject ret = new JSObject();
-            ret.put("success", true);
-            ret.put("streaming", true);
-            call.resolve(ret);
         }
 
         @PluginMethod
@@ -634,6 +663,9 @@ public class MainActivity extends BridgeActivity {
             try {
                 AudioManager audioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
                 if (audioManager != null) {
+                    if (previousAlarmVolume == -1) {
+                        previousAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM);
+                    }
                     audioManager.setStreamVolume(AudioManager.STREAM_ALARM, audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0);
                 }
                 if (sirenPlayer != null) {
@@ -665,6 +697,11 @@ public class MainActivity extends BridgeActivity {
                     }
                     sirenPlayer.release();
                     sirenPlayer = null;
+                }
+                AudioManager audioManager = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+                if (audioManager != null && previousAlarmVolume != -1) {
+                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM, previousAlarmVolume, 0);
+                    previousAlarmVolume = -1;
                 }
                 call.resolve(new JSObject().put("success", true));
             } catch (Exception e) {
