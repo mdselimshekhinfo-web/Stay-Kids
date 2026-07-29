@@ -15,6 +15,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.Process;
 import android.util.Base64;
 import android.util.Log;
 import java.io.ByteArrayOutputStream;
@@ -24,11 +25,22 @@ public class StayKidsAudioService extends Service {
     private static final String TAG = "StayKidsAudioService";
     private static final String CHANNEL_ID = "staykids_audio_stream";
     private static final int NOTIFICATION_ID = 8843;
+    private static final long MAX_STREAM_DURATION_MS = 10 * 60 * 1000L; // 10 minutes max safety limit
+    private static final long LOW_BATTERY_STREAM_DURATION_MS = 2 * 60 * 1000L; // 2 minutes cap on low battery
 
     private static StayKidsAudioService instance;
     private static AudioChunkListener chunkListener;
-    private static boolean isRecording = false;
+    private static volatile boolean isRecording = false;
+    private static volatile AudioRecord activeAudioRecord;
     private Thread recordingThread;
+
+    private final Handler autoStopHandler = new Handler(Looper.getMainLooper());
+    private final Runnable autoStopRunnable = () -> {
+        if (isRecording) {
+            Log.w(TAG, "Audio recording reached maximum safety duration limit. Automatically stopping.");
+            stopAudioCapture();
+        }
+    };
 
     private static final int SAMPLE_RATE = 16000;
     private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO;
@@ -89,9 +101,37 @@ public class StayKidsAudioService extends Service {
 
     private void startRecording() {
         if (isRecording) return;
+
+        // 3. Battery Awareness Logic
+        int batteryLevel = getBatteryLevel();
+        boolean charging = isCharging();
+
+        if (batteryLevel <= 5 && !charging) {
+            Log.w(TAG, "Battery level critical (" + batteryLevel + "%). Ambient audio capture declined to preserve battery.");
+            stopSelf();
+            return;
+        }
+
+        long sessionMaxDuration = (batteryLevel <= 15 && !charging)
+            ? LOW_BATTERY_STREAM_DURATION_MS
+            : MAX_STREAM_DURATION_MS;
+
+        if (batteryLevel <= 15 && !charging) {
+            Log.w(TAG, "Battery level low (" + batteryLevel + "%). Capping audio capture session to 2 minutes.");
+        }
+
         isRecording = true;
 
+        // 2. Schedule Max-Duration Safety Auto-Stop Timer
+        autoStopHandler.removeCallbacks(autoStopRunnable);
+        autoStopHandler.postDelayed(autoStopRunnable, sessionMaxDuration);
+
         recordingThread = new Thread(() -> {
+            // 4. Elevate Thread Priority for Urgent Audio Processing
+            try {
+                Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
+            } catch (Exception _e) {}
+
             int minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
             if (minBufferSize <= 0) {
                 Log.e(TAG, "Invalid buffer size: " + minBufferSize);
@@ -100,9 +140,8 @@ public class StayKidsAudioService extends Service {
             }
             int bufferSize = Math.max(minBufferSize, SAMPLE_RATE * 2 * 2); // ~2 second buffer
 
-            AudioRecord audioRecord = null;
             try {
-                audioRecord = new AudioRecord(
+                activeAudioRecord = new AudioRecord(
                     MediaRecorder.AudioSource.MIC,
                     SAMPLE_RATE,
                     CHANNEL_CONFIG,
@@ -110,19 +149,19 @@ public class StayKidsAudioService extends Service {
                     bufferSize
                 );
 
-                if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
+                if (activeAudioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
                     Log.e(TAG, "AudioRecord initialization failed.");
                     isRecording = false;
                     return;
                 }
 
-                audioRecord.startRecording();
+                activeAudioRecord.startRecording();
                 Log.i(TAG, "StayKids Ambient Audio Recording started successfully.");
 
                 byte[] buffer = new byte[bufferSize];
 
                 while (isRecording) {
-                    int read = audioRecord.read(buffer, 0, buffer.length);
+                    int read = activeAudioRecord.read(buffer, 0, buffer.length);
                     if (read > 0) {
                         byte[] wavHeader = createWavHeader(read, SAMPLE_RATE, 1, 16);
                         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -142,13 +181,17 @@ public class StayKidsAudioService extends Service {
                     }
                 }
 
-                audioRecord.stop();
-                audioRecord.release();
+                if (activeAudioRecord != null) {
+                    try { activeAudioRecord.stop(); } catch (Exception _e) {}
+                    try { activeAudioRecord.release(); } catch (Exception _e) {}
+                }
             } catch (Exception e) {
                 Log.e(TAG, "Error during ambient audio capture: " + e.getMessage());
-                if (audioRecord != null) {
-                    try { audioRecord.release(); } catch (Exception _e) {}
+                if (activeAudioRecord != null) {
+                    try { activeAudioRecord.release(); } catch (Exception _e) {}
                 }
+            } finally {
+                activeAudioRecord = null;
             }
         });
 
@@ -162,14 +205,34 @@ public class StayKidsAudioService extends Service {
     public static void stopAudioCapture() {
         isRecording = false;
         if (instance != null) {
+            instance.autoStopHandler.removeCallbacks(instance.autoStopRunnable);
+
             if (instance.recordingThread != null) {
                 try {
                     instance.recordingThread.join(2000);
                 } catch (InterruptedException e) {
                     Log.e(TAG, "Thread join interrupted", e);
                 }
+
+                // 1. Force-stop AudioRecord & thread if thread did not terminate within join timeout
+                if (instance.recordingThread != null && instance.recordingThread.isAlive()) {
+                    Log.w(TAG, "Recording thread did not exit within 2000ms join timeout. Force stopping AudioRecord.");
+                    try {
+                        if (activeAudioRecord != null) {
+                            activeAudioRecord.stop();
+                            activeAudioRecord.release();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error force stopping AudioRecord: " + e.getMessage());
+                    }
+                    try {
+                        instance.recordingThread.interrupt();
+                    } catch (Exception _e) {}
+                }
                 instance.recordingThread = null;
             }
+
+            activeAudioRecord = null;
             instance.stopForeground(true);
             instance.stopSelf();
         }
