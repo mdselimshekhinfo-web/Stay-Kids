@@ -354,6 +354,9 @@ app.post("/server/auth/signup", async (c) => {
     if (!email || !password || !isValidEmail(email)) {
       return c.json({ error: "A valid email address and password are required." }, 400);
     }
+    if (password.length < 8) {
+      return c.json({ error: "Password must be at least 8 characters long." }, 400);
+    }
 
     const allowed = await checkRateLimit(email, 5, 60000);
     if (!allowed) {
@@ -484,6 +487,9 @@ app.post("/server/auth/reset-password", async (c) => {
     const { email, otp, newPassword } = body || {};
     if (!email || !otp || !newPassword || !isValidEmail(email)) {
       return c.json({ error: "A valid email address, OTP code, and new password are required." }, 400);
+    }
+    if (newPassword.length < 8) {
+      return c.json({ error: "Password must be at least 8 characters long." }, 400);
     }
 
     const allowed = await checkRateLimit(`reset-pwd:${email.toLowerCase()}`, 10, 5 * 60000);

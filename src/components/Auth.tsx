@@ -32,6 +32,10 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
       setError("Please fill in all required fields.")
       return
     }
+    if (mode === "signup" && password.length < 8) {
+      setError("Password must be at least 8 characters long.")
+      return
+    }
     if (mode === "signup" && password !== confirmPassword) {
       setError("Passwords do not match.")
       return
@@ -136,6 +140,10 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
       setError("Please enter the 6-digit OTP code and a new password.")
       return
     }
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters long.")
+      return
+    }
     if (newPassword !== confirmNewPassword) {
       setError("Passwords do not match.")
       return
@@ -233,7 +241,7 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-[.1em] text-[#71807a] mb-1.5">New Password</label>
+                    <label className="block text-xs font-bold uppercase tracking-[.1em] text-[#71807a] mb-1.5">New Password <span className="normal-case font-normal text-[#9ab0a6] text-[11px]">(min 8 characters)</span></label>
                     <input
                       type="password"
                       required
@@ -409,7 +417,7 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-[.1em] text-[#71807a] mb-1.5">Password</label>
+                    <label className="block text-xs font-bold uppercase tracking-[.1em] text-[#71807a] mb-1.5">Password {mode === "signup" && <span className="normal-case font-normal text-[#9ab0a6] text-[11px]">(min 8 characters)</span>}</label>
                     <div className="relative">
                       <input
                         type={showPassword ? "text" : "password"}
