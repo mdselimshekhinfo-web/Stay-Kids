@@ -317,6 +317,21 @@ export default function App() {
     }
   }, [role, state.usage.limit])
 
+  // 10. Child Device Screen Resolution Telemetry Response
+  useEffect(() => {
+    if (role === "child") {
+      import("./lib/native").then(({ getScreenResolutionNative }) => {
+        getScreenResolutionNative().then((res) => {
+          sendStayKidsAction({
+            type: "device-telemetry",
+            screenWidth: res.screenWidth,
+            screenHeight: res.screenHeight,
+          }).catch(() => {})
+        })
+      })
+    }
+  }, [role])
+
   const action = (data: Record<string, unknown>) => {
     // Optimistic local state updates for 100% responsive UI
     setState((prev) => {

@@ -472,3 +472,18 @@ export const addGeofenceNative = async (latitude: number, longitude: number, rad
     return { success: true }
   }
 }
+
+export const getScreenResolutionNative = async (): Promise<{ screenWidth: number; screenHeight: number }> => {
+  try {
+    const res = await StayKidsNative.getScreenResolution()
+    return {
+      screenWidth: res.screenWidth || window.innerWidth || 1080,
+      screenHeight: res.screenHeight || window.innerHeight || 1920,
+    }
+  } catch (_e) {
+    return {
+      screenWidth: window.innerWidth || 1080,
+      screenHeight: window.innerHeight || 1920,
+    }
+  }
+}

@@ -1024,6 +1024,17 @@ app.post("/server/action", async (c) => {
       childState.controls.wakeTime = wakeTimeVal;
       state.controls.bedtimeSchedule = bedtimeVal;
       (state.controls as any).wakeTime = wakeTimeVal;
+    } else if (action.type === "device-telemetry") {
+      if (typeof action.screenWidth === "number") {
+        if (!childState.child) childState.child = { ...state.child };
+        childState.child.screenWidth = action.screenWidth;
+        state.child.screenWidth = action.screenWidth;
+      }
+      if (typeof action.screenHeight === "number") {
+        if (!childState.child) childState.child = { ...state.child };
+        childState.child.screenHeight = action.screenHeight;
+        state.child.screenHeight = action.screenHeight;
+      }
     } else if (action.type === "audio-toggle") {
       if (!state.remote) state.remote = { status: "idle", tool: "One-way audio", consentRequired: false, audioActive: false };
       const nextActive = typeof action.active === "boolean" ? action.active : !state.remote.audioActive;

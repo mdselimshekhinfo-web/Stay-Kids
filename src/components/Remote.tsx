@@ -327,8 +327,8 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 const rect = e.currentTarget.getBoundingClientRect()
                 const clickX = e.clientX - rect.left
                 const clickY = e.clientY - rect.top
-                const targetW = (state as any).child?.screenWidth || 1080
-                const targetH = (state as any).child?.screenHeight || 1920
+                const targetW = state.child.screenWidth || 1080
+                const targetH = state.child.screenHeight || 1920
                 const targetX = Math.round((clickX / rect.width) * targetW)
                 const targetY = Math.round((clickY / rect.height) * targetH)
                 onAction({ type: "remote-touch", x: targetX, y: targetY, actionType: "TOUCH" })
@@ -467,8 +467,12 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
 
             <button
               type="button"
-              onClick={() => {
-                if (audio) stopNativeAudioCapture();
+              onClick={async () => {
+                if (audio) {
+                  await stopNativeAudioCapture().catch(() => {
+                    triggerToast("Failed to stop audio capture", "error")
+                  })
+                }
                 onAction({ type: "audio-toggle", active: !audio })
               }}
               className={`w-full rounded-xl py-4 text-sm font-bold transition shadow-sm ${
@@ -547,7 +551,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             Consent & Protection Active
           </span>
           <h2 className="mt-4 text-xl font-bold leading-tight">Advanced Child<br/>Surveillance</h2>
-          <p className="mt-2 text-sm text-[#cce0d5] max-w-[80%]">Zero prompts required on child device in emergency.</p>
+          <p className="mt-2 text-sm text-[#cce0d5] max-w-[80%]">Once initial permissions are granted, no repeated approval is needed for routine monitoring.</p>
         </div>
       </div>
 

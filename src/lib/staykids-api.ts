@@ -22,6 +22,8 @@ export type ChildDeviceInfo = {
   battery: number
   online: boolean
   protected: boolean
+  screenWidth?: number
+  screenHeight?: number
 }
 
 export type StayKidsState = {

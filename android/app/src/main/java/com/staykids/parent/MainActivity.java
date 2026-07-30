@@ -180,16 +180,26 @@ public class MainActivity extends BridgeActivity {
         }
 
         @PluginMethod
+        public void getScreenResolution(PluginCall call) {
+            try {
+                android.util.DisplayMetrics metrics = getContext().getResources().getDisplayMetrics();
+                JSObject ret = new JSObject();
+                ret.put("screenWidth", metrics.widthPixels);
+                ret.put("screenHeight", metrics.heightPixels);
+                call.resolve(ret);
+            } catch (Exception e) {
+                call.reject("Failed to get screen resolution: " + e.getMessage());
+            }
+        }
+
+        @PluginMethod
         public void performRemoteTouch(PluginCall call) {
-            Double x = call.getDouble("x", 270.0);
-            Double y = call.getDouble("y", 480.0);
+            Double x = call.getDouble("x", 0.0);
+            Double y = call.getDouble("y", 0.0);
             StayKidsAccessibilityService service = StayKidsAccessibilityService.getInstance();
             if (service != null) {
-                android.util.DisplayMetrics metrics = getContext().getResources().getDisplayMetrics();
-                float scaleX = metrics.widthPixels / 540f;
-                float scaleY = metrics.heightPixels / 960f;
-                float actualX = x.floatValue() * scaleX;
-                float actualY = y.floatValue() * scaleY;
+                float actualX = x.floatValue();
+                float actualY = y.floatValue();
                 service.performRemoteTouch(actualX, actualY);
                 call.resolve(new JSObject().put("success", true));
             } else {
