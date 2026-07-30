@@ -16,6 +16,7 @@ import {
   checkMicrophonePermission,
   requestMicrophonePermission,
   startNativeScreenShare,
+  stopNativeScreenShare,
 } from "../lib/native"
 import { PermissionInstructionModal } from "./PermissionInstructionModal"
 
@@ -58,33 +59,66 @@ export function Onboarding({
     onOpenSettings: async () => {},
   })
 
+  // Fix 5: Parallelize permission checks with Promise.all
   const refreshPermissionsState = async () => {
-    const acc = await checkAccessibilityEnabled()
-    const bat = await checkBatteryOptimizationDisabled()
-    const adm = await checkDeviceAdminEnabled()
-    const ovl = await checkOverlayPermissionGranted()
-    const cam = await checkCameraPermission()
-    const loc = await checkLocationPermission()
-    const mic = await checkMicrophonePermission()
-    setAccEnabled(acc)
-    setBatteryOptDisabled(bat)
-    setAdminEnabled(adm)
-    setOverlayGranted(ovl)
-    setCameraGranted(cam)
-    setLocationGranted(loc)
-    setMicGranted(mic)
+    try {
+      const [acc, bat, adm, ovl, cam, loc, mic] = await Promise.all([
+        checkAccessibilityEnabled().catch(() => false),
+        checkBatteryOptimizationDisabled().catch(() => false),
+        checkDeviceAdminEnabled().catch(() => false),
+        checkOverlayPermissionGranted().catch(() => false),
+        checkCameraPermission().catch(() => false),
+        checkLocationPermission().catch(() => false),
+        checkMicrophonePermission().catch(() => false),
+      ])
+      setAccEnabled(acc)
+      setBatteryOptDisabled(bat)
+      setAdminEnabled(adm)
+      setOverlayGranted(ovl)
+      setCameraGranted(cam)
+      setLocationGranted(loc)
+      setMicGranted(mic)
+    } catch (_e) {
+      // Permission query error fallback
+    }
   }
 
+  // Fix 1: Re-verify real permission status when user returns to app from system settings
   useEffect(() => {
     refreshPermissionsState()
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshPermissionsState()
+      }
+    }
+    const handleFocus = () => {
+      refreshPermissionsState()
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    window.addEventListener("focus", handleFocus)
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("focus", handleFocus)
+    }
   }, [step])
 
+  // Fix 3: Show clear error state on pairing code generation failure instead of an unregistered local fallback PIN
   const generateNewPin = async () => {
     try {
       const res = await generatePairingCode(activeChildId)
-      if (res.pin) setDynamicPin(res.pin)
+      if (res.pin) {
+        setDynamicPin(res.pin)
+        setError("")
+      } else {
+        setDynamicPin("")
+        setError("Failed to generate pairing code. Please refresh or check connection.")
+      }
     } catch (_e) {
-      setDynamicPin(String(Math.floor(100000 + Math.random() * 900000)))
+      setDynamicPin("")
+      setError("Failed to generate pairing code. Check connection and try again.")
     }
   }
 
@@ -221,10 +255,19 @@ export function Onboarding({
 
               {role === "parent" && pairMode === "pin" && (
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center rounded-2xl border border-dashed border-[#a9c9b2] bg-[#f3faee] px-6 py-4 font-mono text-2xl font-bold tracking-[.3em] text-[#287555]">
-                    <span>{dynamicPin.slice(0, 3)}</span>
-                    <span>{dynamicPin.slice(3, 6)}</span>
-                  </div>
+                  {dynamicPin ? (
+                    <div className="flex justify-between items-center rounded-2xl border border-dashed border-[#a9c9b2] bg-[#f3faee] px-6 py-4 font-mono text-2xl font-bold tracking-[.3em] text-[#287555]">
+                      <span>{dynamicPin.slice(0, 3)}</span>
+                      <span>{dynamicPin.slice(3, 6)}</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#ffcdd2] bg-[#feebee] px-6 py-4 text-center">
+                      <p className="text-xs font-bold text-[#c62828]">Pairing code unavailable</p>
+                      <button onClick={generateNewPin} className="mt-2 text-xs font-bold text-[#287555] hover:underline">
+                        🔄 Retry Generating Code
+                      </button>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center px-1">
                     <span className="text-[11px] font-semibold text-[#687b74]">🔒 Single-Use PIN</span>
                     <button onClick={generateNewPin} className="text-[11px] font-bold text-[#287555] hover:underline">
@@ -276,7 +319,7 @@ export function Onboarding({
                     }}
                     className="mt-3 rounded-xl bg-[#d6f4ad] px-4 py-2 text-xs font-bold text-[#17352b] hover:bg-[#c3e895] transition"
                   >
-                    {qrScanned ? "QR Code Scanned ✓ (SK-PAIR)" : "📷 Tap to Scan Parent QR Code"}
+                    {qrScanned ? "QR Code Scanned ✓ (SK-PAIR)" : "📷 Tap to Scan Parent QR Code (Simulated)"}
                   </button>
                 </div>
               )}
@@ -306,7 +349,6 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
-                        setAccEnabled(true)
                         setGuideModal({
                           isOpen: true,
                           title: "1. Accessibility Service Access",
@@ -338,7 +380,6 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
-                        setBatteryOptDisabled(true)
                         setGuideModal({
                           isOpen: true,
                           title: "2. Battery Saver (No Restrictions)",
@@ -370,7 +411,6 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
-                        setAdminEnabled(true)
                         setGuideModal({
                           isOpen: true,
                           title: "3. Device Admin Protection",
@@ -401,7 +441,6 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
-                        setOverlayGranted(true)
                         setGuideModal({
                           isOpen: true,
                           title: "4. Display Over Other Apps (Overlay)",
@@ -493,7 +532,10 @@ export function Onboarding({
                       type="button"
                       onClick={async () => {
                         const res = await startNativeScreenShare()
-                        if (res.success) setScreenCaptureGranted(true)
+                        if (res.success) {
+                          setScreenCaptureGranted(true)
+                          await stopNativeScreenShare().catch(() => {})
+                        }
                       }}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
                         screenCaptureGranted ? "bg-[#287555] text-white" : "bg-[#d6f4ad] text-[#17352b] hover:bg-[#c3e895]"
@@ -509,7 +551,10 @@ export function Onboarding({
 
           <PermissionInstructionModal
             isOpen={guideModal.isOpen}
-            onClose={() => setGuideModal((prev) => ({ ...prev, isOpen: false }))}
+            onClose={() => {
+              setGuideModal((prev) => ({ ...prev, isOpen: false }))
+              refreshPermissionsState()
+            }}
             title={guideModal.title}
             steps={guideModal.steps}
             onOpenSettings={guideModal.onOpenSettings}
