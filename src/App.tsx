@@ -92,7 +92,14 @@ export default function App() {
     import('./lib/staykids-api').then(({ loadAuthToken }) => {
       loadAuthToken().then((token) => {
         if (selectedRole === "child") {
-          setReady(true)
+          // Fix 3: Child role checks for stored device token; if token is missing, ready remains false so Onboarding pairing screen renders
+          if (token) {
+            setAuthenticated(true)
+            setReady(true)
+          } else {
+            setAuthenticated(false)
+            setReady(false)
+          }
         } else {
           if (token) {
             setAuthenticated(true)
@@ -103,6 +110,7 @@ export default function App() {
       })
     })
   }, [selectedRole])
+
   const fetchLatestState = () => {
     getStayKidsState()
       .then((data) => {
@@ -271,14 +279,14 @@ export default function App() {
     }
   }, [role, state.remote.alarmActive])
 
-  // 6. Child Device Bedtime Enforcement Response
+  // 6. Child Device Bedtime Enforcement Response (Fix 1: Pass wakeTime to native scheduler)
   useEffect(() => {
     if (role === "child" && state.controls.bedtime && state.controls.bedtimeSchedule) {
       import("./lib/native").then(({ setBedtimeNative }) => {
-        setBedtimeNative(state.controls.bedtimeSchedule!).catch(() => {})
+        setBedtimeNative(state.controls.bedtimeSchedule!, state.controls.wakeTime || "07:00").catch(() => {})
       })
     }
-  }, [role, state.controls.bedtime, state.controls.bedtimeSchedule])
+  }, [role, state.controls.bedtime, state.controls.bedtimeSchedule, state.controls.wakeTime])
 
   // 7. Child Device Geofence Response
   useEffect(() => {
@@ -310,9 +318,6 @@ export default function App() {
   }, [role, state.usage.limit])
 
   const action = (data: Record<string, unknown>) => {
-    // Keep snapshot of previous state for rollback if server rejects
-    const previousState = state
-
     // Optimistic local state updates for 100% responsive UI
     setState((prev) => {
       const next = JSON.parse(JSON.stringify(prev)) as StayKidsState
@@ -334,6 +339,9 @@ export default function App() {
         next.controls.geofence = !next.controls.geofence
       } else if (data.type === "set-limit" && typeof data.value === "number") {
         next.usage.limit = data.value
+      } else if (data.type === "set-bedtime" && typeof data.bedtime === "string") {
+        next.controls.bedtimeSchedule = data.bedtime
+        if (typeof data.wakeTime === "string") next.controls.wakeTime = data.wakeTime
       } else if (data.type === "mark-all-read") {
         next.alerts = next.alerts.map((a) => ({ ...a, read: true }))
       } else if (data.type === "mark-read" && typeof data.id === "string") {
@@ -367,9 +375,9 @@ export default function App() {
       return next
     })
 
-    // Background sync request with user-facing toast on failure
+    // Fix 2: Re-fetch latest server state on failure to avoid stale snapshot rollbacks
     sendStayKidsAction(data).catch((err) => {
-      setState(previousState) // Rollback optimistic change on network failure
+      fetchLatestState()
       triggerToast(err.message || "Couldn't sync change — check connection", "error")
     })
   }

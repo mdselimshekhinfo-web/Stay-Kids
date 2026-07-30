@@ -30,7 +30,7 @@ export type StayKidsState = {
   children?: ChildDeviceInfo[]
   child: ChildDeviceInfo
   usage: { minutes: number; limit: number; topApps: string[]; history?: any[] }
-  controls: Record<string, boolean> & { bedtimeSchedule?: string }
+  controls: Record<string, boolean> & { bedtimeSchedule?: string; wakeTime?: string }
   blockedApps?: Record<string, boolean>
   rewards: { earned: number; balance: number }
   alerts: { id: string; title: string; detail: string; time: string; read: boolean }[]
