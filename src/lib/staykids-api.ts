@@ -317,3 +317,15 @@ export const claimDevicePairing = async (data: { pin: string; deviceName?: strin
   }
   return result
 }
+
+export const changeParentPassword = async (data: { currentPassword: string; newPassword: string }) => {
+  return request("/auth/change-password", { method: "POST", body: JSON.stringify(data) }) as Promise<{ success: boolean; message?: string; error?: string }>
+}
+
+export const exportUserData = async () => {
+  return request("/user/export-data", { method: "GET" }) as Promise<any>
+}
+
+export const deleteUserAccount = async () => {
+  return request("/user/delete-account", { method: "POST" }) as Promise<{ success: boolean; message?: string; error?: string }>
+}

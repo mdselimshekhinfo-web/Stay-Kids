@@ -188,6 +188,31 @@ export default function App() {
     }
   }, [role])
 
+  // Part A: Native Geofence Alert Event Listener for Child Device
+  useEffect(() => {
+    let unsubscribeGeofenceListener: (() => void) | null = null
+
+    if (role === "child") {
+      import("./lib/native").then(({ listenGeofenceAlert }) => {
+        unsubscribeGeofenceListener = listenGeofenceAlert((data) => {
+          if (data) {
+            sendStayKidsAction({
+              type: "geofence-alert",
+              transition: data.transition || "ENTER",
+              geofenceId: data.geofenceId || "safe_zone_1",
+            }).catch(() => {})
+          }
+        })
+      })
+    }
+
+    return () => {
+      if (unsubscribeGeofenceListener) {
+        unsubscribeGeofenceListener()
+      }
+    }
+  }, [role])
+
   useEffect(() => {
     if (role !== "child") return
 

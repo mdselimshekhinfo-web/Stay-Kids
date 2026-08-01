@@ -241,6 +241,10 @@ async function getAuthContext(c: any): Promise<{ isDevice: boolean; email: strin
   const payload = await verifyJwt(token);
   if (!payload) return null;
   if (payload.type === "device" && payload.parentEmail) {
+    if (payload.childId) {
+      const isUnpaired = await kv.get(`unpaired:${payload.childId}`);
+      if (isUnpaired) return null;
+    }
     return {
       isDevice: true,
       email: payload.parentEmail.toLowerCase(),
@@ -530,6 +534,89 @@ app.post("/server/auth/reset-password", async (c) => {
     });
   } catch (_e) {
     return c.json({ error: "Failed to reset password" }, 500);
+  }
+});
+
+// B.2 In-App Change Password Endpoint
+app.post("/server/auth/change-password", async (c) => {
+  try {
+    const authCtx = await getAuthenticatedUser(c);
+    if (!authCtx) return c.json({ error: "Unauthorized" }, 401);
+
+    const body = await c.req.json();
+    const { currentPassword, newPassword } = body || {};
+    if (!currentPassword || !newPassword) {
+      return c.json({ error: "Current password and new password are required." }, 400);
+    }
+    if (typeof newPassword !== "string" || newPassword.length < 8) {
+      return c.json({ error: "New password must be at least 8 characters long." }, 400);
+    }
+
+    const { data: user } = await supabase.from('profiles').select('*').eq('email', authCtx.email).maybeSingle();
+    if (!user || !user.password_hash) {
+      return c.json({ error: "Account profile not found." }, 404);
+    }
+
+    const isMatch = await verifyPassword(currentPassword, user.password_hash);
+    if (!isMatch) {
+      return c.json({ error: "Current password is incorrect." }, 400);
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+    await supabase.from('profiles').update({ password_hash: hashedPassword }).eq('email', authCtx.email);
+
+    return c.json({ success: true, message: "Password changed successfully." });
+  } catch (_e) {
+    return c.json({ error: "Failed to change password." }, 500);
+  }
+});
+
+// B.4 Data Export Endpoint
+app.get("/server/user/export-data", async (c) => {
+  try {
+    const authCtx = await getAuthenticatedUser(c);
+    if (!authCtx) return c.json({ error: "Unauthorized" }, 401);
+
+    const state = await getStateFromDB(authCtx.email);
+    const { data: profile } = await supabase.from('profiles').select('id, full_name, email, created_at').eq('email', authCtx.email).maybeSingle();
+
+    return c.json({
+      exportDate: new Date().toISOString(),
+      parentProfile: profile,
+      appState: state,
+    });
+  } catch (_e) {
+    return c.json({ error: "Failed to export user data." }, 500);
+  }
+});
+
+// B.4 Account Deletion Endpoint
+app.post("/server/user/delete-account", async (c) => {
+  try {
+    const authCtx = await getAuthenticatedUser(c);
+    if (!authCtx) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: profile } = await supabase.from('profiles').select('id').eq('email', authCtx.email).maybeSingle();
+    if (profile) {
+      const { data: children } = await supabase.from('children').select('id').eq('parent_id', profile.id);
+      const childIds = (children || []).map((ch: any) => ch.id);
+      if (childIds.length > 0) {
+        await supabase.from('device_controls').delete().in('child_id', childIds);
+        await supabase.from('app_usage').delete().in('child_id', childIds);
+        await supabase.from('alerts').delete().in('child_id', childIds);
+        await supabase.from('blocked_apps').delete().in('child_id', childIds);
+        await supabase.from('daily_usage_logs').delete().in('child_id', childIds);
+        await supabase.from('children').delete().eq('parent_id', profile.id);
+      }
+      await supabase.from('profiles').delete().eq('id', profile.id);
+    }
+
+    const parentStateKey = `state:${authCtx.email}`;
+    await kv.set(parentStateKey, null);
+
+    return c.json({ success: true, message: "Account and associated data deleted permanently." });
+  } catch (_e) {
+    return c.json({ error: "Failed to delete account." }, 500);
   }
 });
 
@@ -878,6 +965,41 @@ app.post("/server/action", async (c) => {
         state.children = state.children.map((c: any) => c.id === targetChildId ? { ...c, school: action.school } : c);
       }
       await supabase.from('children').update({ school: action.school }).eq('id', targetChildId);
+    } else if (action.type === "geofence-alert" || action.type === "location-alert") {
+      const transitionText = action.transition === "ENTER" ? "entered" : "left";
+      const zoneText = action.geofenceId || "Safe Zone";
+      const newAlert = {
+        id: "alert-geo-" + Date.now(),
+        category: "location",
+        title: `📍 Geofence ${action.transition === "ENTER" ? "Arrival" : "Departure"}`,
+        detail: `${state.child?.name || "Child"} ${transitionText} designated safe zone (${zoneText}).`,
+        time: "Just now",
+        read: false,
+      };
+      state.alerts.unshift(newAlert);
+      await supabase.from('alerts').insert({
+        id: newAlert.id,
+        child_id: targetChildId,
+        title: newAlert.title,
+        description: newAlert.detail,
+        category: newAlert.category,
+        is_read: false,
+      });
+    } else if (action.type === "unpair-device" && typeof action.childId === "string") {
+      const targetId = action.childId;
+      await kv.set(`unpaired:${targetId}`, true);
+      state.children = (state.children || []).filter((c: any) => c.id !== targetId);
+      if (state.activeChildId === targetId) {
+        state.child = state.children[0] || state.child;
+        state.activeChildId = state.child?.id;
+      }
+      if (state.perChild) {
+        delete state.perChild[targetId];
+      }
+      await supabase.from('children').delete().eq('id', targetId);
+    } else if (action.type === "update-notification-prefs" && action.prefs && typeof action.prefs === "object") {
+      if (!state.notificationPrefs) state.notificationPrefs = { sos: true, block: true, location: true, call: true, activity: true };
+      state.notificationPrefs = { ...state.notificationPrefs, ...(action.prefs as any) };
     } else if (action.type === "toggle-geofence") {
       childState.controls.geofence = !childState.controls.geofence;
       state.controls = { ...childState.controls };

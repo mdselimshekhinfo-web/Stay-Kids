@@ -487,3 +487,20 @@ export const getScreenResolutionNative = async (): Promise<{ screenWidth: number
     }
   }
 }
+
+export const listenGeofenceAlert = (
+  callback: (data: { transition?: string; geofenceId?: string }) => void
+): (() => void) => {
+  try {
+    const handlePromise = StayKidsNative.addListener("geofence_alert", (data: any) => {
+      if (data) {
+        callback(data)
+      }
+    })
+    return () => {
+      handlePromise.then((h) => h.remove()).catch(() => {})
+    }
+  } catch (_e) {
+    return () => {}
+  }
+}
