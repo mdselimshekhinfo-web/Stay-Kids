@@ -126,6 +126,55 @@ export function Activity({ state }: { state: StayKidsState }) {
           </div>
         )}
       </div>
+
+      {/* Priority 3: Call & SMS Metadata History Card */}
+      <div className="rounded-[22px] border border-[#e1e7e8] bg-white p-5 shadow-sm">
+        <h2 className="font-bold text-[#172226] flex items-center gap-2 mb-3">
+          <span className="text-[#287555]">📞</span> Call & SMS History (Metadata)
+        </h2>
+        {state.child.callSmsLogs && state.child.callSmsLogs.length > 0 ? (
+          <ul className="space-y-2 text-xs">
+            {state.child.callSmsLogs.slice(0, 15).map((log) => (
+              <li key={log.id} className="flex items-center justify-between bg-[#f8fbf9] p-2.5 rounded-xl border border-[#e8f0eb]">
+                <div>
+                  <span className="font-bold text-[#172226]">{log.contact}</span>
+                  <p className="text-[#71807a] text-[11px]">{log.detail}</p>
+                </div>
+                <span className="text-[10px] text-[#809098] shrink-0">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="text-center py-4 bg-[#f9fbfb] rounded-xl border border-[#edf1f2]">
+            <span className="text-2xl mb-1 block">📞</span>
+            <p className="text-sm text-[#71807a]">No recent call or SMS metadata logged yet</p>
+          </div>
+        )}
+      </div>
+
+      {/* Priority 4: Web & Search History Card */}
+      <div className="rounded-[22px] border border-[#e1e7e8] bg-white p-5 shadow-sm">
+        <h2 className="font-bold text-[#172226] flex items-center gap-2 mb-3">
+          <span className="text-[#287555]">🌐</span> Web & Search History
+        </h2>
+        {state.child.webHistory && state.child.webHistory.length > 0 ? (
+          <ul className="space-y-2 text-xs">
+            {state.child.webHistory.slice(0, 15).map((web) => (
+              <li key={web.id} className="flex items-center justify-between bg-[#f8fbf9] p-2.5 rounded-xl border border-[#e8f0eb]">
+                <div className="min-w-0 flex-1 pr-2">
+                  <p className="font-bold text-[#172226] truncate">{web.url}</p>
+                </div>
+                <span className="text-[10px] text-[#809098] shrink-0">{new Date(web.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="text-center py-4 bg-[#f9fbfb] rounded-xl border border-[#edf1f2]">
+            <span className="text-2xl mb-1 block">🌐</span>
+            <p className="text-sm text-[#71807a]">No web browsing or search queries logged yet</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

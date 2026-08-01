@@ -35,7 +35,10 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
     { name: "Instagram", category: "Social Media", icon: "📷", packageName: "com.instagram.android" },
   ]
 
-  const displayAppsList = realApps.length > 0 
+  const reportedApps = state.child.installedApps || []
+  const displayAppsList = reportedApps.length > 0 
+    ? reportedApps.map((a) => ({ name: a.name, category: "Installed App", icon: "📱", packageName: a.packageName }))
+    : realApps.length > 0 
     ? realApps.map((a) => ({ name: a.name, category: "Installed App", icon: "📱", packageName: a.packageName }))
     : defaultAppList
 

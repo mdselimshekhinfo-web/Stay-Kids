@@ -141,4 +141,8 @@
 
     <!-- Permission to track app usage time for App Limits -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
+
+    <!-- Permissions for Call & SMS Metadata Monitoring -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_SMS" />
 </manifest>

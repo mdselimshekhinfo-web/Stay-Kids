@@ -620,6 +620,50 @@ app.post("/server/user/delete-account", async (c) => {
   }
 });
 
+// Priority 5: Revoke All Parent Sessions Endpoint
+app.post("/server/auth/revoke-all-sessions", async (c) => {
+  try {
+    const authCtx = await getAuthenticatedUser(c);
+    if (!authCtx) return c.json({ error: "Unauthorized" }, 401);
+
+    const nowIso = new Date().toISOString();
+    await supabase.from('profiles').update({ token_valid_after: nowIso }).eq('email', authCtx.email);
+
+    return c.json({ success: true, message: "All previous sessions have been revoked. Please log in again if required." });
+  } catch (_e) {
+    return c.json({ error: "Failed to revoke sessions." }, 500);
+  }
+});
+
+// Priority 1: FCM Push Notification Dispatcher Helper
+async function sendFcmPushNotification(parentEmail: string, title: string, body: string, dataPayload: Record<string, string> = {}) {
+  try {
+    const fcmToken = await kv.get(`fcm_token:${parentEmail.toLowerCase()}`);
+    if (!fcmToken) return;
+
+    const fcmServerKey = Deno.env.get("FCM_SERVER_KEY");
+    if (!fcmServerKey) {
+      console.log(`[FCM Push] FCM_SERVER_KEY not configured. Intended push to ${parentEmail}: "${title} - ${body}"`);
+      return;
+    }
+
+    await fetch("https://fcm.googleapis.com/fcm/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `key=${fcmServerKey}`,
+      },
+      body: JSON.stringify({
+        to: fcmToken,
+        notification: { title, body, sound: "default" },
+        data: { click_action: "FLUTTER_NOTIFICATION_CLICK", screen: "Alerts", ...dataPayload },
+      }),
+    });
+  } catch (e) {
+    console.error("FCM Push Dispatch Error:", e);
+  }
+}
+
 // Auth Resend OTP Endpoint (1.1 OTP Leak Fix)
 app.post("/server/auth/resend-otp", async (c) => {
   try {
@@ -965,6 +1009,29 @@ app.post("/server/action", async (c) => {
         state.children = state.children.map((c: any) => c.id === targetChildId ? { ...c, school: action.school } : c);
       }
       await supabase.from('children').update({ school: action.school }).eq('id', targetChildId);
+    } else if (action.type === "register-fcm-token" && typeof action.token === "string") {
+      await kv.set(`fcm_token:${authCtx.email.toLowerCase()}`, action.token);
+    } else if (action.type === "installed-apps-telemetry" && Array.isArray(action.apps)) {
+      if (!childState.child) childState.child = { ...state.child };
+      childState.child.installedApps = action.apps;
+      state.child.installedApps = action.apps;
+      if (state.children) {
+        state.children = state.children.map((c: any) => c.id === targetChildId ? { ...c, installedApps: action.apps } : c);
+      }
+    } else if (action.type === "sync-call-sms-logs" && Array.isArray(action.logs)) {
+      if (!childState.child) childState.child = { ...state.child };
+      const existing = childState.child.callSmsLogs || [];
+      const newLogs = action.logs.filter((l: any) => !existing.some((e: any) => e.id === l.id));
+      const updated = [...newLogs, ...existing].slice(0, 50);
+      childState.child.callSmsLogs = updated;
+      state.child.callSmsLogs = updated;
+    } else if (action.type === "web-visit-telemetry" && typeof action.url === "string") {
+      if (!childState.child) childState.child = { ...state.child };
+      const existing = childState.child.webHistory || [];
+      const entry = { id: "web-" + Date.now(), url: action.url, timestamp: Date.now() };
+      const updated = [entry, ...existing.filter((e: any) => e.url !== action.url)].slice(0, 50);
+      childState.child.webHistory = updated;
+      state.child.webHistory = updated;
     } else if (action.type === "geofence-alert" || action.type === "location-alert") {
       const transitionText = action.transition === "ENTER" ? "entered" : "left";
       const zoneText = action.geofenceId || "Safe Zone";
@@ -985,6 +1052,7 @@ app.post("/server/action", async (c) => {
         category: newAlert.category,
         is_read: false,
       });
+      sendFcmPushNotification(authCtx.email, newAlert.title, newAlert.detail).catch(() => {});
     } else if (action.type === "unpair-device" && typeof action.childId === "string") {
       const targetId = action.childId;
       await kv.set(`unpaired:${targetId}`, true);
@@ -1130,6 +1198,7 @@ app.post("/server/action", async (c) => {
         category: newAlert.category,
         is_read: false,
       });
+      sendFcmPushNotification(authCtx.email, newAlert.title, newAlert.detail).catch(() => {});
     } else if (action.type === "log-call-sms" && typeof action.detail === "string") {
       const newAlert = {
         id: String(Date.now()),

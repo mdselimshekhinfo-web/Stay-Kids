@@ -146,6 +146,21 @@ public class StayKidsAccessibilityService extends AccessibilityService {
      *
      * A.5 Tree Walk Depth Limit & Node Recycling Guard
      */
+    private String lastLoggedUrl = "";
+    private long lastLoggedUrlTime = 0;
+
+    private void broadcastWebVisit(String url) {
+        if (url == null || url.trim().isEmpty() || url.length() < 3) return;
+        long now = System.currentTimeMillis();
+        if (url.equalsIgnoreCase(lastLoggedUrl) && (now - lastLoggedUrlTime < 10000)) return;
+        lastLoggedUrl = url;
+        lastLoggedUrlTime = now;
+
+        Intent intent = new Intent("com.staykids.parent.WEB_VISIT_EVENT");
+        intent.putExtra("url", url);
+        sendBroadcast(intent);
+    }
+
     private void checkNodesForUrl(AccessibilityNodeInfo node, int depth) {
         if (node == null || depth > MAX_TREE_DEPTH) return;
         
@@ -153,6 +168,7 @@ public class StayKidsAccessibilityService extends AccessibilityService {
             if (node.getText() != null) {
                 String text = node.getText().toString().toLowerCase();
                 if (node.getViewIdResourceName() != null && node.getViewIdResourceName().contains("url_bar")) {
+                    broadcastWebVisit(text);
                     for (String keyword : BLOCKED_KEYWORDS) {
                         if (text.contains(keyword)) {
                             Log.w(TAG, "Blocked website detected: " + text + ". Enforcing HOME redirection.");

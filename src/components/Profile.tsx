@@ -394,6 +394,29 @@ export function Profile({
             </button>
           </form>
         )}
+
+        <div className="pt-2 border-t border-[#f0f4f4] flex items-center justify-between">
+          <div>
+            <p className="font-bold text-xs text-[#172226]">Multi-Device Session Control</p>
+            <p className="text-[11px] text-[#71807a]">Invalidate all active logins across all devices</p>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              if (confirm("Revoke all active parent sessions across all devices? You will be required to log in again.")) {
+                const { revokeAllParentSessions } = await import("../lib/staykids-api")
+                const res = await revokeAllParentSessions()
+                if (res.success) {
+                  alert("All active sessions revoked. Signing out.")
+                  onSignOut()
+                }
+              }
+            }}
+            className="rounded-xl border border-[#cbe0d3] bg-[#f8fbf9] px-3 py-1.5 text-xs font-bold text-[#287555] hover:bg-[#ebf7e4] transition"
+          >
+            Revoke All Sessions 🔒
+          </button>
+        </div>
       </div>
 
       {/* B.5 Notification Category Preferences */}

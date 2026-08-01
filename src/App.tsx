@@ -213,6 +213,42 @@ export default function App() {
     }
   }, [role])
 
+  // Priorities 2, 3, 4: Child Device Telemetry Sync (Installed Apps, Call/SMS Metadata, Web Visits)
+  useEffect(() => {
+    let unsubscribeWebVisitListener: (() => void) | null = null
+
+    if (role === "child") {
+      import("./lib/native").then(({ fetchNativeInstalledApps, getCallSmsLogsNative, listenWebVisitAlert }) => {
+        // Sync Installed Apps
+        fetchNativeInstalledApps().then((apps) => {
+          if (apps && apps.length > 0) {
+            sendStayKidsAction({ type: "installed-apps-telemetry", apps }).catch(() => {})
+          }
+        }).catch(() => {})
+
+        // Sync Call & SMS Metadata
+        getCallSmsLogsNative().then((logs) => {
+          if (logs && logs.length > 0) {
+            sendStayKidsAction({ type: "sync-call-sms-logs", logs }).catch(() => {})
+          }
+        }).catch(() => {})
+
+        // Listen for Web Visit Events
+        unsubscribeWebVisitListener = listenWebVisitAlert((data) => {
+          if (data && data.url) {
+            sendStayKidsAction({ type: "web-visit-telemetry", url: data.url }).catch(() => {})
+          }
+        })
+      })
+    }
+
+    return () => {
+      if (unsubscribeWebVisitListener) {
+        unsubscribeWebVisitListener()
+      }
+    }
+  }, [role])
+
   useEffect(() => {
     if (role !== "child") return
 

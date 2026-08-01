@@ -25,6 +25,9 @@ export type ChildDeviceInfo = {
   protected: boolean
   screenWidth?: number
   screenHeight?: number
+  installedApps?: { name: string; packageName: string; isBlocked: boolean }[]
+  callSmsLogs?: { id: string; logType: string; contact: string; detail: string; timestamp: number }[]
+  webHistory?: { id: string; url: string; timestamp: number }[]
 }
 
 export type StayKidsState = {
@@ -328,4 +331,8 @@ export const exportUserData = async () => {
 
 export const deleteUserAccount = async () => {
   return request("/user/delete-account", { method: "POST" }) as Promise<{ success: boolean; message?: string; error?: string }>
+}
+
+export const revokeAllParentSessions = async () => {
+  return request("/auth/revoke-all-sessions", { method: "POST" }) as Promise<{ success: boolean; message?: string; error?: string }>
 }

@@ -504,3 +504,32 @@ export const listenGeofenceAlert = (
     return () => {}
   }
 }
+
+export const getCallSmsLogsNative = async (): Promise<{ id: string; logType: string; contact: string; detail: string; timestamp: number }[]> => {
+  try {
+    const res = await (StayKidsNative as any).getCallSmsLogs()
+    if (res && res.success && Array.isArray(res.logs)) {
+      return res.logs
+    }
+    return []
+  } catch (_e) {
+    return []
+  }
+}
+
+export const listenWebVisitAlert = (
+  callback: (data: { url?: string }) => void
+): (() => void) => {
+  try {
+    const handlePromise = StayKidsNative.addListener("web_visit_alert", (data: any) => {
+      if (data) {
+        callback(data)
+      }
+    })
+    return () => {
+      handlePromise.then((h) => h.remove()).catch(() => {})
+    }
+  } catch (_e) {
+    return () => {}
+  }
+}
