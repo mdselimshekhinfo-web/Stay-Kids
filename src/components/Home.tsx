@@ -31,7 +31,7 @@ export function Home({
   const isPaused = state.controls.paused
   const hasPremiumAccess = isPremiumUnlocked(state.isPremium)
   const remainingMins = Math.max(0, usage.limit - usage.minutes)
-  const percentUsed = Math.min(100, Math.round((usage.minutes / usage.limit) * 100))
+  const percentUsed = Math.min(100, Math.round((usage.minutes / Math.max(1, usage.limit)) * 100))
 
   const handleAddChildClick = () => {
     if (PREMIUM_ENABLED && !hasPremiumAccess && childrenList.length >= 1) {
