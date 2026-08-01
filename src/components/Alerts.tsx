@@ -79,14 +79,16 @@ export function Alerts({ state, onAction }: { state: StayKidsState; onAction: (a
           >
             <Icon
               name={
-                item.title.includes("SOS") || item.title.includes("EMERGENCY") || item.title.includes("Alarm")
+                (item as any).category === "sos" || item.title.includes("SOS") || item.title.includes("EMERGENCY") || item.title.includes("Alarm")
                   ? "🚨"
+                  : (item as any).category === "location" || item.title.includes("place") || item.title.includes("School") || item.title.includes("Geofence")
+                  ? "⌖"
+                  : (item as any).category === "block" || item.title.includes("app") || item.title.includes("protection") || item.title.includes("Blocked")
+                  ? "🚫"
+                  : (item as any).category === "call" || item.title.includes("Call") || item.title.includes("SMS")
+                  ? "📞"
                   : item.title.includes("Snapshot") || item.title.includes("Mirror")
                   ? "📷"
-                  : item.title.includes("place")
-                  ? "⌖"
-                  : item.title.includes("app")
-                  ? "🚫"
                   : "🔔"
               }
             />

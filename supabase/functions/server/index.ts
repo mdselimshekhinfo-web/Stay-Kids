@@ -895,7 +895,7 @@ app.post("/server/action", async (c) => {
       if (state.remote.alarmActive) {
         const newAlert = {
           id: String(Date.now()),
-          category: "security",
+          category: "sos",
           title: "🚨 Anti-Theft Alarm Triggered",
           detail: `Loud siren alarm activated remotely on ${state.child.name}'s device.`,
           time: "Just now",
@@ -919,7 +919,7 @@ app.post("/server/action", async (c) => {
       state.remote.lastSnapshotTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const newAlert = {
         id: String(Date.now()),
-        category: "security",
+        category: "activity",
         title: "📷 Remote Snapshot Captured",
         detail: `Camera snapshot captured safely on ${state.child.name}'s device.`,
         time: "Just now",
@@ -1002,7 +1002,7 @@ app.post("/server/action", async (c) => {
     } else if (action.type === "log-call-sms" && typeof action.detail === "string") {
       const newAlert = {
         id: String(Date.now()),
-        category: "activity",
+        category: "call",
         title: action.title || "📞 Call / SMS Activity Alert",
         detail: action.detail,
         time: "Just now",
@@ -1054,7 +1054,7 @@ app.post("/server/action", async (c) => {
         if (!hasExistingAccAlert) {
           const newAlert = {
             id: "alert-acc-" + Date.now(),
-            category: "security",
+            category: "block",
             title: "⚠️ Accessibility Service Disabled",
             detail: `Accessibility Service was turned off on ${state.child.name}'s phone. App blocking & remote protection are paused!`,
             time: "Just now",
@@ -1081,7 +1081,7 @@ app.post("/server/action", async (c) => {
         if (!hasExistingAdminAlert) {
           const newAlert = {
             id: "alert-admin-" + Date.now(),
-            category: "security",
+            category: "block",
             title: "⚠️ Device Admin Protection Disabled",
             detail: `Device Admin protection was revoked on ${state.child.name}'s phone. Anti-uninstall protection is inactive.`,
             time: "Just now",
