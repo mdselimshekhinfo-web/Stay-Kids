@@ -82,7 +82,7 @@ export function Activity({ state }: { state: StayKidsState }) {
             {usage.history && usage.history.length > 0 ? (
               <div className="h-40 flex items-end justify-between gap-1 mt-4">
                 {usage.history.slice(0, timeframe === "7 days" ? 7 : 30).reverse().map((day: any, i: number) => {
-                  const h = Math.min(100, (day.minutes_used / usage.limit) * 100);
+                  const h = Math.min(100, (day.minutes_used / Math.max(1, usage.limit)) * 100);
                   return (
                     <div key={i} className="flex flex-col items-center flex-1">
                       <div className="w-full bg-[#edf1f2] rounded-t-sm" style={{ height: '100px', display: 'flex', alignItems: 'flex-end' }}>
