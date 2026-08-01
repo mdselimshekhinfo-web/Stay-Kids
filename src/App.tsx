@@ -249,6 +249,21 @@ export default function App() {
     }
   }, [role])
 
+  // Fix 1: Parent Role FCM Token Registration
+  const lastFcmTokenRef = React.useRef<string | null>(null)
+  useEffect(() => {
+    if (role === "parent") {
+      import("./lib/native").then(({ getFcmTokenNative }) => {
+        getFcmTokenNative().then((token) => {
+          if (token && token !== lastFcmTokenRef.current) {
+            lastFcmTokenRef.current = token
+            sendStayKidsAction({ type: "register-fcm-token", token }).catch(() => {})
+          }
+        }).catch(() => {})
+      })
+    }
+  }, [role])
+
   useEffect(() => {
     if (role !== "child") return
 

@@ -337,6 +337,32 @@ public class MainActivity extends BridgeActivity {
         }
 
         @PluginMethod
+        public void getFcmToken(PluginCall call) {
+            try {
+                com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                    .addOnCompleteListener(task -> {
+                        if (!task.isSuccessful()) {
+                            JSObject ret = new JSObject();
+                            ret.put("success", false);
+                            ret.put("error", task.getException() != null ? task.getException().getMessage() : "FCM token fetch failed");
+                            call.resolve(ret);
+                            return;
+                        }
+                        String token = task.getResult();
+                        JSObject ret = new JSObject();
+                        ret.put("success", true);
+                        ret.put("token", token);
+                        call.resolve(ret);
+                    });
+            } catch (Throwable t) {
+                JSObject ret = new JSObject();
+                ret.put("success", false);
+                ret.put("error", "Firebase not initialized: " + t.getMessage());
+                call.resolve(ret);
+            }
+        }
+
+        @PluginMethod
         public void updateWebFilter(PluginCall call) {
             Boolean enabled = call.getBoolean("enabled", false);
             StayKidsAccessibilityService.setWebFilterEnabled(enabled);

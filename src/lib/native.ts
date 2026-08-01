@@ -533,3 +533,15 @@ export const listenWebVisitAlert = (
     return () => {}
   }
 }
+
+export const getFcmTokenNative = async (): Promise<string | null> => {
+  try {
+    const res = await (StayKidsNative as any).getFcmToken()
+    if (res && res.success && res.token) {
+      return res.token
+    }
+    return null
+  } catch (_e) {
+    return null
+  }
+}

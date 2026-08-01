@@ -253,7 +253,15 @@ async function getAuthContext(c: any): Promise<{ isDevice: boolean; email: strin
     };
   }
   if (payload.email) {
-    return { isDevice: false, email: payload.email.toLowerCase(), name: payload.name || payload.email.split("@")[0] };
+    const parentEmail = payload.email.toLowerCase();
+    const { data: profile } = await supabase.from('profiles').select('token_valid_after').eq('email', parentEmail).maybeSingle();
+    if (profile && profile.token_valid_after && payload.iat) {
+      const validAfterSec = Math.floor(new Date(profile.token_valid_after).getTime() / 1000);
+      if (payload.iat < validAfterSec) {
+        return null; // JWT issued before token_valid_after timestamp -> Invalid/Revoked token
+      }
+    }
+    return { isDevice: false, email: parentEmail, name: payload.name || parentEmail.split("@")[0] };
   }
   return null;
 }
