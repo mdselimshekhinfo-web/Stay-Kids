@@ -8,13 +8,15 @@ export function Profile({
   state,
   user,
   onSignOut,
+  onAction,
 }: {
   state: StayKidsState
   switchRole: () => void
   user: { name: string; email: string }
   onSignOut: () => void
+  onAction?: (action: Record<string, unknown>) => void
 }) {
-  const [lang, setLang] = useState<"en" | "bn">("bn")
+  const [lang, setLang] = useState<"en" | "bn">("en")
   const [showLegal, setShowLegal] = useState(false)
   const [legalTab, setLegalTab] = useState<"terms" | "privacy">("terms")
   const [showSubModal, setShowSubModal] = useState(false)
@@ -68,9 +70,25 @@ export function Profile({
             <p className="text-xs text-[#71807a]">Age / Grade</p>
             <p className="font-bold text-[#172226] mt-0.5">—</p>
           </div>
-          <div className="bg-[#f8fbf9] p-3 rounded-xl">
-            <p className="text-xs text-[#71807a]">School</p>
-            <p className="font-bold text-[#172226] mt-0.5">{state.child.location}</p>
+          <div className="bg-[#f8fbf9] p-3 rounded-xl flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-[#71807a]">School</p>
+              {onAction && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const val = prompt("Enter Child's School Name:", state.child.school || "")
+                    if (val !== null) {
+                      onAction({ type: "update-school", school: val.trim() })
+                    }
+                  }}
+                  className="text-[10px] font-bold text-[#287555] hover:underline"
+                >
+                  ✏️ Edit
+                </button>
+              )}
+            </div>
+            <p className="font-bold text-[#172226] mt-0.5 truncate">{state.child.school || "Not set"}</p>
           </div>
           <div className="bg-[#f8fbf9] p-3 rounded-xl">
             <p className="text-xs text-[#71807a]">Device Model</p>

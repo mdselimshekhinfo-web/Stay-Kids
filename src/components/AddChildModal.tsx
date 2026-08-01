@@ -12,6 +12,7 @@ export function AddChildModal({
 }) {
   const [name, setName] = useState("")
   const [device, setDevice] = useState("")
+  const [school, setSchool] = useState("")
   const [pairingPin] = useState(() => String(Math.floor(100000 + Math.random() * 900000)))
 
   if (!isOpen) return null
@@ -23,6 +24,7 @@ export function AddChildModal({
       id: `child-${Date.now()}`,
       name,
       device,
+      school: school.trim() || undefined,
       location: "Home",
       battery: 100,
       online: true,
@@ -63,6 +65,17 @@ export function AddChildModal({
               placeholder="e.g. Galaxy A54 / Xiaomi Pad 6"
               value={device}
               onChange={(e) => setDevice(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-[#cbe0d3] p-2.5 text-xs focus:ring-2 focus:ring-[#287555] focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-[#586770]">School Name (স্কুলের নাম - Optional)</label>
+            <input
+              type="text"
+              placeholder="e.g. Greenfield International School"
+              value={school}
+              onChange={(e) => setSchool(e.target.value)}
               className="mt-1 w-full rounded-xl border border-[#cbe0d3] p-2.5 text-xs focus:ring-2 focus:ring-[#287555] focus:outline-none"
             />
           </div>

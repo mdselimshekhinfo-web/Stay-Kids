@@ -31,6 +31,7 @@ async function getStateFromDB(email: string) {
         name: ch.name,
         device: ch.device_name,
         location: ch.last_location,
+        school: ch.school || undefined,
         battery: ch.battery_level,
         online: ch.is_online,
         coordinates: { lat: ch.latitude, lng: ch.longitude }
@@ -869,6 +870,14 @@ app.post("/server/action", async (c) => {
         latitude: action.coordinates?.lat,
         longitude: action.coordinates?.lng
       }).eq('id', targetChildId);
+    } else if (action.type === "update-school" && typeof action.school === "string") {
+      if (!childState.child) childState.child = { ...state.child };
+      childState.child.school = action.school;
+      state.child.school = action.school;
+      if (state.children) {
+        state.children = state.children.map((c: any) => c.id === targetChildId ? { ...c, school: action.school } : c);
+      }
+      await supabase.from('children').update({ school: action.school }).eq('id', targetChildId);
     } else if (action.type === "toggle-geofence") {
       childState.controls.geofence = !childState.controls.geofence;
       state.controls = { ...childState.controls };

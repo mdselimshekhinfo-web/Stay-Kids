@@ -421,7 +421,7 @@ export default function App() {
     Controls: <Controls state={state} onAction={action} />,
     Activity: <Activity state={state} />,
     Alerts: <Alerts state={state} onAction={action} />,
-    Profile: <Profile state={state} switchRole={() => setRole("child")} onSignOut={handleSignOut} user={user} />,
+    Profile: <Profile state={state} switchRole={() => setRole("child")} onSignOut={handleSignOut} user={user} onAction={action} />,
     Remote: <Remote state={state} onAction={action} />,
   }
 

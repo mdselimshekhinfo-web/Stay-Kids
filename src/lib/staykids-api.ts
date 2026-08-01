@@ -18,6 +18,7 @@ export type ChildDeviceInfo = {
   name: string
   device: string
   location: string
+  school?: string
   coordinates?: { lat: number; lng: number }
   battery: number
   online: boolean
