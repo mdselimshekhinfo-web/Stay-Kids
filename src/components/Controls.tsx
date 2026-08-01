@@ -14,6 +14,11 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
 
   const [realApps, setRealApps] = useState<{ name: string; packageName: string; isBlocked: boolean }[]>([])
   const [localLimit, setLocalLimit] = useState(state.usage.limit)
+  const [appLimits, setAppLimits] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    setLocalLimit(state.usage.limit)
+  }, [state.usage.limit])
 
   useEffect(() => {
     fetchNativeInstalledApps().then((apps) => {
@@ -36,7 +41,7 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
 
   const items: [string, string, string, boolean, string][] = [
     ["App limits", "Social apps stop after limit", "limits", controls.limits, "◫"],
-    ["Bedtime", "Schedule Only — no native enforcement yet", "bedtime", controls.bedtime, "◐"],
+    ["Bedtime", "Blocks non-essential apps between bedtime and wake time", "bedtime", controls.bedtime, "◐"],
     ["Web filter", "Blocking mature & unsafe content", "filter", controls.filter, "◉"],
   ]
 
@@ -70,7 +75,9 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
               onChange={(e) => {
                 const val = Math.max(15, Math.min(480, Number(e.target.value) || 15))
                 setLocalLimit(val)
-                onAction({ type: "set-limit", value: val })
+              }}
+              onBlur={() => {
+                onAction({ type: "set-limit", value: localLimit })
               }}
               className="w-12 bg-transparent font-bold text-sm text-[#8c5b00] text-center focus:outline-none"
             />
@@ -196,7 +203,7 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
       <div className="rounded-[24px] border border-[#e1e7e8] bg-white p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-bold text-base text-[#172226]">App Locker (ইনডিভিজুয়াল অ্যাপ লক)</h2>
+            <h2 className="font-bold text-base text-[#172226]">App Locker</h2>
             <p className="text-xs text-[#71807a]">Block or allow specific installed apps instantly</p>
           </div>
           <span className="rounded-full bg-[#edf3ef] px-2.5 py-0.5 text-[10px] font-bold text-[#287555]">
@@ -234,9 +241,14 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
                       <input 
                         type="number"
                         placeholder="No limit"
+                        value={appLimits[app.name] ?? ""}
                         className="w-12 bg-transparent text-[11px] font-bold text-[#172226] focus:outline-none"
                         onChange={(e) => {
-                          const val = Number(e.target.value)
+                          const valStr = e.target.value
+                          setAppLimits((prev) => ({ ...prev, [app.name]: valStr }))
+                        }}
+                        onBlur={() => {
+                          const val = Number(appLimits[app.name])
                           if (val > 0) {
                             onAction({ type: "set-app-limit", appName: app.name, limit: val })
                           }
