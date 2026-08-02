@@ -1181,16 +1181,34 @@ app.post("/server/action", async (c) => {
           is_read: false,
         });
       }
-    } else if (action.type === "add-reward-points" && typeof action.points === "number") {
+    } else if (action.type === "add-reward-points") {
+      const allowedAdd = await checkRateLimit(`add-reward:${targetChildId}`, 10, 60000);
+      if (!allowedAdd) {
+        return c.json({ error: "Rate limit exceeded for earning reward points." }, 429);
+      }
+      const VALID_POINT_AMOUNTS = [10];
+      const points = VALID_POINT_AMOUNTS.includes(action.points) ? action.points : 10;
       if (!state.rewards) state.rewards = { earned: 0, balance: 0 };
-      state.rewards.earned += action.points;
-      state.rewards.balance += action.points;
-    } else if (action.type === "redeem-reward-points" && typeof action.cost === "number" && typeof action.mins === "number") {
+      state.rewards.earned += points;
+      // Cap maximum banked reward balance at 300 points (10 redemptions max)
+      state.rewards.balance = Math.min(300, state.rewards.balance + points);
+    } else if (action.type === "redeem-reward-points") {
+      const allowedRedeem = await checkRateLimit(`redeem-reward:${targetChildId}`, 10, 60000);
+      if (!allowedRedeem) {
+        return c.json({ error: "Rate limit exceeded for redeeming reward points." }, 429);
+      }
+      const VALID_REDEMPTIONS = [{ cost: 30, mins: 15 }];
+      const redemption = VALID_REDEMPTIONS.find(r => r.cost === action.cost && r.mins === action.mins);
+      if (!redemption) {
+        return c.json({ error: "Invalid redemption option" }, 400);
+      }
       if (!state.rewards) state.rewards = { earned: 0, balance: 0 };
-      if (state.rewards.balance >= action.cost) {
-        state.rewards.balance -= action.cost;
-        childState.usage.limit += action.mins;
+      if (state.rewards.balance >= redemption.cost) {
+        state.rewards.balance -= redemption.cost;
+        childState.usage.limit = Math.min(1440, childState.usage.limit + redemption.mins);
         state.usage = { ...childState.usage };
+      } else {
+        return c.json({ error: "Insufficient reward point balance" }, 400);
       }
     } else if (action.type === "remote-touch") {
       const allowedTouch = await checkRateLimit(`touch:${authCtx.email.toLowerCase()}`, 15, 5000);
