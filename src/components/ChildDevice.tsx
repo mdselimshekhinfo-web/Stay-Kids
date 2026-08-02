@@ -11,6 +11,8 @@ import {
 
 export function ChildDevice({ state, switchRole }: { state: StayKidsState; switchRole: () => void }) {
   const [help, setHelp] = useState(false)
+  const [sendingSos, setSendingSos] = useState(false)
+  const [sosError, setSosError] = useState(false)
   const isPaused = state.controls.paused
   const remainingMins = Math.max(0, state.usage.limit - state.usage.minutes)
   const rewards = state.rewards || { earned: 0, balance: 0 }
@@ -120,12 +122,48 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
             {/* Emergency Panic SOS Button for Child */}
             <button
               type="button"
-              onClick={() => {
-                setHelp(true)
-                captureNativeSnapshot().catch(() => {})
-                getNativeLocation().catch(() => {})
+              disabled={sendingSos}
+              onClick={async () => {
+                if (sendingSos) return
+                setSendingSos(true)
+                setSosError(false)
+
+                // Capture native location & surroundings snapshot in parallel
+                const [locRes, snapRes] = await Promise.all([
+                  getNativeLocation().catch(() => null),
+                  captureNativeSnapshot().catch(() => null),
+                ])
+
+                const payload: Record<string, unknown> = {
+                  type: "trigger-sos",
+                  source: "panic-button",
+                }
+                if (locRes?.latitude && locRes?.longitude) {
+                  payload.lat = locRes.latitude
+                  payload.lng = locRes.longitude
+                }
+
+                sendStayKidsAction(payload)
+                  .then((res) => {
+                    setSendingSos(false)
+                    if (res && res.success !== false) {
+                      setHelp(true)
+                      setTimeout(() => setHelp(false), 7000)
+                      if (snapRes?.success) {
+                        sendStayKidsAction({ type: "capture-snapshot", facing: "environment" }).catch(() => {})
+                      }
+                    } else {
+                      setSosError(true)
+                      setTimeout(() => setSosError(false), 7000)
+                    }
+                  })
+                  .catch(() => {
+                    setSendingSos(false)
+                    setSosError(true)
+                    setTimeout(() => setSosError(false), 7000)
+                  })
               }}
-              className="w-full rounded-2xl bg-[#feebee] border-2 border-[#e53935] p-4 text-center text-[#c62828] hover:bg-[#ffcdd2] transition shadow-lg group"
+              className={`w-full rounded-2xl bg-[#feebee] border-2 border-[#e53935] p-4 text-center text-[#c62828] hover:bg-[#ffcdd2] transition shadow-lg group ${sendingSos ? "opacity-70 cursor-wait" : ""}`}
             >
               <div className="flex items-center justify-center gap-2">
                 <span className="text-xl animate-ping">🚨</span>
@@ -134,9 +172,21 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
               <p className="mt-1 text-[11px] text-[#b71c1c]">অভিভাবককে তাৎক্ষণিক অ্যালার্ট পাঠাতে এবং আশপাশের ছবি তুলতে এখানে চাপ দিন</p>
             </button>
 
+            {sendingSos && (
+              <div className="rounded-xl bg-[#e53935]/80 p-3 text-center text-xs font-bold text-white shadow animate-pulse">
+                📡 Sending Emergency Alert to Parent...
+              </div>
+            )}
+
             {help && (
               <div className="rounded-xl bg-[#c62828] p-3 text-center text-xs font-bold text-white shadow">
                 🚨 Emergency Alert Sent! Parent notified with GPS Location & Surroundings Photo.
+              </div>
+            )}
+
+            {sosError && (
+              <div className="rounded-xl bg-[#d32f2f] p-3 text-center text-xs font-bold text-white shadow border border-white/20">
+                ⚠️ Couldn't send alert — check connection and try again.
               </div>
             )}
           </div>
