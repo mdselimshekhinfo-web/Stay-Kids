@@ -1223,11 +1223,15 @@ app.post("/server/action", async (c) => {
       state.remote.lastTouchAction = `${action.actionType || 'click'} (${action.x || 0}, ${action.y || 0})`;
       childState.lastTouch = { x: action.x, y: action.y, actionType: action.actionType || "TOUCH", timestamp: Date.now() };
     } else if (action.type === "trigger-sos") {
+      const hasLocation = typeof action.lat === "number" && typeof action.lng === "number";
+      const locationStr = hasLocation ? `${action.lat.toFixed(4)}, ${action.lng.toFixed(4)}` : "";
       const newAlert = {
         id: String(Date.now()),
         category: "sos",
         title: "🆘 EMERGENCY SOS SIGNAL RECEIVED",
-        detail: `${state.child.name} triggered Emergency SOS button! Immediate attention required.`,
+        detail: hasLocation
+          ? `${state.child.name} triggered Emergency SOS! Location: ${action.lat.toFixed(5)}, ${action.lng.toFixed(5)}.`
+          : `${state.child.name} triggered Emergency SOS button! Immediate attention required.`,
         time: "JUST NOW",
         read: false,
       };
@@ -1240,6 +1244,26 @@ app.post("/server/action", async (c) => {
         category: newAlert.category,
         is_read: false,
       });
+
+      if (hasLocation) {
+        state.child.coordinates = { lat: action.lat, lng: action.lng };
+        state.child.location = locationStr;
+        if (state.children) {
+          state.children = state.children.map((c: any) =>
+            c.id === targetChildId ? { ...c, coordinates: { lat: action.lat, lng: action.lng }, location: locationStr } : c
+          );
+        }
+        if (childState.child) {
+          childState.child.coordinates = { lat: action.lat, lng: action.lng };
+          childState.child.location = locationStr;
+        }
+        await supabase.from('children').update({
+          last_location: locationStr,
+          latitude: action.lat,
+          longitude: action.lng,
+        }).eq('id', targetChildId);
+      }
+
       sendFcmPushNotification(authCtx.email, newAlert.title, newAlert.detail).catch(() => {});
     } else if (action.type === "log-call-sms" && typeof action.detail === "string") {
       const newAlert = {
