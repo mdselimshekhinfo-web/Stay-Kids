@@ -35,7 +35,7 @@ export interface StayKidsNativePlugin {
   addListener(eventName: string, listenerFunc: (data: any) => void): Promise<{ remove: () => void }>
   triggerSiren(): Promise<{ success: boolean }>
   stopSiren(): Promise<{ success: boolean }>
-  setBedtimeSchedule(options: { time: string }): Promise<{ success: boolean }>
+  setBedtimeSchedule(options: { time: string; wakeTime?: string }): Promise<{ success: boolean }>
   addGeofence(options: { latitude: number; longitude: number; radius: number }): Promise<{ success: boolean }>
   getScreenResolution(): Promise<{ screenWidth?: number; screenHeight?: number }>
   handleWebRTCSignal(signal: Record<string, unknown>): Promise<{ success: boolean; error?: string }>

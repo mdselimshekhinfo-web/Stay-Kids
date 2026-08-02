@@ -430,6 +430,9 @@ export default function App() {
         next.controls.geofence = !next.controls.geofence
       } else if (data.type === "set-limit" && typeof data.value === "number") {
         next.usage.limit = data.value
+      } else if (data.type === "set-app-limit" && typeof data.appName === "string" && typeof data.limit === "number") {
+        if (!next.controls.appLimits) next.controls.appLimits = {}
+        next.controls.appLimits[data.appName] = data.limit
       } else if (data.type === "set-bedtime" && typeof data.bedtime === "string") {
         next.controls.bedtimeSchedule = data.bedtime
         if (typeof data.wakeTime === "string") next.controls.wakeTime = data.wakeTime

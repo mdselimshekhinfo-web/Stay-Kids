@@ -1102,6 +1102,10 @@ app.post("/server/action", async (c) => {
         child_id: targetChildId,
         daily_limit_minutes: action.value
       });
+    } else if (action.type === "set-app-limit" && typeof action.appName === "string" && typeof action.limit === "number") {
+      if (!childState.controls.appLimits) childState.controls.appLimits = {};
+      childState.controls.appLimits[action.appName] = action.limit;
+      state.controls = { ...childState.controls };
     } else if (action.type === "mark-all-read") {
       state.alerts = state.alerts.map((a: any) => ({ ...a, read: true }));
       await supabase.from('alerts').update({ is_read: true }).eq('child_id', targetChildId);
