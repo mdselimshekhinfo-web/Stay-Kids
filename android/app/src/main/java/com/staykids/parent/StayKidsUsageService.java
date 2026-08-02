@@ -102,11 +102,13 @@ public class StayKidsUsageService extends Service {
         List<UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime);
         long totalForegroundTime = 0;
         
-        if (stats != null) {
+        if (stats != null && !stats.isEmpty()) {
             for (UsageStats stat : stats) {
-                String pkg = stat.getPackageName();
-                if (!pkg.equals("android") && !pkg.equals("com.android.systemui") && !pkg.equals(getPackageName())) {
-                    totalForegroundTime += stat.getTotalTimeInForeground();
+                if (stat != null && stat.getPackageName() != null) {
+                    String pkg = stat.getPackageName();
+                    if (!pkg.equals("android") && !pkg.equals("com.android.systemui") && !pkg.equals(getPackageName())) {
+                        totalForegroundTime += stat.getTotalTimeInForeground();
+                    }
                 }
             }
         }

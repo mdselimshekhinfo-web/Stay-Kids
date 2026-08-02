@@ -17,7 +17,20 @@ export function Profile({
   onSignOut: () => void
   onAction?: (action: Record<string, unknown>) => void
 }) {
-  const [lang, setLang] = useState<"en" | "bn">("en")
+  const [lang, setLangState] = useState<"en" | "bn">(() => {
+    try {
+      const saved = localStorage.getItem("app_lang")
+      return (saved === "bn" || saved === "en") ? saved : "en"
+    } catch (_e) {
+      return "en"
+    }
+  })
+  const setLang = (newLang: "en" | "bn") => {
+    setLangState(newLang)
+    try {
+      localStorage.setItem("app_lang", newLang)
+    } catch (_e) {}
+  }
   const [showLegal, setShowLegal] = useState(false)
   const [legalTab, setLegalTab] = useState<"terms" | "privacy">("terms")
   const [showSubModal, setShowSubModal] = useState(false)

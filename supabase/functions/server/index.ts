@@ -1030,6 +1030,7 @@ app.post("/server/action", async (c) => {
       }
       await supabase.from('children').update({ school: action.school }).eq('id', targetChildId);
     } else if (action.type === "register-fcm-token" && typeof action.token === "string") {
+      await kv.set(`fcm_token:${authCtx.email.toLowerCase()}:${targetChildId}`, action.token);
       await kv.set(`fcm_token:${authCtx.email.toLowerCase()}`, action.token);
     } else if (action.type === "installed-apps-telemetry" && Array.isArray(action.apps)) {
       if (!childState.child) childState.child = { ...state.child };
