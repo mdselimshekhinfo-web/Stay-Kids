@@ -551,6 +551,11 @@ app.post("/server/auth/change-password", async (c) => {
     const authCtx = await getAuthenticatedUser(c);
     if (!authCtx) return c.json({ error: "Unauthorized" }, 401);
 
+    const allowed = await checkRateLimit(`change-pwd:${authCtx.email.toLowerCase()}`, 5, 15 * 60000);
+    if (!allowed) {
+      return c.json({ error: "Too many password change attempts. Please try again in 15 minutes." }, 429);
+    }
+
     const body = await c.req.json();
     const { currentPassword, newPassword } = body || {};
     if (!currentPassword || !newPassword) {
@@ -603,6 +608,11 @@ app.post("/server/user/delete-account", async (c) => {
   try {
     const authCtx = await getAuthenticatedUser(c);
     if (!authCtx) return c.json({ error: "Unauthorized" }, 401);
+
+    const allowed = await checkRateLimit(`delete-acc:${authCtx.email.toLowerCase()}`, 3, 60 * 60000);
+    if (!allowed) {
+      return c.json({ error: "Too many account deletion attempts. Please try again in an hour." }, 429);
+    }
 
     const { data: profile } = await supabase.from('profiles').select('id').eq('email', authCtx.email).maybeSingle();
     if (profile) {
@@ -874,7 +884,9 @@ app.post("/server/action", async (c) => {
 
     const DEVICE_ALLOWED_ACTIONS = [
       "protection-status", "trigger-sos", "audio-chunk",
-      "webrtc-signal", "capture-snapshot", "audio-toggle"
+      "webrtc-signal", "capture-snapshot", "audio-toggle",
+      "geofence-alert", "installed-apps-telemetry", "sync-call-sms-logs",
+      "web-visit-telemetry", "device-telemetry", "add-reward-points", "redeem-reward-points"
     ];
     if (authCtx.isDevice && !DEVICE_ALLOWED_ACTIONS.includes(action.type)) {
       return c.json({ error: "Action not permitted for device tokens" }, 403);
