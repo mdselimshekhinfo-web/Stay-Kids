@@ -314,8 +314,11 @@ export function Onboarding({
                   </div>
                   <button
                     onClick={() => {
-                      setInputPin(dynamicPin)
-                      setQrScanned(true)
+                      const scanned = prompt("Enter the 6-digit PIN from parent device:")
+                      if (scanned && scanned.length === 6) {
+                        setInputPin(scanned)
+                        setQrScanned(true)
+                      }
                     }}
                     className="mt-3 rounded-xl bg-[#d6f4ad] px-4 py-2 text-xs font-bold text-[#17352b] hover:bg-[#c3e895] transition"
                   >

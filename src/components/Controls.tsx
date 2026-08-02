@@ -160,7 +160,7 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
         <div key={key} className="flex items-center gap-3 rounded-[20px] border border-[#e1e7e8] bg-white p-4 shadow-sm">
           <Icon name={icon} />
           <div className="min-w-0 flex-1">
-            <p className="font-bold flex items-center gap-2">
+            <div className="font-bold flex items-center gap-2">
               {title}
               {key === "bedtime" && (
                 <div className="flex flex-wrap items-center gap-1.5 text-xs mt-1 sm:mt-0">
@@ -188,7 +188,7 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
                   />
                 </div>
               )}
-            </p>
+            </div>
             <p className="truncate text-sm text-[#72808a]">
               {key === "bedtime" ? "Blocks non-essential apps between bedtime and wake time" : desc}
             </p>
@@ -252,7 +252,7 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
                         }}
                         onBlur={() => {
                           const val = Number(appLimits[app.name])
-                          if (val > 0) {
+                          if (val >= 0) {
                             onAction({ type: "set-app-limit", appName: app.name, limit: val })
                           }
                         }}

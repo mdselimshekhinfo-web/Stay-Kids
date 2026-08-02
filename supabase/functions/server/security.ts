@@ -144,7 +144,7 @@ async function getHmacKey(): Promise<CryptoKey> {
   );
 }
 
-export async function signJwt(payload: Record<string, any>, expiresInSeconds = 86400 * 30): Promise<string> {
+export async function signJwt(payload: Record<string, any>, expiresInSeconds = 86400 * 7): Promise<string> {
   const header = { alg: "HS256", typ: "JWT" };
   const now = Math.floor(Date.now() / 1000);
   const fullPayload = { ...payload, iat: now, exp: now + expiresInSeconds };
@@ -195,7 +195,7 @@ export async function verifyJwt(token: string): Promise<Record<string, any> | nu
   }
 }
 
-export async function signDeviceJwt(payload: { parentEmail: string; deviceId: string; deviceName: string; childId?: string }, expiresInSeconds = 86400 * 365): Promise<string> {
+export async function signDeviceJwt(payload: { parentEmail: string; deviceId: string; deviceName: string; childId?: string }, expiresInSeconds = 86400 * 90): Promise<string> {
   return signJwt({
     type: "device",
     parentEmail: payload.parentEmail.toLowerCase(),

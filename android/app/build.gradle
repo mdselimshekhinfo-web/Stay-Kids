@@ -40,10 +40,15 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file("staykids-release.keystore")
-            storePassword "staykids123"
-            keyAlias "staykids"
-            keyPassword "staykids123"
+            def keystorePropertiesFile = rootProject.file("keystore.properties")
+            def keystoreProperties = new Properties()
+            if (keystorePropertiesFile.exists()) {
+                keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+            }
+            storeFile file(keystoreProperties['storeFile'] ?: "staykids-release.keystore")
+            storePassword keystoreProperties['storePassword'] ?: System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias keystoreProperties['keyAlias'] ?: "staykids"
+            keyPassword keystoreProperties['keyPassword'] ?: System.getenv("KEY_PASSWORD") ?: ""
         }
     }
     buildTypes {

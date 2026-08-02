@@ -118,7 +118,17 @@ const MAX_QUEUE_SIZE = 10
 
 async function getEncryptionPassphrase(): Promise<string> {
   const token = inMemoryToken || (await loadAuthToken())
-  return token || "staykids-unauthenticated-device-fallback-key"
+  if (token) return token
+  // Generate a device-specific random key on first use, stored in localStorage
+  const DEVICE_KEY_STORAGE = "staykids_device_enc_key"
+  let deviceKey = localStorage.getItem(DEVICE_KEY_STORAGE)
+  if (!deviceKey) {
+    const randomBytes = new Uint8Array(32)
+    crypto.getRandomValues(randomBytes)
+    deviceKey = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('')
+    localStorage.setItem(DEVICE_KEY_STORAGE, deviceKey)
+  }
+  return deviceKey
 }
 
 async function getOfflineQueue(): Promise<QueuedAction[]> {
@@ -314,9 +324,7 @@ export const claimDevicePairing = async (data: { pin: string; deviceName?: strin
   const result = await request("/pairing/claim", { method: "POST", body: JSON.stringify(validated) })
   if (result.deviceToken) {
     await setAuthToken(result.deviceToken)
-    try {
-      localStorage.setItem("staykids_device_token", result.deviceToken)
-    } catch (_e) {}
+    // Device token already saved via setAuthToken above; remove insecure localStorage duplicate
   }
   return result
 }

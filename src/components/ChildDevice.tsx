@@ -11,6 +11,7 @@ import {
 
 export function ChildDevice({ state, switchRole }: { state: StayKidsState; switchRole: () => void }) {
   const [help, setHelp] = useState(false)
+  const [goalCompleted, setGoalCompleted] = useState(false)
   const [sendingSos, setSendingSos] = useState(false)
   const [sosError, setSosError] = useState(false)
   const isPaused = state.controls.paused
@@ -84,15 +85,16 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => {
+                  if (goalCompleted) return
                   sendStayKidsAction({ type: "add-reward-points", points: 10 })
-                  setHelp(true);
-                  setTimeout(() => setHelp(false), 3000);
+                  setGoalCompleted(true)
                 }}
+                disabled={goalCompleted}
                 className="w-full rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 p-3 text-sm font-bold transition flex flex-col items-center justify-center gap-1"
               >
                 <span className="text-2xl">✅</span>
-                <span>Complete Goal</span>
-                <span className="text-[10px] text-[#d6f4ad]">+10 pts</span>
+                <span>{goalCompleted ? "Goal Done ✓" : "Complete Goal"}</span>
+                <span className="text-[10px] text-[#d6f4ad]">{goalCompleted ? "Claimed" : "+10 pts"}</span>
               </button>
               
               <button

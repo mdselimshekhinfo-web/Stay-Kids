@@ -455,6 +455,12 @@ export default function App() {
         if (data.frame) next.remote = { ...next.remote, liveFrame: data.frame as any };
       } else if (data.type === "trigger-alarm") {
         next.remote.alarmActive = !next.remote.alarmActive;
+      } else if (data.type === "unpair-device" && typeof data.childId === "string") {
+        next.children = (next.children || []).filter(c => c.id !== data.childId);
+        if (next.activeChildId === data.childId && (next.children || []).length > 0) {
+          next.child = next.children![0];
+          next.activeChildId = next.children![0].id;
+        }
       } else if (data.type === "add-reward-points" && typeof data.points === "number") {
         next.rewards = next.rewards || { earned: 0, balance: 0 };
         next.rewards.earned += data.points;

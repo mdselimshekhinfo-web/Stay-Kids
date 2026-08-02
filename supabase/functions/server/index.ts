@@ -165,29 +165,31 @@ async function saveStateToDB(email: string, state: any) {
       });
 
       if (perCh.blockedApps) {
-        for (const [pkg, blocked] of Object.entries(perCh.blockedApps)) {
-          await supabase.from('blocked_apps').upsert({
-            id: ch.id + '_' + pkg,
-            child_id: ch.id,
-            package_name: pkg,
-            app_name: pkg,
-            is_blocked: blocked
-          });
+        const blockedRows = Object.entries(perCh.blockedApps).map(([pkg, blocked]) => ({
+          id: ch.id + '_' + pkg,
+          child_id: ch.id,
+          package_name: pkg,
+          app_name: pkg,
+          is_blocked: blocked
+        }));
+        if (blockedRows.length > 0) {
+          await supabase.from('blocked_apps').upsert(blockedRows);
         }
       }
     }
 
     // Persist active alerts to database
     if (state.alerts && Array.isArray(state.alerts)) {
-      for (const alert of state.alerts.slice(0, 20)) {
-        await supabase.from('alerts').upsert({
-          id: alert.id,
-          child_id: state.activeChildId || state.child?.id || "child-1",
-          title: alert.title,
-          description: alert.detail || alert.description || "",
-          category: alert.category || "activity",
-          is_read: !!alert.read,
-        });
+      const alertRows = state.alerts.slice(0, 20).map((alert: any) => ({
+        id: alert.id,
+        child_id: state.activeChildId || state.child?.id || "child-1",
+        title: alert.title,
+        description: alert.detail || alert.description || "",
+        category: alert.category || "activity",
+        is_read: !!alert.read,
+      }));
+      if (alertRows.length > 0) {
+        await supabase.from('alerts').upsert(alertRows);
       }
     }
   } catch(e) {
@@ -200,15 +202,6 @@ const app = new Hono();
 // Enable logger
 app.use('*', logger(console.log));
 
-// Allowed CORS Origins
-const ALLOWED_ORIGINS = [
-  "http://localhost:5173",
-  "http://localhost:8443",
-  "http://localhost:3000",
-  "http://127.0.0.1:5173",
-  "capacitor://localhost",
-  "http://localhost",
-];
 
 // Enable Hardened CORS Middleware
 app.use(
@@ -217,7 +210,7 @@ app.use(
     origin: (origin) => {
       const allowedOrigins = ["capacitor://localhost", "http://localhost:8443", "http://localhost:5173"];
       const reqOrigin = origin || "";
-      const corsOrigin = allowedOrigins.includes(reqOrigin) ? reqOrigin : allowedOrigins[0];
+      const corsOrigin = allowedOrigins.includes(reqOrigin) ? reqOrigin : "";
       return corsOrigin;
     },
     allowHeaders: ["Content-Type", "Authorization"],
@@ -381,7 +374,7 @@ app.post("/server/auth/signup", async (c) => {
       return c.json({ error: "Account already exists with this email address." }, 400);
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = (() => { const a = new Uint32Array(1); crypto.getRandomValues(a); return String(100000 + (a[0] % 900000)); })();
     const hashedPassword = await hashPassword(password);
     
     const pendingKey = `pending:${email.toLowerCase()}`;
@@ -472,7 +465,7 @@ app.post("/server/auth/forgot-password", async (c) => {
     
     // Generic response regardless of email existence to prevent email enumeration attacks
     if (user) {
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otp = (() => { const a = new Uint32Array(1); crypto.getRandomValues(a); return String(100000 + (a[0] % 900000)); })();
       const resetKey = `reset:${email.toLowerCase()}`;
       await kv.set(resetKey, {
         email: email.toLowerCase(),
@@ -654,6 +647,8 @@ app.post("/server/auth/revoke-all-sessions", async (c) => {
 });
 
 // Priority 1: FCM Push Notification Dispatcher Helper
+// ⚠️ WARNING: Uses deprecated Legacy FCM HTTP API (fcm.googleapis.com/fcm/send).
+// Google will shut this down. Migrate to FCM HTTP v1 API with OAuth2 service account.
 async function sendFcmPushNotification(parentEmail: string, title: string, body: string, dataPayload: Record<string, string> = {}) {
   try {
     const fcmToken = await kv.get(`fcm_token:${parentEmail.toLowerCase()}`);
@@ -700,7 +695,7 @@ app.post("/server/auth/resend-otp", async (c) => {
       return c.json({ error: "No pending registration found. Please sign up." }, 400);
     }
 
-    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const newOtp = (() => { const a = new Uint32Array(1); crypto.getRandomValues(a); return String(100000 + (a[0] % 900000)); })();
     pending.otp = newOtp;
     pending.expiresAt = Date.now() + 5 * 60 * 1000;
     await kv.set(pendingKey, pending);
@@ -763,7 +758,7 @@ app.post("/server/pairing/generate", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const targetChildId = body?.childId || "child-1";
 
-    const pin = Math.floor(100000 + Math.random() * 900000).toString();
+    const pin = (() => { const a = new Uint32Array(1); crypto.getRandomValues(a); return String(100000 + (a[0] % 900000)); })();
     await kv.set(`pairing:${pin}`, {
       active: true,
       parentId: authUser.email,
@@ -1118,7 +1113,7 @@ app.post("/server/action", async (c) => {
       state.remote.alarmActive = !state.remote.alarmActive;
       if (state.remote.alarmActive) {
         const newAlert = {
-          id: String(Date.now()),
+          id: crypto.randomUUID(),
           category: "sos",
           title: "🚨 Anti-Theft Alarm Triggered",
           detail: `Loud siren alarm activated remotely on ${state.child.name}'s device.`,
@@ -1142,7 +1137,7 @@ app.post("/server/action", async (c) => {
       if (!state.remote) state.remote = { status: "idle", tool: "Camera Snapshot", consentRequired: false, audioActive: false };
       state.remote.lastSnapshotTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const newAlert = {
-        id: String(Date.now()),
+        id: crypto.randomUUID(),
         category: "activity",
         title: "📷 Remote Snapshot Captured",
         detail: `Camera snapshot captured safely on ${state.child.name}'s device.`,
@@ -1169,7 +1164,7 @@ app.post("/server/action", async (c) => {
       }
       if (nextActive) {
         const newAlert = {
-          id: String(Date.now()),
+          id: crypto.randomUUID(),
           category: "activity",
           title: "▣ Live Screen Mirror Requested",
           detail: `MediaProjection WebRTC stream session initiated for ${state.child.name}.`,
@@ -1227,7 +1222,7 @@ app.post("/server/action", async (c) => {
       const hasLocation = typeof action.lat === "number" && typeof action.lng === "number";
       const locationStr = hasLocation ? `${action.lat.toFixed(4)}, ${action.lng.toFixed(4)}` : "";
       const newAlert = {
-        id: String(Date.now()),
+        id: crypto.randomUUID(),
         category: "sos",
         title: "🆘 EMERGENCY SOS SIGNAL RECEIVED",
         detail: hasLocation
@@ -1268,7 +1263,7 @@ app.post("/server/action", async (c) => {
       sendFcmPushNotification(authCtx.email, newAlert.title, newAlert.detail).catch(() => {});
     } else if (action.type === "log-call-sms" && typeof action.detail === "string") {
       const newAlert = {
-        id: String(Date.now()),
+        id: crypto.randomUUID(),
         category: "call",
         title: action.title || "📞 Call / SMS Activity Alert",
         detail: action.detail,
@@ -1372,7 +1367,8 @@ app.post("/server/action", async (c) => {
 
     return c.json(state);
   } catch (_e) {
-    return c.json(JSON.parse(JSON.stringify(defaultState)));
+    console.error("Action processing error:", _e);
+    return c.json({ error: "Action processing failed. Please try again." }, 500);
   }
 });
 

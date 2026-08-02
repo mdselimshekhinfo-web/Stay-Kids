@@ -7,6 +7,7 @@ import { PREMIUM_ENABLED } from "../lib/config"
 
 export function Profile({
   state,
+  switchRole,
   user,
   onSignOut,
   onAction,
