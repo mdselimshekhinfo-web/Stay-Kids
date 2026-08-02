@@ -488,7 +488,7 @@ export function Profile({
         <div className="flex items-center justify-between border-b pb-3 border-[#f0f4f4]">
           <div>
             <p className="font-bold text-sm">
-              App Language (ভাষা) <span className="text-[10px] font-normal text-[#287555] bg-[#edf3ef] px-1.5 py-0.5 rounded-full ml-1">(Coming Soon)</span>
+              App Language (ভাষা) <span className="text-[10px] font-bold text-[#287555] bg-[#edf3ef] px-1.5 py-0.5 rounded-full ml-1">Active ✓</span>
             </p>
             <p className="text-xs text-[#71807a]">Choose interface language</p>
           </div>
