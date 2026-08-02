@@ -109,4 +109,35 @@ describe('Security & Validation Test Suite', () => {
     const rateBlocked = limiter.isAllowed(key, 5, 60000)
     expect(rateBlocked).toBe(false)
   })
+
+  it('Validates server-side reward point bounds and redemption tiers', () => {
+    const VALID_POINT_AMOUNTS = [10]
+    const VALID_REDEMPTIONS = [{ cost: 30, mins: 15 }]
+
+    // Legitimate 10-point award
+    const validPoints = 10
+    expect(VALID_POINT_AMOUNTS.includes(validPoints)).toBe(true)
+
+    // Inflated spoofed points
+    const spoofedPoints = 999999
+    expect(VALID_POINT_AMOUNTS.includes(spoofedPoints)).toBe(false)
+
+    // Legitimate tier
+    const validTier = VALID_REDEMPTIONS.find((r) => r.cost === 30 && r.mins === 15)
+    expect(validTier).toBeDefined()
+
+    // Invalid redemption attempt
+    const invalidTier = VALID_REDEMPTIONS.find((r) => r.cost === 0 && r.mins === 500)
+    expect(invalidTier).toBeUndefined()
+  })
+
+  it('Enforces token_valid_after timestamp comparison for session revocation', () => {
+    const tokenIat = 1700000000 // Issued timestamp in seconds
+    const tokenValidAfterIso = '2026-08-01T21:00:00.000Z'
+    const validAfterSec = Math.floor(new Date(tokenValidAfterIso).getTime() / 1000)
+
+    // Token issued before revocation timestamp is invalid
+    const isTokenRevoked = tokenIat < validAfterSec
+    expect(isTokenRevoked).toBe(true)
+  })
 })

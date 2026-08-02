@@ -37,6 +37,10 @@ export interface StayKidsNativePlugin {
   stopSiren(): Promise<{ success: boolean }>
   setBedtimeSchedule(options: { time: string }): Promise<{ success: boolean }>
   addGeofence(options: { latitude: number; longitude: number; radius: number }): Promise<{ success: boolean }>
+  getScreenResolution(): Promise<{ screenWidth?: number; screenHeight?: number }>
+  handleWebRTCSignal(signal: Record<string, unknown>): Promise<{ success: boolean; error?: string }>
+  getCallSmsLogs(): Promise<{ success: boolean; logs?: { id: string; logType: string; contact: string; detail: string; timestamp: number }[] }>
+  getFcmToken(): Promise<{ success: boolean; token?: string; error?: string }>
 }
 
 const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative", {
@@ -507,7 +511,7 @@ export const listenGeofenceAlert = (
 
 export const getCallSmsLogsNative = async (): Promise<{ id: string; logType: string; contact: string; detail: string; timestamp: number }[]> => {
   try {
-    const res = await (StayKidsNative as any).getCallSmsLogs()
+    const res = await StayKidsNative.getCallSmsLogs()
     if (res && res.success && Array.isArray(res.logs)) {
       return res.logs
     }
@@ -536,7 +540,7 @@ export const listenWebVisitAlert = (
 
 export const getFcmTokenNative = async (): Promise<string | null> => {
   try {
-    const res = await (StayKidsNative as any).getFcmToken()
+    const res = await StayKidsNative.getFcmToken()
     if (res && res.success && res.token) {
       return res.token
     }
