@@ -189,7 +189,7 @@ if (typeof window !== "undefined") {
   })
 }
 
-// 10-Second AbortController Timeout + Retry with Exponential Backoff
+// 15-Second AbortController Timeout + Retry with Exponential Backoff
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2): Promise<Response> {
   let attempt = 0
   let delay = 500
@@ -197,7 +197,7 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
   while (true) {
     attempt++
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000)
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
 
     try {
       const response = await fetch(url, { ...options, signal: controller.signal })
@@ -212,7 +212,7 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
   }
 }
 
-const request = async (path: string, init?: RequestInit, isIdempotentRead = false) => {
+const request = async (path: string, init?: RequestInit, _isIdempotentRead = false) => {
   const token = inMemoryToken || (await loadAuthToken())
   const authHeader = token ? `Bearer ${token}` : `Bearer ${publicAnonKey}`
 
@@ -223,9 +223,7 @@ const request = async (path: string, init?: RequestInit, isIdempotentRead = fals
   }
 
   try {
-    const response = isIdempotentRead
-      ? await fetchWithRetry(`${base}${path}`, { ...init, headers }, 2)
-      : await fetchWithRetry(`${base}${path}`, { ...init, headers }, 0)
+    const response = await fetchWithRetry(`${base}${path}`, { ...init, headers }, 2)
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
@@ -236,11 +234,15 @@ const request = async (path: string, init?: RequestInit, isIdempotentRead = fals
       return await response.json()
     }
   } catch (err: any) {
+    let finalError = err
+    if (err?.name === "AbortError" || (err?.message && err.message.toLowerCase().includes("failed to fetch"))) {
+      finalError = new Error("Network Connection Error: Could not reach StayKids server. Please check your mobile data / Wi-Fi connection.")
+    }
     if (path.startsWith("/auth/")) {
-      throw err
+      throw finalError
     }
     if (path === "/pairing/generate" || path === "/pairing/claim") {
-      throw err
+      throw finalError
     }
     if (path === "/action" && init?.body) {
       try {
@@ -252,9 +254,8 @@ const request = async (path: string, init?: RequestInit, isIdempotentRead = fals
     if (path === "/state") {
       return defaultLocalState
     }
+    throw finalError
   }
-
-  throw new Error("Failed to fetch data. Please check your connection.")
 }
 
 export const getStayKidsState = () => request("/state", undefined, true) as Promise<StayKidsState>
