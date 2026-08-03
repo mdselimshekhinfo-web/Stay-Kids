@@ -114,8 +114,8 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
 
     // Apply SDP Answer from child device
     if (state.remote.webrtcAnswer && !pcRef.current.currentRemoteDescription) {
-      const desc = new RTCSessionDescription(state.remote.webrtcAnswer as RTCSessionDescriptionInit)
-      pcRef.current.setRemoteDescription(desc).catch((err) => console.warn("Error setting remote answer:", err))
+      const answerObj = typeof state.remote.webrtcAnswer === "string" ? JSON.parse(state.remote.webrtcAnswer) : state.remote.webrtcAnswer
+      pcRef.current.setRemoteDescription(answerObj).catch((err) => console.warn("Error setting remote answer:", err))
     }
 
     // Apply backend-accumulated ICE candidates

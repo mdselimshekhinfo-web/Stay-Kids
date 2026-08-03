@@ -94,9 +94,9 @@ export function Profile({
         admin: adm,
         battery: bat,
         overlay: ovl,
-        camera: cam.granted ?? false,
-        location: loc.granted ?? false,
-        mic: mic.granted ?? false,
+        camera: typeof cam === "boolean" ? cam : !!(cam as any)?.granted,
+        location: typeof loc === "boolean" ? loc : !!(loc as any)?.granted,
+        mic: typeof mic === "boolean" ? mic : !!(mic as any)?.granted,
       })
     } catch (_e) {
       // Fallback in web mode

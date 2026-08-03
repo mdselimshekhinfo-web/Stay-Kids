@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import { useState } from "react"
 import { PREMIUM_ENABLED } from "../lib/config"
 
 export function SubscriptionModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {

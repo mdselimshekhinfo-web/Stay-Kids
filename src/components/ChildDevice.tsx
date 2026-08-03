@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import type { StayKidsState } from "../lib/staykids-api"
 import { sendStayKidsAction } from "../lib/staykids-api"
 import {
@@ -155,7 +155,7 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
                 sendStayKidsAction(payload)
                   .then((res) => {
                     setSendingSos(false)
-                    if (res && res.success !== false) {
+                    if (res && (res as any).success !== false) {
                       setHelp(true)
                       setTimeout(() => setHelp(false), 7000)
                       if (snapRes?.success) {

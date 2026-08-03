@@ -36,11 +36,11 @@ export type StayKidsState = {
   children?: ChildDeviceInfo[]
   child: ChildDeviceInfo
   usage: { minutes: number; limit: number; topApps: string[]; history?: any[] }
-  controls: Record<string, boolean> & { bedtimeSchedule?: string; wakeTime?: string }
+  controls: Record<string, any> & { bedtimeSchedule?: string; wakeTime?: string; appLimits?: Record<string, number> }
   blockedApps?: Record<string, boolean>
   rewards: { earned: number; balance: number }
   alerts: { id: string; title: string; detail: string; time: string; read: boolean }[]
-  remote: { status: string; tool: string; consentRequired: boolean; audioActive: boolean; alarmActive?: boolean; lastSnapshotTime?: string; mirrorStreamActive?: boolean; lastSignal?: any; lastTouchAction?: string; liveFrame?: string; connectionState?: string; liveAudioChunk?: string }
+  remote: { status: string; tool: string; consentRequired: boolean; audioActive: boolean; alarmActive?: boolean; lastSnapshotTime?: string; mirrorStreamActive?: boolean; lastSignal?: any; lastTouchAction?: string; liveFrame?: string; connectionState?: string; liveAudioChunk?: string; webrtcOffer?: string; webrtcAnswer?: string; webrtcCandidates?: any[] }
 }
 
 let inMemoryToken: string | null = null

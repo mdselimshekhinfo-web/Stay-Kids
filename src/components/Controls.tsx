@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import type { StayKidsState } from "../lib/staykids-api"
 import { fetchNativeInstalledApps, syncNativeAppBlock } from "../lib/native"
 

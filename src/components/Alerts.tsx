@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import { useState } from "react"
 import type { StayKidsState } from "../lib/staykids-api"
 
 const Icon = ({ name }: { name: string }) => (

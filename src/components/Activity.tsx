@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import { useState } from "react"
 import type { StayKidsState } from "../lib/staykids-api"
 
 export function Activity({ state }: { state: StayKidsState }) {
