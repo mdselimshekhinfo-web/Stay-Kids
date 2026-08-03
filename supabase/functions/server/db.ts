@@ -2,8 +2,8 @@ import * as kv from "./kv_store.tsx";
 import { hashPassword, verifyPassword, signJwt, verifyJwt, signDeviceJwt, checkRateLimit } from "./security.ts";
 import { createClient } from "npm:@supabase/supabase-js";
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || "https://ewsehvgwzczlshyoyhqf.supabase.co";
+const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3c2Vodmd3emN6bHNoeW95aHFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMTA2MjIsImV4cCI6MjA5OTY4NjYyMn0.kWqk1d-8mNt3mG5zwfaRC9RUgZt7WgEyRNrqn7frn-s";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function getProfile(email: string) {
