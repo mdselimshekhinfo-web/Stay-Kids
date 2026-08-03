@@ -43,7 +43,7 @@ describe('Security & Validation Test Suite', () => {
     expect(sanitizeEmail(rawEmail)).toBe('user.name@example.com')
   })
 
-  it('Validates strong signup passwords (min 10 chars, uppercase, lowercase, number)', () => {
+  it('Validates strong signup passwords (min 8 chars, uppercase, lowercase, number)', () => {
     const validSignup = SignUpSchema.safeParse({
       name: 'Parent User',
       email: 'parent@example.com',

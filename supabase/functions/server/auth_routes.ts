@@ -62,7 +62,7 @@ async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "re
 }
 
 function isStrongPassword(password: string): boolean {
-  if (!password || typeof password !== "string" || password.length < 10) return false;
+  if (!password || typeof password !== "string" || password.length < 8) return false;
   const hasUpper = /[A-Z]/.test(password);
   const hasLower = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
@@ -78,7 +78,7 @@ authRoutes.post("/signup", async (c) => {
       return c.json({ error: "A valid email address and password are required." }, 400);
     }
     if (!isStrongPassword(password)) {
-      return c.json({ error: "Password must be at least 10 characters long and contain at least one uppercase letter, one lowercase letter, and one number." }, 400);
+      return c.json({ error: "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number." }, 400);
     }
 
     const allowed = await checkRateLimit(email, 5, 60000);

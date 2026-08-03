@@ -19,10 +19,10 @@ export function sanitizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
-// Strong Password Validation: Min 10 chars, 1 uppercase, 1 lowercase, 1 number
+// Strong Password Validation: Min 8 chars, 1 uppercase, 1 lowercase, 1 number
 const StrongPasswordSchema = z
   .string()
-  .min(10, 'Password must be at least 10 characters long')
+  .min(8, 'Password must be at least 8 characters long')
   .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
   .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
   .regex(/[0-9]/, 'Password must contain at least one number')
