@@ -1,4 +1,4 @@
-import React from "react"
+
 import type { ChildDeviceInfo } from "../lib/staykids-api"
 
 export function ChildDeviceSwitcherBar({

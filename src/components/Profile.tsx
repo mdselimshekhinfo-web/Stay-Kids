@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import type { StayKidsState } from "../lib/staykids-api"
 import { changeParentPassword, exportUserData, deleteUserAccount } from "../lib/staykids-api"
 import { LegalModal } from "./LegalModal"
@@ -7,13 +7,12 @@ import { PREMIUM_ENABLED } from "../lib/config"
 
 export function Profile({
   state,
-  switchRole,
   user,
   onSignOut,
   onAction,
 }: {
   state: StayKidsState
-  switchRole: () => void
+  switchRole?: (role: "parent" | "child") => void
   user: { name: string; email: string }
   onSignOut: () => void
   onAction?: (action: Record<string, unknown>) => void
