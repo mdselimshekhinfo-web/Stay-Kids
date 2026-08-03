@@ -15,6 +15,8 @@ import {
   requestLocationPermission,
   checkMicrophonePermission,
   requestMicrophonePermission,
+  checkUsageStatsPermission,
+  openUsageAccessSettings,
   startNativeScreenShare,
   stopNativeScreenShare,
 } from "../lib/native"
@@ -40,6 +42,7 @@ export function Onboarding({
   const [accEnabled, setAccEnabled] = useState(false)
   const [batteryOptDisabled, setBatteryOptDisabled] = useState(false)
   const [adminEnabled, setAdminEnabled] = useState(false)
+  const [usageStatsGranted, setUsageStatsGranted] = useState(false)
   const [overlayGranted, setOverlayGranted] = useState(false)
   const [cameraGranted, setCameraGranted] = useState(false)
   const [locationGranted, setLocationGranted] = useState(false)
@@ -62,10 +65,11 @@ export function Onboarding({
   // Fix 5: Parallelize permission checks with Promise.all
   const refreshPermissionsState = async () => {
     try {
-      const [acc, bat, adm, ovl, cam, loc, mic] = await Promise.all([
+      const [acc, bat, adm, usage, ovl, cam, loc, mic] = await Promise.all([
         checkAccessibilityEnabled().catch(() => false),
         checkBatteryOptimizationDisabled().catch(() => false),
         checkDeviceAdminEnabled().catch(() => false),
+        checkUsageStatsPermission().catch(() => false),
         checkOverlayPermissionGranted().catch(() => false),
         checkCameraPermission().catch(() => false),
         checkLocationPermission().catch(() => false),
@@ -74,6 +78,7 @@ export function Onboarding({
       setAccEnabled(acc)
       setBatteryOptDisabled(bat)
       setAdminEnabled(adm)
+      setUsageStatsGranted(usage)
       setOverlayGranted(ovl)
       setCameraGranted(cam)
       setLocationGranted(loc)
@@ -432,6 +437,37 @@ export function Onboarding({
                       }`}
                     >
                       {adminEnabled ? "Protected ✓" : "🔒 Protect"}
+                    </button>
+                  </div>
+
+                  {/* Permission 3b: Usage Access Stats */}
+                  <div className="flex items-center justify-between rounded-xl bg-white p-3 border border-[#d2e2d7] shadow-sm">
+                    <div>
+                      <p className="font-bold text-[#172226]">4. Usage Access Stats</p>
+                      <p className="text-[10px] text-[#71807a]">Tracks screen time limits & top app usage</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGuideModal({
+                          isOpen: true,
+                          title: "Usage Access Permission",
+                          steps: [
+                            "নিচে 'Open System Settings Now' বাটন চাপুন।",
+                            "Android Settings খুলে গেলে 'Apps with Usage Access' পেইজে ঢুকুন।",
+                            "'StayKids' খুঁজে বের করে সিলেক্ট করুন।",
+                            "'Permit usage access' সুইচটি অন করে দিন।",
+                          ],
+                          onOpenSettings: async () => {
+                            await openUsageAccessSettings().catch(() => {})
+                          },
+                        })
+                      }}
+                      className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
+                        usageStatsGranted ? "bg-[#287555] text-white" : "bg-[#d6f4ad] text-[#17352b] hover:bg-[#c3e895]"
+                      }`}
+                    >
+                      {usageStatsGranted ? "Granted ✓" : "📊 Allow"}
                     </button>
                   </div>
 

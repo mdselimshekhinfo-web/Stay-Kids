@@ -66,9 +66,24 @@ actionRoutes.post("/action", async (c) => {
       return c.json({ success: false, error: "Device token missing childId" }, 400);
     }
 
+    let state: any;
+    try {
+      state = (await getStateFromDB(authCtx.email)) || JSON.parse(JSON.stringify(defaultState));
+    } catch(e) {
+      return c.json({ error: "Database unavailable for action processing." }, 500);
+    }
+
     const targetChildId = authCtx.isDevice
       ? (authCtx.childId || "child-1")
-      : (action.childId || "child-1");
+      : (action.childId || state.activeChildId || state.child?.id || "child-1");
+
+    // Critical Security Fix: Parent Child Ownership Authorization Guard
+    if (!authCtx.isDevice && action.type !== "add-child") {
+      const ownsChild = state.children?.some((c: any) => c.id === targetChildId) || (state.child?.id === targetChildId);
+      if (!ownsChild) {
+        return c.json({ error: "Child not found or not owned by this account." }, 403);
+      }
+    }
 
     // 2.2 Ephemeral Bypass for High-Frequency Streaming Actions & WebRTC Signaling
     if (action.type === "audio-chunk" || action.type === "webrtc-signal") {
@@ -108,13 +123,6 @@ actionRoutes.post("/action", async (c) => {
           connectionState: updatedLive.connectionState,
         }
       });
-    }
-
-    let state: any;
-    try {
-      state = (await getStateFromDB(authCtx.email)) || JSON.parse(JSON.stringify(defaultState));
-    } catch(e) {
-      return c.json({ error: "Database unavailable for action processing." }, 500);
     }
 
     if (!state.perChild) state.perChild = {};

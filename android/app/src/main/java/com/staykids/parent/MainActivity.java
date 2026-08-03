@@ -178,13 +178,38 @@ public class MainActivity extends BridgeActivity {
             call.resolve(new JSObject().put("enabled", enabled));
         }
 
-
         @PluginMethod
         public void openAccessibilitySettings(PluginCall call) {
             Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             getContext().startActivity(intent);
             call.resolve();
+        }
+
+        @PluginMethod
+        public void isUsageStatsPermissionGranted(PluginCall call) {
+            boolean granted = false;
+            try {
+                android.app.AppOpsManager appOps = (android.app.AppOpsManager) getContext().getSystemService(Context.APP_OPS_SERVICE);
+                int mode = appOps.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, 
+                    android.os.Process.myUid(), getContext().getPackageName());
+                granted = (mode == android.app.AppOpsManager.MODE_ALLOWED);
+            } catch (Exception e) {
+                granted = false;
+            }
+            call.resolve(new JSObject().put("granted", granted));
+        }
+
+        @PluginMethod
+        public void openUsageAccessSettings(PluginCall call) {
+            try {
+                Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(intent);
+                call.resolve();
+            } catch (Exception e) {
+                call.reject("Could not open Usage Access Settings: " + e.getMessage());
+            }
         }
 
         @PluginMethod

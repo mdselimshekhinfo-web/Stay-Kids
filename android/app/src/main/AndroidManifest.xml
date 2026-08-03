@@ -4,6 +4,14 @@
     <!-- Signature-level custom permission to protect internal broadcast receivers -->
     <permission android:name="com.staykids.parent.PERMISSION_GEOFENCE" android:protectionLevel="signature" />
 
+    <!-- Queries block for listing installed launcher apps on Android 11+ (API 30+) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
@@ -65,6 +73,12 @@
             android:foregroundServiceType="microphone"
             android:exported="false" />
 
+        <!-- StayKids Camera Foreground Service for Remote Camera Stream & Snapshot -->
+        <service
+            android:name=".StayKidsCameraService"
+            android:foregroundServiceType="camera"
+            android:exported="false" />
+
         <!-- StayKids Usage Service for Screen Time Limits -->
         <service
             android:name=".StayKidsUsageService"
@@ -79,7 +93,7 @@
         <receiver
             android:name=".StayKidsDeviceAdminReceiver"
             android:label="StayKids Parental Anti-Uninstall Protection"
-            android:description="@string/accessibility_service_description"
+            android:description="@string/device_admin_description"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
             android:exported="false">
             <meta-data
@@ -133,13 +147,14 @@
     <!-- Permissions for Real-Time Media Projection & Screen Mirroring -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="com.staykids.parent.PERMISSION_GEOFENCE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- Permissions for One-Way & Real-Time Audio Streaming -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <!-- Permissions for Remote Touch & Device Control -->
@@ -151,5 +166,4 @@
     <!-- Permission to track app usage time for App Limits -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
 
-    <!-- Call & SMS monitoring permissions removed for Play Store compliance -->
 </manifest>

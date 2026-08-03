@@ -19,6 +19,8 @@ export interface StayKidsNativePlugin {
   requestMicrophonePermission(): Promise<{ granted: boolean; error?: string }>
   isDeviceAdminEnabled(): Promise<{ enabled: boolean }>
   enableDeviceAdmin(): Promise<void>
+  isUsageStatsPermissionGranted(): Promise<{ granted: boolean }>
+  openUsageAccessSettings(): Promise<void>
   isBatteryOptimizationDisabled(): Promise<{ disabled: boolean }>
   openBatteryOptimizationSettings(): Promise<void>
   isOverlayPermissionGranted(): Promise<{ granted: boolean }>
@@ -548,4 +550,19 @@ export const getFcmTokenNative = async (): Promise<string | null> => {
   } catch (_e) {
     return null
   }
+}
+
+export const checkUsageStatsPermission = async (): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.isUsageStatsPermissionGranted()
+    return !!res.granted
+  } catch (_e) {
+    return false
+  }
+}
+
+export const openUsageAccessSettings = async (): Promise<void> => {
+  try {
+    await StayKidsNative.openUsageAccessSettings()
+  } catch (_e) {}
 }

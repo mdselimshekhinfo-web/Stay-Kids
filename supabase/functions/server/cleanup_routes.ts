@@ -7,12 +7,12 @@ export const cleanupRoutes = new Hono();
 // 3. KV Store Cleanup Job Endpoint
 cleanupRoutes.all("/cleanup", async (c) => {
   try {
-    const authHeader = c.req.header("Authorization");
-    const cleanupSecret = Deno.env.get("KV_CLEANUP_SECRET");
+    const providedSecret = c.req.header("X-Cleanup-Secret");
+    const isSecretValid = !!cleanupSecret && providedSecret === cleanupSecret;
 
-    if (cleanupSecret && c.req.header("X-Cleanup-Secret") !== cleanupSecret) {
+    if (!isSecretValid) {
       const user = await getAuthenticatedUser(c);
-      if (!user && !authHeader) {
+      if (!user) {
         return c.json({ error: "Unauthorized cleanup request" }, 401);
       }
     }

@@ -61,6 +61,14 @@ async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "re
   return false;
 }
 
+function isStrongPassword(password: string): boolean {
+  if (!password || typeof password !== "string" || password.length < 10) return false;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  return hasUpper && hasLower && hasNumber;
+}
+
 // Auth Sign Up Endpoint
 authRoutes.post("/signup", async (c) => {
   try {
@@ -69,8 +77,8 @@ authRoutes.post("/signup", async (c) => {
     if (!email || !password || !isValidEmail(email)) {
       return c.json({ error: "A valid email address and password are required." }, 400);
     }
-    if (password.length < 8) {
-      return c.json({ error: "Password must be at least 8 characters long." }, 400);
+    if (!isStrongPassword(password)) {
+      return c.json({ error: "Password must be at least 10 characters long and contain at least one uppercase letter, one lowercase letter, and one number." }, 400);
     }
 
     const allowed = await checkRateLimit(email, 5, 60000);
@@ -203,8 +211,8 @@ authRoutes.post("/reset-password", async (c) => {
     if (!email || !otp || !newPassword || !isValidEmail(email)) {
       return c.json({ error: "A valid email address, OTP code, and new password are required." }, 400);
     }
-    if (newPassword.length < 8) {
-      return c.json({ error: "Password must be at least 8 characters long." }, 400);
+    if (!isStrongPassword(newPassword)) {
+      return c.json({ error: "New password must be at least 10 characters long and contain at least one uppercase letter, one lowercase letter, and one number." }, 400);
     }
 
     const allowed = await checkRateLimit(`reset-pwd:${email.toLowerCase()}`, 10, 5 * 60000);
@@ -263,8 +271,8 @@ authRoutes.post("/change-password", async (c) => {
     if (!currentPassword || !newPassword) {
       return c.json({ error: "Current password and new password are required." }, 400);
     }
-    if (typeof newPassword !== "string" || newPassword.length < 8) {
-      return c.json({ error: "New password must be at least 8 characters long." }, 400);
+    if (!isStrongPassword(newPassword)) {
+      return c.json({ error: "New password must be at least 10 characters long and contain at least one uppercase letter, one lowercase letter, and one number." }, 400);
     }
 
     const { data: user } = await supabase.from('profiles').select('*').eq('email', authCtx.email).maybeSingle();
