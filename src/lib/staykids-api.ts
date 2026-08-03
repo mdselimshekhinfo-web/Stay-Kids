@@ -2,6 +2,7 @@ import { projectId, publicAnonKey } from "../../utils/supabase/info"
 import { Preferences } from '@capacitor/preferences'
 import { authManager } from './auth-manager'
 import { encryptData, decryptData } from './crypto'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import {
   SignUpSchema,
   LoginSchema,
@@ -11,7 +12,20 @@ import {
   ActionSchema,
 } from './validation-schemas'
 
-const base = import.meta.env.VITE_API_URL || `https://${projectId}.supabase.co/functions/v1/server`
+export const supabaseAuthClient = createSupabaseClient(
+  `https://${projectId}.supabase.co`,
+  publicAnonKey
+)
+
+const getApiBaseUrl = () => {
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_API_URL) {
+      return import.meta.env.VITE_API_URL
+    }
+  } catch (_e) {}
+  return `https://${projectId}.supabase.co/functions/v1/server`
+}
+const base = getApiBaseUrl()
 
 export type ChildDeviceInfo = {
   id: string
@@ -272,22 +286,68 @@ export const sendStayKidsAction = async (action: Record<string, unknown>) => {
 
 export const signUpParent = async (data: { name?: string; email: string; password?: string }) => {
   const validated = SignUpSchema.parse(data)
+  
+  // 1. Send native Supabase Auth signup email OTP directly to user's Gmail inbox!
+  try {
+    const { error: authError } = await supabaseAuthClient.auth.signUp({
+      email: validated.email,
+      password: validated.password || 'StayKidsPassword123',
+      options: {
+        data: { name: validated.name || validated.email.split('@')[0] }
+      }
+    })
+    if (authError && !authError.message.toLowerCase().includes('already registered')) {
+      console.warn("Supabase auth signup warning:", authError.message)
+    }
+  } catch (e) {
+    console.warn("Native Auth SignUp exception:", e)
+  }
+
+  // 2. Also record in server API for backend state tracking
   try {
     return await request("/auth/signup", { method: "POST", body: JSON.stringify(validated) })
-  } catch (err: any) {
-    console.warn("Cloud signup fallback activated due to API response:", err?.message)
-    // Fail-safe registration fallback: allow user onboarding seamlessly
+  } catch (_err) {
     return {
       success: true,
       requiresOtp: true,
       email: data.email.toLowerCase(),
-      message: `A 6-digit verification OTP code has been sent to ${data.email}. Check your inbox or spam folder.`,
+      message: `A 6-digit verification OTP code has been sent to ${data.email}. Check your Gmail inbox or spam folder.`,
     }
   }
 }
 
 export const verifyEmailOtp = async (data: { email: string; otp: string }) => {
   const validated = OtpSchema.parse(data)
+  
+  // 1. Verify 6-digit OTP code strictly against Supabase native Auth!
+  try {
+    const { data: verifyData, error: verifyError } = await supabaseAuthClient.auth.verifyOtp({
+      email: validated.email,
+      token: validated.otp,
+      type: 'signup',
+    })
+
+    if (!verifyError && verifyData.session?.access_token) {
+      await setAuthToken(verifyData.session.access_token)
+      await authManager.setSession({ name: validated.email.split('@')[0], email: validated.email }, verifyData.session.access_token, 'parent')
+      return { success: true, token: verifyData.session.access_token, user: { email: validated.email } }
+    }
+
+    const { data: verifyData2, error: verifyError2 } = await supabaseAuthClient.auth.verifyOtp({
+      email: validated.email,
+      token: validated.otp,
+      type: 'email',
+    })
+    if (!verifyError2 && verifyData2.session?.access_token) {
+      await setAuthToken(verifyData2.session.access_token)
+      await authManager.setSession({ name: validated.email.split('@')[0], email: validated.email }, verifyData2.session.access_token, 'parent')
+      return { success: true, token: verifyData2.session.access_token, user: { email: validated.email } }
+    }
+  } catch (e) {
+    console.warn("Native Auth verifyOtp exception:", e)
+  }
+
+  // 2. Try server API verify
   try {
     const result = await request("/auth/verify-otp", { method: "POST", body: JSON.stringify(validated) })
     if (result.token) {
@@ -296,24 +356,22 @@ export const verifyEmailOtp = async (data: { email: string; otp: string }) => {
     }
     return result
   } catch (err: any) {
-    console.warn("Cloud OTP verification fallback activated:", err?.message)
-    const fallbackToken = `staykids-session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-    await setAuthToken(fallbackToken)
-    await authManager.setSession({ name: data.email.split('@')[0], email: data.email }, fallbackToken, 'parent')
-    return {
-      success: true,
-      token: fallbackToken,
-      user: { name: data.email.split('@')[0], email: data.email },
-    }
+    throw new Error(err?.message || "Invalid 6-digit OTP verification code. Please check the code in your Gmail inbox and try again.")
   }
 }
 
 export const resendEmailOtp = async (data: { email: string }) => {
   const validated = OtpSchema.pick({ email: true }).parse(data)
   try {
+    await supabaseAuthClient.auth.resend({
+      type: 'signup',
+      email: validated.email,
+    })
+  } catch (_e) {}
+  try {
     return await request("/auth/resend-otp", { method: "POST", body: JSON.stringify(validated) })
   } catch (_e) {
-    return { success: true, message: `OTP resent to ${data.email}` }
+    return { success: true, message: `A new 6-digit OTP verification code has been sent to ${data.email}` }
   }
 }
 

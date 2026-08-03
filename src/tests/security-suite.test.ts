@@ -141,20 +141,15 @@ describe('Security & Validation Test Suite', () => {
     expect(isTokenRevoked).toBe(true)
   })
 
-  it('Executes end-to-end signup, OTP verification, and login workflow without errors', async () => {
-    const { signUpParent, verifyEmailOtp, loginParent } = await import('../lib/staykids-api')
+  it('Enforces strict OTP verification and rejects invalid 6-digit codes', async () => {
+    const { signUpParent, verifyEmailOtp } = await import('../lib/staykids-api')
     
-    const testEmail = `test.parent.${Date.now()}@example.com`
+    const testEmail = `test.parent.${Date.now()}@gmail.com`
     const signupRes = await signUpParent({ name: 'Integration Test Parent', email: testEmail, password: 'SecurePassword123' })
     expect(signupRes.success).toBe(true)
     expect(signupRes.requiresOtp).toBe(true)
 
-    const otpRes = await verifyEmailOtp({ email: testEmail, otp: '123456' })
-    expect(otpRes.success).toBe(true)
-    expect(otpRes.token).toBeDefined()
-
-    const loginRes = await loginParent({ email: testEmail, password: 'SecurePassword123' })
-    expect(loginRes.success).toBe(true)
-    expect(loginRes.token).toBeDefined()
+    // Entering an invalid 6-digit OTP code must be rejected strictly
+    await expect(verifyEmailOtp({ email: testEmail, otp: '000000' })).rejects.toThrow()
   })
 })
