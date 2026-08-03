@@ -154,6 +154,11 @@ public class MainActivity extends BridgeActivity {
         }
 
         @PluginMethod
+        public void getAppRole(PluginCall call) {
+            call.resolve(new JSObject().put("role", BuildConfig.STAYKIDS_ROLE));
+        }
+
+        @PluginMethod
         public void isAccessibilityEnabled(PluginCall call) {
             boolean enabled = false;
             try {

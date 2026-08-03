@@ -14,6 +14,7 @@ import {
   listenAudioChunk,
   handleNativeWebRTCSignal,
   listenWebRTCSignal,
+  fetchAppRoleNative,
 } from "./lib/native"
 import { triggerToast } from "./components/Toast"
 import { subscribeToChildUpdates, isRealtimeAvailable, type RealtimeUpdate } from './lib/realtime'
@@ -90,26 +91,35 @@ export default function App() {
   const [isForeground, setIsForeground] = useState(true)
 
   useEffect(() => {
-    import('./lib/staykids-api').then(({ loadAuthToken }) => {
-      loadAuthToken().then((token) => {
-        if (selectedRole === "child") {
-          // Fix 3: Child role checks for stored device token; if token is missing, ready remains false so Onboarding pairing screen renders
-          if (token) {
-            setAuthenticated(true)
-            setReady(true)
+    fetchAppRoleNative().then((nativeRole) => {
+      if (nativeRole === "parent" || nativeRole === "child") {
+        setSelectedRole(nativeRole as "parent" | "child")
+        setRole(nativeRole as "parent" | "child")
+        localStorage.setItem("staykids_selected_role", nativeRole)
+      }
+      
+      import('./lib/staykids-api').then(({ loadAuthToken }) => {
+        loadAuthToken().then((token) => {
+          const currentRole = nativeRole || selectedRole
+          if (currentRole === "child") {
+            if (token) {
+              setAuthenticated(true)
+              setReady(true)
+            } else {
+              setAuthenticated(false)
+              setReady(false)
+            }
           } else {
-            setAuthenticated(false)
-            setReady(false)
+            if (token) {
+              setAuthenticated(true)
+              setReady(true)
+            }
           }
-        } else {
-          if (token) {
-            setAuthenticated(true)
-            setReady(true)
-          }
-        }
-        setIsLoading(false)
+          setIsLoading(false)
+        })
       })
     })
+
   }, [selectedRole])
 
   const fetchLatestState = () => {

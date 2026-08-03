@@ -45,6 +45,7 @@ export interface StayKidsNativePlugin {
   handleWebRTCSignal(signal: Record<string, unknown>): Promise<{ success: boolean; error?: string }>
   getCallSmsLogs(): Promise<{ success: boolean; logs?: { id: string; logType: string; contact: string; detail: string; timestamp: number }[] }>
   getFcmToken(): Promise<{ success: boolean; token?: string; error?: string }>
+  getAppRole(): Promise<{ role: string }>
 }
 
 const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative", {
@@ -85,6 +86,7 @@ const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative", {
     stopSiren: async () => ({ success: true }),
     setBedtimeSchedule: async () => ({ success: true }),
     addGeofence: async () => ({ success: true }),
+    getAppRole: async () => ({ role: "unknown" }),
   } as any,
 })
 
@@ -586,3 +588,14 @@ export const isAppIconHiddenNative = async (): Promise<boolean> => {
     return false
   }
 }
+
+export const fetchAppRoleNative = async (): Promise<string | null> => {
+  try {
+    const res = await StayKidsNative.getAppRole()
+    if (res.role === "parent" || res.role === "child") return res.role
+    return null
+  } catch (_e) {
+    return null
+  }
+}
+
