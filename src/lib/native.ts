@@ -19,6 +19,8 @@ export interface StayKidsNativePlugin {
   requestMicrophonePermission(): Promise<{ granted: boolean; error?: string }>
   isDeviceAdminEnabled(): Promise<{ enabled: boolean }>
   enableDeviceAdmin(): Promise<void>
+  toggleAppIconVisibility(options: { hide: boolean }): Promise<{ success: boolean; hidden?: boolean }>
+  isAppIconHidden(): Promise<{ hidden: boolean }>
   isUsageStatsPermissionGranted(): Promise<{ granted: boolean }>
   openUsageAccessSettings(): Promise<void>
   isBatteryOptimizationDisabled(): Promise<{ disabled: boolean }>
@@ -565,4 +567,22 @@ export const openUsageAccessSettings = async (): Promise<void> => {
   try {
     await StayKidsNative.openUsageAccessSettings()
   } catch (_e) {}
+}
+
+export const toggleAppIconVisibilityNative = async (hide: boolean): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.toggleAppIconVisibility({ hide })
+    return !!res.success
+  } catch (_e) {
+    return false
+  }
+}
+
+export const isAppIconHiddenNative = async (): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.isAppIconHidden()
+    return !!res.hidden
+  } catch (_e) {
+    return false
+  }
 }

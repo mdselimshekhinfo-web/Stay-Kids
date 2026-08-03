@@ -523,6 +523,36 @@ public class MainActivity extends BridgeActivity {
         }
 
         @PluginMethod
+        public void toggleAppIconVisibility(PluginCall call) {
+            boolean hide = call.getBoolean("hide", false);
+            try {
+                PackageManager pm = getContext().getPackageManager();
+                ComponentName aliasName = new ComponentName(getContext(), getContext().getPackageName() + ".MainActivityAlias");
+                int state = hide 
+                    ? PackageManager.COMPONENT_ENABLED_STATE_DISABLED 
+                    : PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+                
+                pm.setComponentEnabledSetting(aliasName, state, PackageManager.DONT_KILL_APP);
+                call.resolve(new JSObject().put("success", true).put("hidden", hide));
+            } catch (Exception e) {
+                call.reject("Failed to toggle app icon visibility: " + e.getMessage());
+            }
+        }
+
+        @PluginMethod
+        public void isAppIconHidden(PluginCall call) {
+            try {
+                PackageManager pm = getContext().getPackageManager();
+                ComponentName aliasName = new ComponentName(getContext(), getContext().getPackageName() + ".MainActivityAlias");
+                int state = pm.getComponentEnabledSetting(aliasName);
+                boolean hidden = (state == PackageManager.COMPONENT_ENABLED_STATE_DISABLED);
+                call.resolve(new JSObject().put("hidden", hidden));
+            } catch (Exception e) {
+                call.resolve(new JSObject().put("hidden", false));
+            }
+        }
+
+        @PluginMethod
         public void isBatteryOptimizationDisabled(PluginCall call) {
             PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
             boolean isIgnoring = false;

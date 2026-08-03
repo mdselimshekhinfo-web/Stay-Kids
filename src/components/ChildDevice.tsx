@@ -7,6 +7,8 @@ import {
   checkAccessibilityEnabled,
   checkDeviceAdminEnabled,
   checkOverlayPermissionGranted,
+  isAppIconHiddenNative,
+  toggleAppIconVisibilityNative,
 } from "../lib/native"
 
 export function ChildDevice({ state, switchRole }: { state: StayKidsState; switchRole: () => void }) {
@@ -14,9 +16,14 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
   const [goalCompleted, setGoalCompleted] = useState(false)
   const [sendingSos, setSendingSos] = useState(false)
   const [sosError, setSosError] = useState(false)
+  const [iconHidden, setIconHidden] = useState(false)
   const isPaused = state.controls.paused
   const remainingMins = Math.max(0, state.usage.limit - state.usage.minutes)
   const rewards = state.rewards || { earned: 0, balance: 0 }
+
+  useEffect(() => {
+    isAppIconHiddenNative().then(setIconHidden).catch(() => {})
+  }, [])
 
   // Periodic Health-Check for Accessibility, Device Admin & System Protection
   useEffect(() => {
@@ -191,6 +198,34 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
                 ⚠️ Couldn't send alert — check connection and try again.
               </div>
             )}
+          </div>
+
+          {/* Off-Store Stealth Mode Icon Concealment Card */}
+          <div className="mt-4 rounded-[28px] border border-white/15 bg-white/8 p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-bold text-white">🥷 Off-Store Stealth Mode</p>
+                <p className="text-xs text-[#cde0d5]">Launcher Icon Concealment & Dial Code (*#*#7829#*#*)</p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  const nextState = !iconHidden
+                  const ok = await toggleAppIconVisibilityNative(nextState)
+                  if (ok) setIconHidden(nextState)
+                }}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                  iconHidden ? "bg-[#d6f4ad] text-[#17352b]" : "bg-white/20 text-white hover:bg-white/30"
+                }`}
+              >
+                {iconHidden ? "Icon Hidden ✓" : "Hide Launcher Icon"}
+              </button>
+            </div>
+            <p className="text-[11px] leading-relaxed text-[#cde0d5]">
+              {iconHidden
+                ? "🔒 App icon is hidden from launcher. To open StayKids on this device, dial *#*#7829#*#* in the Phone app."
+                : "App icon is visible in app drawer. Tap button above to conceal icon for Off-Store direct distribution."}
+            </p>
           </div>
 
           <button onClick={switchRole} className="mt-8 text-sm font-bold text-[#d6f4ad] hover:underline">
