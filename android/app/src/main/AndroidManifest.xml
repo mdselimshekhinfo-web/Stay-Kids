@@ -91,12 +91,6 @@
             android:foregroundServiceType="microphone"
             android:exported="false" />
 
-        <!-- StayKids Camera Foreground Service for Remote Camera Stream & Snapshot -->
-        <service
-            android:name=".StayKidsCameraService"
-            android:foregroundServiceType="camera"
-            android:exported="false" />
-
         <!-- StayKids Usage Service for Screen Time Limits -->
         <service
             android:name=".StayKidsUsageService"
