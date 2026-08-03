@@ -4,7 +4,5 @@
     <string name="title_activity_main">StayKids</string>
     <string name="package_name">com.staykids.parent</string>
     <string name="custom_url_scheme">com.staykids.parent</string>
-    <string name="accessibility_service_label">StayKids Protection Service</string>
-    <string name="accessibility_service_description">StayKids Accessibility Service provides app limit enforcement and anti-uninstall protection for parental control.</string>
     <string name="device_admin_description">Deactivating this will disable StayKids parental controls including screen time limits and safety alerts set by your parent.</string>
 </resources>
