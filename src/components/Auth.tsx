@@ -62,7 +62,12 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
         onAuthenticate(res.user || { name: email.split("@")[0], email })
       }
     } catch (err: any) {
-      setError(err.message || "Authentication failed. Please check your network and credentials.")
+      const msg = err?.message || ""
+      if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("networkerror")) {
+        setError("Network Connection Error: Could not connect to StayKids server. Please ensure your device is connected to the internet and try again.")
+      } else {
+        setError(msg || "Authentication failed. Please check your credentials.")
+      }
     } finally {
       setLoading(false)
     }
@@ -81,7 +86,12 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
       if (res.error) throw new Error(res.error)
       onAuthenticate(res.user || { name: name || email.split("@")[0], email })
     } catch (err: any) {
-      setError(err.message || "OTP verification failed. Please check the code and try again.")
+      const msg = err?.message || ""
+      if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("networkerror")) {
+        setError("Network Connection Error: Could not connect to StayKids server. Please check your internet connection and try again.")
+      } else {
+        setError(msg || "OTP verification failed. Please check the code and try again.")
+      }
     } finally {
       setLoading(false)
     }

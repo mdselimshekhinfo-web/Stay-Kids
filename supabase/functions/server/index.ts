@@ -10,11 +10,11 @@ const app = new Hono();
 app.use('*', logger(console.log));
 app.use('/*', cors({
   origin: (origin) => {
-    const allowedOrigins = ['capacitor://localhost', 'http://localhost:8443', 'http://localhost:5173'];
-    const reqOrigin = origin || '';
-    return allowedOrigins.includes(reqOrigin) ? reqOrigin : '';
+    if (!origin) return '*';
+    const allowedOrigins = ['capacitor://localhost', 'http://localhost:8443', 'http://localhost:5173', 'https://localhost'];
+    return allowedOrigins.includes(origin) ? origin : '*';
   },
-  allowHeaders: ['Content-Type', 'Authorization'],
+  allowHeaders: ['Content-Type', 'Authorization', 'apikey', 'x-client-info', 'x-supabase-auth', 'X-Cleanup-Secret'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   exposeHeaders: ['Content-Length'],
   maxAge: 600,
