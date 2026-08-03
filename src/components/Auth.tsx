@@ -8,6 +8,7 @@ import {
   confirmPasswordReset,
 } from "../lib/staykids-api"
 import { LegalModal } from "./LegalModal"
+import { SignUpSchema } from "../lib/validation-schemas"
 
 export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string; email: string }) => void }) {
   const [mode, setMode] = useState<"login" | "signup">("signup")
@@ -32,9 +33,12 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
       setError("Please fill in all required fields.")
       return
     }
-    if (mode === "signup" && password.length < 8) {
-      setError("Password must be at least 8 characters long.")
-      return
+    if (mode === "signup") {
+      const parsed = SignUpSchema.safeParse({ name: name || undefined, email, password })
+      if (!parsed.success) {
+        setError(parsed.error.errors[0].message)
+        return
+      }
     }
     if (mode === "signup" && password !== confirmPassword) {
       setError("Passwords do not match.")

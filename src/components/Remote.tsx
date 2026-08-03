@@ -160,6 +160,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               onAction({ type: "mirror-toggle", active: false })
               onAction({ type: "webrtc-signal", signalState: "idle", clearSignal: true })
             }
+            if (tool === "One-way audio" && state.remote.audioActive) {
+              onAction({ type: "audio-toggle", active: false })
+            }
             setTool(null)
           }}
           className="absolute top-4 right-4 z-[110] text-xl text-white bg-white/20 rounded-full h-10 w-10 flex items-center justify-center backdrop-blur-md"

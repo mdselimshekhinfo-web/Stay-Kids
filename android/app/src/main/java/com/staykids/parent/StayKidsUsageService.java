@@ -11,6 +11,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
@@ -25,6 +26,7 @@ public class StayKidsUsageService extends Service {
     private static final long POLL_INTERVAL = 60000; // 1 minute
 
     private Handler handler;
+    private HandlerThread handlerThread;
     private Runnable runnable;
 
     @Override
@@ -34,7 +36,9 @@ public class StayKidsUsageService extends Service {
         Notification notification = buildNotification();
         startForeground(NOTIFICATION_ID, notification);
 
-        handler = new Handler(Looper.getMainLooper());
+        handlerThread = new HandlerThread("StayKidsUsageThread");
+        handlerThread.start();
+        handler = new Handler(handlerThread.getLooper());
         runnable = new Runnable() {
             @Override
             public void run() {
@@ -138,6 +142,9 @@ public class StayKidsUsageService extends Service {
     public void onDestroy() {
         if (handler != null && runnable != null) {
             handler.removeCallbacks(runnable);
+        }
+        if (handlerThread != null) {
+            handlerThread.quitSafely();
         }
         stopForeground(true);
         super.onDestroy();

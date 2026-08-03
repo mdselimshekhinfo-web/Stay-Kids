@@ -118,7 +118,7 @@ async function getStateFromDB(email: string) {
         };
       }
 
-      state.alerts = allAlerts.sort((a, b) => Number(b.id) - Number(a.id));
+      state.alerts = allAlerts; // Already sorted by created_at DESC from DB query (line 49)
       
       const activeData = state.perChild[state.activeChildId];
       if (activeData) {
@@ -1052,7 +1052,7 @@ app.post("/server/action", async (c) => {
       const transitionText = action.transition === "ENTER" ? "entered" : "left";
       const zoneText = action.geofenceId || "Safe Zone";
       const newAlert = {
-        id: "alert-geo-" + Date.now(),
+        id: crypto.randomUUID(),
         category: "location",
         title: `📍 Geofence ${action.transition === "ENTER" ? "Arrival" : "Departure"}`,
         detail: `${state.child?.name || "Child"} ${transitionText} designated safe zone (${zoneText}).`,
@@ -1311,16 +1311,17 @@ app.post("/server/action", async (c) => {
         const hasExistingAccAlert = state.alerts.some((a: any) => 
           a.title.includes("Accessibility Service Disabled") && 
           !a.read && 
-          (now - parseInt(a.id.split('-').pop() || "0") < 3600000)
+          a.createdAt && (now - a.createdAt < 3600000)
         );
         if (!hasExistingAccAlert) {
           const newAlert = {
-            id: "alert-acc-" + Date.now(),
+            id: crypto.randomUUID(),
             category: "block",
             title: "⚠️ Accessibility Service Disabled",
             detail: `Accessibility Service was turned off on ${state.child.name}'s phone. App blocking & remote protection are paused!`,
             time: "Just now",
             read: false,
+            createdAt: Date.now(),
           };
           state.alerts.unshift(newAlert);
           await supabase.from('alerts').insert({
@@ -1338,16 +1339,17 @@ app.post("/server/action", async (c) => {
         const hasExistingAdminAlert = state.alerts.some((a: any) => 
           a.title.includes("Device Admin Protection Disabled") && 
           !a.read && 
-          (now - parseInt(a.id.split('-').pop() || "0") < 3600000)
+          a.createdAt && (now - a.createdAt < 3600000)
         );
         if (!hasExistingAdminAlert) {
           const newAlert = {
-            id: "alert-admin-" + Date.now(),
+            id: crypto.randomUUID(),
             category: "block",
             title: "⚠️ Device Admin Protection Disabled",
             detail: `Device Admin protection was revoked on ${state.child.name}'s phone. Anti-uninstall protection is inactive.`,
             time: "Just now",
             read: false,
+            createdAt: Date.now(),
           };
           state.alerts.unshift(newAlert);
           await supabase.from('alerts').insert({
@@ -1362,7 +1364,6 @@ app.post("/server/action", async (c) => {
       }
     }
 
-    await kv.set(parentStateKey, state);
     await saveStateToDB(authCtx.email, state);
 
     return c.json(state);

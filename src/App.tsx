@@ -190,10 +190,12 @@ export default function App() {
 
   // Part A: Native Geofence Alert Event Listener for Child Device
   useEffect(() => {
+    let isMounted = true
     let unsubscribeGeofenceListener: (() => void) | null = null
 
     if (role === "child") {
       import("./lib/native").then(({ listenGeofenceAlert }) => {
+        if (!isMounted) return
         unsubscribeGeofenceListener = listenGeofenceAlert((data) => {
           if (data) {
             sendStayKidsAction({
@@ -207,6 +209,7 @@ export default function App() {
     }
 
     return () => {
+      isMounted = false
       if (unsubscribeGeofenceListener) {
         unsubscribeGeofenceListener()
       }
@@ -215,20 +218,22 @@ export default function App() {
 
   // Priorities 2, 3, 4: Child Device Telemetry Sync (Installed Apps, Call/SMS Metadata, Web Visits)
   useEffect(() => {
+    let isMounted = true
     let unsubscribeWebVisitListener: (() => void) | null = null
 
     if (role === "child") {
       import("./lib/native").then(({ fetchNativeInstalledApps, getCallSmsLogsNative, listenWebVisitAlert }) => {
+        if (!isMounted) return
         // Sync Installed Apps
         fetchNativeInstalledApps().then((apps) => {
-          if (apps && apps.length > 0) {
+          if (isMounted && apps && apps.length > 0) {
             sendStayKidsAction({ type: "installed-apps-telemetry", apps }).catch(() => {})
           }
         }).catch(() => {})
 
         // Sync Call & SMS Metadata
         getCallSmsLogsNative().then((logs) => {
-          if (logs && logs.length > 0) {
+          if (isMounted && logs && logs.length > 0) {
             sendStayKidsAction({ type: "sync-call-sms-logs", logs }).catch(() => {})
           }
         }).catch(() => {})
@@ -243,6 +248,7 @@ export default function App() {
     }
 
     return () => {
+      isMounted = false
       if (unsubscribeWebVisitListener) {
         unsubscribeWebVisitListener()
       }
@@ -312,11 +318,13 @@ export default function App() {
 
   // 4. Child Device Ambient Audio Streaming Response
   useEffect(() => {
+    let isMounted = true
     let unsubscribeAudioListener: (() => void) | null = null
 
     if (role === "child" && state.remote.audioActive) {
       startNativeAudioCapture()
         .then((res) => {
+          if (!isMounted) return
           if (res.success) {
             unsubscribeAudioListener = listenAudioChunk((chunkBase64) => {
               sendStayKidsAction({
@@ -336,6 +344,7 @@ export default function App() {
     }
 
     return () => {
+      isMounted = false
       if (unsubscribeAudioListener) {
         unsubscribeAudioListener()
       }
@@ -461,6 +470,13 @@ export default function App() {
           next.child = next.children![0];
           next.activeChildId = next.children![0].id;
         }
+      } else if (data.type === "update-school" && typeof data.school === "string") {
+        next.child.school = data.school as string;
+        if (next.children) {
+          next.children = next.children.map((c) => c.id === next.activeChildId ? { ...c, school: data.school as string } : c);
+        }
+      } else if (data.type === "update-notification-prefs" && data.prefs) {
+        (next as any).notificationPrefs = { ...((next as any).notificationPrefs || {}), ...(data.prefs as any) };
       } else if (data.type === "add-reward-points" && typeof data.points === "number") {
         next.rewards = next.rewards || { earned: 0, balance: 0 };
         next.rewards.earned += data.points;

@@ -66,7 +66,14 @@
             android:exported="false" />
 
         <!-- StayKids Usage Service for Screen Time Limits -->
-        <service android:name=".StayKidsUsageService" android:exported="false" />
+        <service
+            android:name=".StayKidsUsageService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Screen time usage tracking for parental control" />
+        </service>
 
         <!-- StayKids Anti-Uninstall Device Admin Protection Receiver -->
         <receiver
@@ -126,6 +133,8 @@
     <!-- Permissions for Real-Time Media Projection & Screen Mirroring -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="com.staykids.parent.PERMISSION_GEOFENCE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- Permissions for One-Way & Real-Time Audio Streaming -->
@@ -142,7 +151,5 @@
     <!-- Permission to track app usage time for App Limits -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
 
-    <!-- Permissions for Call & SMS Metadata Monitoring -->
-    <uses-permission android:name="android.permission.READ_CALL_LOG" />
-    <uses-permission android:name="android.permission.READ_SMS" />
+    <!-- Call & SMS monitoring permissions removed for Play Store compliance -->
 </manifest>

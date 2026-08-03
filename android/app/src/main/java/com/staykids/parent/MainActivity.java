@@ -259,77 +259,10 @@ public class MainActivity extends BridgeActivity {
 
         @PluginMethod
         public void getCallSmsLogs(PluginCall call) {
+            // Call/SMS log permissions removed for Play Store compliance.
+            // Returns empty results to maintain API compatibility.
             try {
                 com.getcapacitor.JSArray logsArray = new com.getcapacitor.JSArray();
-
-                // 1. Query Call Logs
-                if (androidx.core.content.ContextCompat.checkSelfPermission(getContext(), android.Manifest.permission.READ_CALL_LOG) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                    android.database.Cursor cursor = getContext().getContentResolver().query(
-                        android.provider.CallLog.Calls.CONTENT_URI,
-                        new String[]{ android.provider.CallLog.Calls.NUMBER, android.provider.CallLog.Calls.TYPE, android.provider.CallLog.Calls.DURATION, android.provider.CallLog.Calls.DATE, android.provider.CallLog.Calls.CACHED_NAME },
-                        null, null, android.provider.CallLog.Calls.DATE + " DESC LIMIT 20"
-                    );
-                    if (cursor != null) {
-                        int numIdx = cursor.getColumnIndex(android.provider.CallLog.Calls.NUMBER);
-                        int typeIdx = cursor.getColumnIndex(android.provider.CallLog.Calls.TYPE);
-                        int durIdx = cursor.getColumnIndex(android.provider.CallLog.Calls.DURATION);
-                        int dateIdx = cursor.getColumnIndex(android.provider.CallLog.Calls.DATE);
-                        int nameIdx = cursor.getColumnIndex(android.provider.CallLog.Calls.CACHED_NAME);
-
-                        while (cursor.moveToNext()) {
-                            String num = numIdx >= 0 ? cursor.getString(numIdx) : "Unknown";
-                            String name = nameIdx >= 0 ? cursor.getString(nameIdx) : null;
-                            int typeCode = typeIdx >= 0 ? cursor.getInt(typeIdx) : 1;
-                            int duration = durIdx >= 0 ? cursor.getInt(durIdx) : 0;
-                            long date = dateIdx >= 0 ? cursor.getLong(dateIdx) : System.currentTimeMillis();
-
-                            String typeStr = "Incoming";
-                            if (typeCode == android.provider.CallLog.Calls.OUTGOING_TYPE) typeStr = "Outgoing";
-                            else if (typeCode == android.provider.CallLog.Calls.MISSED_TYPE) typeStr = "Missed";
-
-                            JSObject entry = new JSObject();
-                            entry.put("id", "call-" + date + "-" + num);
-                            entry.put("logType", "CALL");
-                            entry.put("contact", name != null && !name.isEmpty() ? name + " (" + num + ")" : num);
-                            entry.put("detail", typeStr + " Call (" + duration + "s)");
-                            entry.put("timestamp", date);
-                            logsArray.put(entry);
-                        }
-                        cursor.close();
-                    }
-                }
-
-                // 2. Query SMS Metadata
-                if (androidx.core.content.ContextCompat.checkSelfPermission(getContext(), android.Manifest.permission.READ_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                    android.database.Cursor smsCursor = getContext().getContentResolver().query(
-                        android.net.Uri.parse("content://sms"),
-                        new String[]{ "address", "type", "date" },
-                        null, null, "date DESC LIMIT 20"
-                    );
-                    if (smsCursor != null) {
-                        int addrIdx = smsCursor.getColumnIndex("address");
-                        int smsTypeIdx = smsCursor.getColumnIndex("type");
-                        int dateIdx = smsCursor.getColumnIndex("date");
-
-                        while (smsCursor.moveToNext()) {
-                            String address = addrIdx >= 0 ? smsCursor.getString(addrIdx) : "Unknown";
-                            int smsType = smsTypeIdx >= 0 ? smsCursor.getInt(smsTypeIdx) : 1;
-                            long date = dateIdx >= 0 ? smsCursor.getLong(dateIdx) : System.currentTimeMillis();
-
-                            String smsTypeStr = smsType == 2 ? "Sent SMS" : "Received SMS";
-
-                            JSObject entry = new JSObject();
-                            entry.put("id", "sms-" + date + "-" + address);
-                            entry.put("logType", "SMS");
-                            entry.put("contact", address);
-                            entry.put("detail", smsTypeStr);
-                            entry.put("timestamp", date);
-                            logsArray.put(entry);
-                        }
-                        smsCursor.close();
-                    }
-                }
-
                 call.resolve(new JSObject().put("success", true).put("logs", logsArray));
             } catch (Exception e) {
                 call.reject("Failed to query Call & SMS logs: " + e.getMessage());

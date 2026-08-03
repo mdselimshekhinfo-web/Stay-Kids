@@ -166,6 +166,8 @@ public class StayKidsCameraService {
 
                             @Override
                             public void onConfigureFailed(CameraCaptureSession session) {
+                                try { camera.close(); } catch (Exception ignored) {}
+                                try { imageReader.close(); } catch (Exception ignored) {}
                                 cleanupBgThread.run();
                                 callback.onError("Camera configuration failed");
                             }
