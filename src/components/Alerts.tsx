@@ -8,19 +8,13 @@ const Icon = ({ name }: { name: string }) => (
 )
 
 export function Alerts({ state, onAction }: { state: StayKidsState; onAction: (action: Record<string, unknown>) => void }) {
-  const [filter, setFilter] = useState<"all" | "sos" | "block" | "location" | "call">("all")
-  const alerts = state.alerts || []
+  const [filter, setFilter] = useState<string>('all')
 
-  const filteredAlerts = alerts.filter((item) => {
-    const cat = (item as any).category
-    if (filter === "sos") return cat === "sos" || item.title.includes("SOS") || item.title.includes("EMERGENCY") || item.title.includes("Alarm")
-    if (filter === "block") return cat === "block" || item.title.includes("app") || item.title.includes("protection") || item.title.includes("Blocked")
-    if (filter === "location") return cat === "location" || item.title.includes("place") || item.title.includes("School") || item.title.includes("Geofence")
-    if (filter === "call") return cat === "call" || item.title.includes("Call") || item.title.includes("SMS") || item.title.includes("Activity")
-    return true
-  })
+  const filteredAlerts = filter === 'all'
+    ? (state.alerts || [])
+    : (state.alerts || []).filter((a: any) => a.category === filter)
 
-  const unreadCount = alerts.filter((a) => !a.read).length
+  const unreadCount = (state.alerts || []).filter((a) => !a.read).length
 
   return (
     <div className="space-y-4 pb-24 font-sans">
@@ -41,23 +35,31 @@ export function Alerts({ state, onAction }: { state: StayKidsState; onAction: (a
         </button>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-bold">
+      {/* Notification Filter Tabs */}
+      <div className="flex gap-1.5 overflow-x-auto pb-3 mb-4 scrollbar-hide">
         {[
-          { key: "all", label: `All (${alerts.length})` },
-          { key: "sos", label: "🚨 Emergency & SOS" },
-          { key: "block", label: "🚫 App Restrictions" },
-          { key: "location", label: "⌖ GPS & Geofence" },
-          { key: "call", label: "📞 Calls & Activity" },
-        ].map((tab) => (
+          { key: 'all', label: 'All', icon: '📋' },
+          { key: 'sos', label: 'SOS', icon: '🆘' },
+          { key: 'location', label: 'Location', icon: '📍' },
+          { key: 'activity', label: 'Activity', icon: '📱' },
+          { key: 'block', label: 'System', icon: '⚠️' },
+          { key: 'call', label: 'Calls', icon: '📞' },
+        ].map(f => (
           <button
-            key={tab.key}
-            onClick={() => setFilter(tab.key as any)}
-            className={`shrink-0 rounded-xl px-3 py-2 transition ${
-              filter === tab.key ? "bg-[#1d5946] text-white shadow-sm" : "bg-[#edf3ef] text-[#586771] hover:bg-[#e2e9e4]"
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={`flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-bold transition-all ${
+              filter === f.key
+                ? 'bg-[#287555] text-white shadow-md'
+                : 'bg-[#f0f5f0] text-[#556660] hover:bg-[#e0ebe0]'
             }`}
           >
-            {tab.label}
+            <span>{f.icon}</span> {f.label}
+            {f.key !== 'all' && (
+              <span className="ml-1 text-[9px] opacity-70">
+                {(state.alerts || []).filter((a: any) => a.category === f.key).length > 0 && `(${(state.alerts || []).filter((a: any) => a.category === f.key).length})`}
+              </span>
+            )}
           </button>
         ))}
       </div>

@@ -16,6 +16,7 @@ import {
   listenWebRTCSignal,
 } from "./lib/native"
 import { triggerToast } from "./components/Toast"
+import { subscribeToChildUpdates, isRealtimeAvailable, type RealtimeUpdate } from './lib/realtime'
 
 import { Auth } from "./components/Auth"
 import { Onboarding } from "./components/Onboarding"
@@ -133,13 +134,60 @@ export default function App() {
     return () => document.removeEventListener("visibilitychange", handleVisibility)
   }, [])
 
+  // Hybrid: Realtime subscriptions + fallback polling
   useEffect(() => {
-    const isLiveActive = Boolean(state.remote.mirrorStreamActive || state.remote.audioActive)
-    const pollIntervalMs = isForeground || isLiveActive ? 3000 : 30000
+    if (!authenticated || !ready) return
+
+    const childIds = (state.children || [state.child]).map((c: any) => c?.id).filter(Boolean)
+    let unsubscribeRealtime: (() => void) | null = null
+
+    if (isRealtimeAvailable() && childIds.length > 0) {
+      // Primary: Supabase Realtime WebSocket
+      unsubscribeRealtime = subscribeToChildUpdates(childIds, (update: RealtimeUpdate) => {
+        setState(prev => {
+          const next = JSON.parse(JSON.stringify(prev)) as StayKidsState
+          if (update.table === 'children' && update.new) {
+            const row = update.new
+            next.children = (next.children || []).map(c =>
+              c.id === row.id ? { ...c, name: row.name, device: row.device_name, location: row.last_location, battery: row.battery_level, online: row.is_online, coordinates: { lat: row.latitude, lng: row.longitude } } : c
+            )
+            if (next.activeChildId === row.id) {
+              next.child = { ...next.child, name: row.name, device: row.device_name, location: row.last_location, battery: row.battery_level, online: row.is_online, coordinates: { lat: row.latitude, lng: row.longitude } }
+            }
+          }
+          if (update.table === 'alerts' && update.eventType === 'INSERT' && update.new) {
+            const row = update.new
+            const newAlert = { id: row.id, category: row.category || 'activity', title: row.title, detail: row.description || '', time: 'Just now', read: false }
+            if (!next.alerts.some(a => a.id === row.id)) {
+              next.alerts = [newAlert, ...next.alerts]
+            }
+          }
+          if (update.table === 'device_controls' && update.new) {
+            const row = update.new
+            if (row.child_id === next.activeChildId) {
+              next.controls = { ...next.controls, paused: row.is_paused, limits: row.limits_enabled, bedtime: row.bedtime_enabled, filter: row.web_filter_enabled }
+              next.usage = { ...next.usage, limit: row.daily_limit_minutes || 120 }
+            }
+          }
+          return next
+        })
+      })
+    }
+
+    // Fallback: Reduced polling (every 30s as safety net, or 3s if no realtime)
+    const isLiveActive = Boolean(state.remote?.mirrorStreamActive || state.remote?.audioActive)
+    const realtimeActive = isRealtimeAvailable() && childIds.length > 0
+    const pollIntervalMs = realtimeActive
+      ? (isLiveActive ? 5000 : 30000)  // With realtime: slow fallback only
+      : (isForeground || isLiveActive ? 3000 : 30000)  // Without realtime: original polling
 
     const interval = setInterval(fetchLatestState, pollIntervalMs)
-    return () => clearInterval(interval)
-  }, [isForeground, state.remote.mirrorStreamActive, state.remote.audioActive])
+
+    return () => {
+      clearInterval(interval)
+      if (unsubscribeRealtime) unsubscribeRealtime()
+    }
+  }, [isForeground, authenticated, ready, state.children?.length, state.remote?.mirrorStreamActive, state.remote?.audioActive])
 
   // 2. Real-time Child Frame Stream Listener
   useEffect(() => {
