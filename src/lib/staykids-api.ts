@@ -236,7 +236,6 @@ const request = async (path: string, init?: RequestInit, _isIdempotentRead = fal
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    apikey: publicAnonKey,
     Authorization: authHeader,
   }
 
