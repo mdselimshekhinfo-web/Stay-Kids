@@ -35,6 +35,7 @@ async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "re
 
   if (brevoApiKey) {
     try {
+      const senderEmail = Deno.env.get("SENDER_EMAIL") || "mdselimshekh.info@gmail.com";
       const res = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
@@ -43,7 +44,7 @@ async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "re
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          sender: { name: "StayKids Security", email: "staykids.app@gmail.com" },
+          sender: { name: "StayKids Security", email: senderEmail },
           to: [{ email }],
           subject,
           htmlContent,
