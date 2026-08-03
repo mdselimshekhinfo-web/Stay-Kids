@@ -180,10 +180,14 @@ public class MainActivity extends BridgeActivity {
 
         @PluginMethod
         public void openAccessibilitySettings(PluginCall call) {
-            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(intent);
-            call.resolve();
+            try {
+                Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(intent);
+                call.resolve();
+            } catch (Exception e) {
+                call.reject("Could not open Accessibility Settings: " + e.getMessage());
+            }
         }
 
         @PluginMethod
@@ -514,12 +518,17 @@ public class MainActivity extends BridgeActivity {
 
         @PluginMethod
         public void enableDeviceAdmin(PluginCall call) {
-            Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
-            ComponentName compName = new ComponentName(getContext(), StayKidsDeviceAdminReceiver.class);
-            intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, compName);
-            intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "StayKids anti-uninstall protection prevents unauthorized removal.");
-            getContext().startActivity(intent);
-            call.resolve();
+            try {
+                Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
+                ComponentName compName = new ComponentName(getContext(), StayKidsDeviceAdminReceiver.class);
+                intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, compName);
+                intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "StayKids anti-uninstall protection prevents unauthorized removal.");
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(intent);
+                call.resolve();
+            } catch (Exception e) {
+                call.reject("Could not request Device Admin: " + e.getMessage());
+            }
         }
 
         @PluginMethod
