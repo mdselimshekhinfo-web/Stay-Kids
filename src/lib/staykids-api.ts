@@ -244,6 +244,12 @@ const request = async (path: string, init?: RequestInit, _isIdempotentRead = fal
     const response = await fetchWithRetry(`${base}${path}`, { ...init, headers }, 2)
 
     if (!response.ok) {
+      if (response.status === 401) {
+        await setAuthToken(null)
+        if (typeof window !== "undefined") {
+          window.location.reload()
+        }
+      }
       const errorData = await response.json().catch(() => ({}))
       const msg = errorData.error || `HTTP Error ${response.status}`
       const detailStr = errorData.details ? ` - Details: ${JSON.stringify(errorData.details)}` : ""
