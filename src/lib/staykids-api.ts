@@ -213,14 +213,13 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
 }
 
 const request = async (path: string, init?: RequestInit, isIdempotentRead = false) => {
+  const token = inMemoryToken || (await loadAuthToken())
+  const authHeader = token ? `Bearer ${token}` : `Bearer ${publicAnonKey}`
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     apikey: publicAnonKey,
-  }
-
-  const token = inMemoryToken || (await loadAuthToken())
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`
+    Authorization: authHeader,
   }
 
   try {

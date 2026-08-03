@@ -17,12 +17,14 @@ interface AppConfig {
   isSelfHosted: boolean
 }
 
+import { projectId, publicAnonKey } from "../../utils/supabase/info"
+
 const getEnv = (key: string, fallback: string): string => {
   return (import.meta as any).env?.[key] || fallback
 }
 
-const supabaseUrl = getEnv("VITE_SUPABASE_URL", "https://your-project.supabase.co")
-const supabaseAnonKey = getEnv("VITE_SUPABASE_ANON_KEY", "your-anon-key")
+const supabaseUrl = getEnv("VITE_SUPABASE_URL", `https://${projectId}.supabase.co`)
+const supabaseAnonKey = getEnv("VITE_SUPABASE_ANON_KEY", publicAnonKey)
 
 export const config: AppConfig = {
   supabaseUrl,

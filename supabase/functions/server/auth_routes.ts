@@ -111,8 +111,9 @@ authRoutes.post("/signup", async (c) => {
       email: email.toLowerCase(),
       message: `A 6-digit verification OTP code has been sent to ${email}. Check your inbox or spam folder.`,
     });
-  } catch (_e) {
-    return c.json({ error: "Failed to initiate registration" }, 500);
+  } catch (err: any) {
+    console.error("Signup error:", err);
+    return c.json({ error: err?.message || "Failed to initiate registration" }, 500);
   }
 });
 
