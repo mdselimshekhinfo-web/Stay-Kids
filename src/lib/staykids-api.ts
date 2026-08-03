@@ -53,12 +53,16 @@ export const loadAuthToken = async () => {
 
 export const setAuthToken = async (token: string | null) => {
   inMemoryToken = token
-  if (token) {
-    await Preferences.set({ key: 'staykids_jwt_token', value: token })
-  } else {
-    await Preferences.remove({ key: 'staykids_jwt_token' })
-    await authManager.clearSession()
-  }
+  try {
+    if (typeof window !== 'undefined') {
+      if (token) {
+        await Preferences.set({ key: 'staykids_jwt_token', value: token })
+      } else {
+        await Preferences.remove({ key: 'staykids_jwt_token' })
+        await authManager.clearSession()
+      }
+    }
+  } catch (_e) {}
 }
 
 export const getAuthToken = () => inMemoryToken

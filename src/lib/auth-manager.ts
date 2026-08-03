@@ -45,8 +45,12 @@ class AuthManager {
     }
 
     this.currentSession = session
-    await Preferences.set({ key: TOKEN_KEY, value: token })
-    await Preferences.set({ key: SESSION_KEY, value: JSON.stringify(session) })
+    try {
+      if (typeof window !== 'undefined') {
+        await Preferences.set({ key: TOKEN_KEY, value: token })
+        await Preferences.set({ key: SESSION_KEY, value: JSON.stringify(session) })
+      }
+    } catch (_e) {}
     return session
   }
 
@@ -61,14 +65,39 @@ class AuthManager {
     if (this.currentSession && this.currentSession.expiresAt > Date.now()) {
       return this.currentSession.token
     }
-    const { value } = await Preferences.get({ key: TOKEN_KEY })
-    return value
+    try {
+      if (typeof window !== 'undefined') {
+        const { value } = await Preferences.get({ key: TOKEN_KEY })
+        return value
+      }
+    } catch (_e) {}
+    return null
+  }
+
+  async restoreSession(): Promise<UserSession | null> {
+    try {
+      if (typeof window !== 'undefined') {
+        const { value } = await Preferences.get({ key: SESSION_KEY })
+        if (value) {
+          const session: UserSession = JSON.parse(value)
+          if (session.expiresAt > Date.now()) {
+            this.currentSession = session
+            return session
+          }
+        }
+      }
+    } catch (_e) {}
+    return null
   }
 
   async clearSession(): Promise<void> {
     this.currentSession = null
-    await Preferences.remove({ key: TOKEN_KEY })
-    await Preferences.remove({ key: SESSION_KEY })
+    try {
+      if (typeof window !== 'undefined') {
+        await Preferences.remove({ key: TOKEN_KEY })
+        await Preferences.remove({ key: SESSION_KEY })
+      }
+    } catch (_e) {}
   }
 
   isSessionValid(): boolean {
