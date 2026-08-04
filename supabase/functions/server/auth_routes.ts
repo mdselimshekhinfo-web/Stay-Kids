@@ -96,7 +96,12 @@ authRoutes.post("/signup", async (c) => {
     try {
       const { data: existing } = await supabase.from('profiles').select('email').eq('email', email.toLowerCase()).maybeSingle();
       if (existing) {
-        return c.json({ error: "Account already exists with this email address." }, 400);
+        return c.json({
+          success: true,
+          requiresOtp: true,
+          email: email.toLowerCase(),
+          message: `A 6-digit verification OTP code has been sent to ${email}. Check your inbox or spam folder.`,
+        });
       }
     } catch (dbErr) {
       console.warn("Profiles check warning:", dbErr);

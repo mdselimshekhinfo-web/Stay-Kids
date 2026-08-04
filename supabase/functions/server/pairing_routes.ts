@@ -39,8 +39,10 @@ pairingRoutes.post("/claim", async (c) => {
     }
 
     const ip = c.req.header("x-forwarded-for") || "unknown";
-    const allowed = await checkRateLimit(`pairing-claim:${ip}`, 5, 5 * 60000);
-    if (!allowed) {
+    const ipAllowed = await checkRateLimit(`pairing-claim-ip:${ip}`, 10, 5 * 60000);
+    const pinAllowed = await checkRateLimit(`pairing-claim-pin:${pin}`, 3, 5 * 60000);
+    
+    if (!ipAllowed || !pinAllowed) {
       return c.json({ error: "Too many pairing attempts. Please wait 5 minutes." }, 429);
     }
     

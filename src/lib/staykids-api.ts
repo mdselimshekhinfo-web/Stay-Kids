@@ -149,15 +149,24 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
   }
 }
 
-const STAYKIDS_HMAC_SECRET = "staykids-secure-hmac-key-2026";
+const getHmacSecret = () => {
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_HMAC_SECRET) {
+      return import.meta.env.VITE_HMAC_SECRET;
+    }
+  } catch (_e) {}
+  return ""; 
+}
 
 async function generateHmacSignature(payload: string, timestamp: string): Promise<string> {
   if (typeof crypto === "undefined" || !crypto.subtle) return "";
+  const secret = getHmacSecret();
+  if (!secret) return ""; // Skip HMAC if not configured
   try {
     const enc = new TextEncoder();
     const key = await crypto.subtle.importKey(
       "raw",
-      enc.encode(STAYKIDS_HMAC_SECRET),
+      enc.encode(secret),
       { name: "HMAC", hash: "SHA-256" },
       false,
       ["sign"]

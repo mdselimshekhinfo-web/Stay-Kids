@@ -3,16 +3,25 @@ import * as kv from "./kv_store.tsx";
 
 function getSecretKey(): string {
   const secret = Deno.env.get("JWT_SECRET") || Deno.env.get("SUPABASE_AUTH_JWT_SECRET") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  return (secret && secret.trim() !== "") ? secret : "staykids-production-default-jwt-secret-key-v1";
+  if (!secret || secret.trim() === "") {
+    throw new Error("Critical: Missing JWT secret in environment variables.");
+  }
+  return secret;
 }
 
-const STAYKIDS_HMAC_SECRET = "staykids-secure-hmac-key-2026";
+function getHmacSecret(): string {
+  const secret = Deno.env.get("HMAC_SECRET");
+  if (!secret || secret.trim() === "") {
+    throw new Error("Critical: Missing HMAC_SECRET in environment variables.");
+  }
+  return secret;
+}
 
 async function generateServerHmacSignature(payload: string, timestamp: string): Promise<string> {
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
-    enc.encode(STAYKIDS_HMAC_SECRET),
+    enc.encode(getHmacSecret()),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -271,9 +280,10 @@ export async function checkRateLimit(key: string, maxHits = 5, windowMs = 60000)
 
     await kv.set(storageKey, record);
     return record.count <= maxHits;
-  } catch (_e) {
-    // Fail-Open Trade-Off (0.2): In the event of a transient KV/database error, this catch block returns true (fail-open) to prioritize system availability so legitimate user requests are not locked out during brief DB blips.
-    return true;
+  } catch (e) {
+    console.error("Rate limiter KV error:", e);
+    // Fail-Closed: deny access if rate limiter fails
+    return false;
   }
 }
 
