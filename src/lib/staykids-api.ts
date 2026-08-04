@@ -123,89 +123,7 @@ const defaultLocalState: StayKidsState = {
   },
 }
 
-// AES-256 Encrypted Offline Action Queue Implementation
-type QueuedAction = {
-  id: string
-  action: Record<string, unknown>
-  timestamp: number
-}
 
-const OFFLINE_QUEUE_KEY = "staykids_offline_queue_enc"
-const MAX_QUEUE_AGE_MS = 5 * 60 * 1000 // Discard actions older than 5 minutes
-const MAX_QUEUE_SIZE = 10
-
-async function getEncryptionPassphrase(): Promise<string> {
-  const token = inMemoryToken || (await loadAuthToken())
-  if (token) return token
-  // Generate a device-specific random key on first use, stored in localStorage
-  const DEVICE_KEY_STORAGE = "staykids_device_enc_key"
-  let deviceKey = localStorage.getItem(DEVICE_KEY_STORAGE)
-  if (!deviceKey) {
-    const randomBytes = new Uint8Array(32)
-    crypto.getRandomValues(randomBytes)
-    deviceKey = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('')
-    localStorage.setItem(DEVICE_KEY_STORAGE, deviceKey)
-  }
-  return deviceKey
-}
-
-async function getOfflineQueue(): Promise<QueuedAction[]> {
-  try {
-    const raw = localStorage.getItem(OFFLINE_QUEUE_KEY)
-    if (!raw) return []
-    const passphrase = await getEncryptionPassphrase()
-    const decrypted = await decryptData(raw, passphrase)
-    return decrypted ? JSON.parse(decrypted) : []
-  } catch (_e) {
-    return []
-  }
-}
-
-async function saveOfflineQueue(queue: QueuedAction[]) {
-  try {
-    const jsonStr = JSON.stringify(queue)
-    const passphrase = await getEncryptionPassphrase()
-    const encrypted = await encryptData(jsonStr, passphrase)
-    localStorage.setItem(OFFLINE_QUEUE_KEY, encrypted)
-  } catch (_e) {}
-}
-
-export async function enqueueOfflineAction(action: Record<string, unknown>) {
-  if (action.type === "audio-chunk" || action.type === "webrtc-signal") return // Exclude high-frequency streaming frames
-
-  const queue = (await getOfflineQueue()).filter((item) => Date.now() - item.timestamp < MAX_QUEUE_AGE_MS)
-  queue.push({
-    id: String(Date.now() + Math.random()),
-    action,
-    timestamp: Date.now(),
-  })
-  if (queue.length > MAX_QUEUE_SIZE) queue.shift()
-  await saveOfflineQueue(queue)
-}
-
-export async function flushOfflineQueue() {
-  if (typeof window === "undefined" || !navigator.onLine) return
-  const queue = await getOfflineQueue()
-  if (!queue.length) return
-
-  const remaining = [...queue]
-  for (let i = 0; i < remaining.length; i++) {
-    try {
-      await sendStayKidsAction(remaining[i].action)
-      remaining.splice(i, 1)
-      i--
-      await saveOfflineQueue(remaining)
-    } catch {
-      break // stop on first failure
-    }
-  }
-}
-
-if (typeof window !== "undefined") {
-  window.addEventListener("online", () => {
-    flushOfflineQueue().catch(() => {})
-  })
-}
 
 // 15-Second AbortController Timeout + Retry with Exponential Backoff
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2): Promise<Response> {
@@ -296,12 +214,6 @@ const request = async (path: string, init?: RequestInit, _isIdempotentRead = fal
     }
     if (path === "/pairing/generate" || path === "/pairing/claim") {
       throw finalError
-    }
-    if (path === "/action" && init?.body) {
-      try {
-        const actionData = JSON.parse(init.body as string)
-        await enqueueOfflineAction(actionData)
-      } catch (_e) {}
     }
 
     if (path === "/state") {
