@@ -26,7 +26,7 @@ app.use(async (c, next) => {
   }
   
   const rawBodyText = (c.req.method === 'POST' || c.req.method === 'PUT') ? await c.req.raw.clone().text() : "";
-  const isValid = await verifyHmacSignature(c.req.raw, rawBodyText);
+  const isValid = await verifyHmacSignature(c.req.raw, rawBodyText, c.req.path);
   
   if (!isValid) {
     return c.json({ error: "Forbidden: Invalid or missing request signature" }, 403);

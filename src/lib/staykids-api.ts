@@ -276,7 +276,7 @@ const request = async (path: string, init?: RequestInit, _isIdempotentRead = fal
       if (response.status === 401) {
         await setAuthToken(null)
         if (typeof window !== "undefined") {
-          window.location.reload()
+          window.location.href = "/"
         }
       }
       const errorData = await response.json().catch(() => ({}))

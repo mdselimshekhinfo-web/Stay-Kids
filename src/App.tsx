@@ -623,19 +623,28 @@ export default function App() {
           <h2 className="text-2xl font-bold mb-2">App Locked</h2>
           <p className="text-[#71807a]">Authenticate to access StayKids</p>
         </div>
-        <button
-          onClick={() => {
-            authenticateBiometricNative().then(success => {
-              if (success) {
-                setBiometricLocked(false)
-                setReady(true)
-              }
-            })
-          }}
-          className="mt-4 px-8 py-4 bg-[#287555] text-white rounded-2xl font-medium shadow-[0_0_20px_rgba(40,117,85,0.2)]"
-        >
-          Unlock with Biometrics
-        </button>
+        <div className="flex flex-col gap-3 mt-4">
+          <button
+            onClick={() => {
+              authenticateBiometricNative().then(success => {
+                if (success) {
+                  setBiometricLocked(false)
+                  setReady(true)
+                }
+              })
+            }}
+            className="px-8 py-4 bg-[#287555] text-white rounded-2xl font-medium shadow-[0_0_20px_rgba(40,117,85,0.2)]"
+          >
+            Unlock with Biometrics
+          </button>
+          
+          <button
+            onClick={handleSignOut}
+            className="px-8 py-3 text-sm font-medium text-[#71807a] hover:text-[#e1e8e5] transition-colors"
+          >
+            Sign Out / Reset
+          </button>
+        </div>
       </div>
     )
   }

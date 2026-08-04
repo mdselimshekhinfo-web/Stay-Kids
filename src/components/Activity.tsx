@@ -77,12 +77,16 @@ export function Activity({ state }: { state: StayKidsState }) {
               const count = timeframe === "7 days" ? 7 : 30
               const historyData = (state.usage?.history && state.usage.history.length > 0)
                 ? state.usage.history.slice(0, count)
-                : Array.from({ length: count }, (_, i) => {
-                    const d = new Date()
-                    d.setDate(d.getDate() - i)
-                    const simulatedMins = i === 0 ? usage.minutes : Math.max(10, Math.floor(Math.random() * (usage.limit || 120)))
-                    return { date: d.toISOString(), minutes_used: simulatedMins }
-                  })
+                : []
+
+              if (historyData.length === 0) {
+                return (
+                  <div className="text-center py-4 bg-[#f9fbfb] rounded-xl border border-[#edf1f2] mt-4">
+                    <span className="text-2xl mb-1 block">📈</span>
+                    <p className="text-sm text-[#71807a]">Historical data will appear here after 24 hours of usage.</p>
+                  </div>
+                )
+              }
 
               return (
                 <div className="h-44 flex items-end justify-between gap-1 mt-4 pt-2 px-1">

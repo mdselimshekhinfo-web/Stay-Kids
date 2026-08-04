@@ -22,7 +22,7 @@ async function generateServerHmacSignature(payload: string, timestamp: string): 
   return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function verifyHmacSignature(req: Request, rawBodyText: string): Promise<boolean> {
+export async function verifyHmacSignature(req: Request, rawBodyText: string, requestPath: string): Promise<boolean> {
   const timestamp = req.headers.get("X-Request-Timestamp");
   const signature = req.headers.get("X-Request-Signature");
 
@@ -38,7 +38,7 @@ export async function verifyHmacSignature(req: Request, rawBodyText: string): Pr
     return false;
   }
 
-  const payload = rawBodyText || new URL(req.url).pathname;
+  const payload = rawBodyText || requestPath;
   const expectedSignature = await generateServerHmacSignature(payload, timestamp);
   
   return timingSafeEqual(expectedSignature, signature);

@@ -121,10 +121,16 @@ export function Profile({
       setPwdMsg({ type: "error", text: "Please enter current and new passwords." })
       return
     }
-    if (newPassword.length < 8) {
-      setPwdMsg({ type: "error", text: "New password must be at least 8 characters long." })
+    
+    // Import schema dynamically to avoid top-level dependency loops if any, or just import it statically
+    const { PasswordResetSchema } = await import("../lib/validation-schemas")
+    const validationResult = PasswordResetSchema.safeParse({ password: newPassword })
+    
+    if (!validationResult.success) {
+      setPwdMsg({ type: "error", text: validationResult.error.errors[0].message })
       return
     }
+
     if (newPassword !== confirmPassword) {
       setPwdMsg({ type: "error", text: "New passwords do not match." })
       return
