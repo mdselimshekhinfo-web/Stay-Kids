@@ -1,6 +1,7 @@
 import { registerPlugin } from "@capacitor/core"
 
 export interface StayKidsNativePlugin {
+  authenticateBiometric(options?: { title?: string; subtitle?: string }): Promise<{ success: boolean }>
   isAccessibilityEnabled(): Promise<{ enabled: boolean }>
   openAccessibilitySettings(): Promise<void>
   performRemoteNavigation(options: { action: string }): Promise<{ success: boolean }>
@@ -82,6 +83,7 @@ const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative", {
     stopLiveCamera: async () => ({ success: true }),
     isLiveCameraActive: async () => ({ active: false }),
     addListener: async () => ({ remove: () => {} }),
+    authenticateBiometric: async (_options) => ({ success: true }),
     triggerSiren: async () => ({ success: true }),
     stopSiren: async () => ({ success: true }),
     setBedtimeSchedule: async () => ({ success: true }),
@@ -112,6 +114,16 @@ export const openAccessibilitySettings = async (): Promise<void> => {
     await StayKidsNative.openAccessibilitySettings()
   } catch (_e) {
     console.warn("StayKidsNative: Unable to open accessibility settings in web mode.")
+  }
+}
+
+export const authenticateBiometricNative = async (title?: string, subtitle?: string): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.authenticateBiometric({ title, subtitle })
+    return res.success ?? false
+  } catch (e) {
+    console.warn("Biometric authentication failed or cancelled", e)
+    return false
   }
 }
 

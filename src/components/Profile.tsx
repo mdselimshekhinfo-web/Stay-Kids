@@ -58,6 +58,11 @@ export function Profile({
   // B.4 Account Deletion Modal State
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteInput, setDeleteInput] = useState("")
+
+  // B.5 App Lock State
+  const [biometricEnabled, setBiometricEnabled] = useState(() => {
+    return localStorage.getItem("staykids_biometric_enabled") === "true"
+  })
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
 
@@ -338,6 +343,39 @@ export function Profile({
               )}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* B.5 App Lock Settings */}
+      <div className="rounded-[24px] border border-[#e1e7e8] bg-white p-5 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-bold text-base text-[#172226]">🔒 Biometric App Lock</p>
+            <p className="text-xs text-[#71807a]">Require fingerprint/face to open app</p>
+          </div>
+          <button
+            onClick={() => {
+              const nextState = !biometricEnabled;
+              if (nextState) {
+                import('../lib/native').then(({ authenticateBiometricNative }) => {
+                  authenticateBiometricNative().then(success => {
+                    if (success) {
+                      localStorage.setItem("staykids_biometric_enabled", "true")
+                      setBiometricEnabled(true)
+                    } else {
+                      alert("Biometric setup failed or cancelled.")
+                    }
+                  })
+                })
+              } else {
+                localStorage.setItem("staykids_biometric_enabled", "false")
+                setBiometricEnabled(false)
+              }
+            }}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${biometricEnabled ? "bg-[#287555]" : "bg-[#cbe0d3]"}`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${biometricEnabled ? "translate-x-6" : "translate-x-1"}`} />
+          </button>
         </div>
       </div>
 

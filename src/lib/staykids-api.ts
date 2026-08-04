@@ -230,13 +230,43 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
   }
 }
 
+const STAYKIDS_HMAC_SECRET = "staykids-secure-hmac-key-2026";
+
+async function generateHmacSignature(payload: string, timestamp: string): Promise<string> {
+  if (typeof crypto === "undefined" || !crypto.subtle) return "";
+  try {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      enc.encode(STAYKIDS_HMAC_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const dataToSign = `${timestamp}.${payload}`;
+    const signature = await crypto.subtle.sign("HMAC", key, enc.encode(dataToSign));
+    return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    return "";
+  }
+}
+
 const request = async (path: string, init?: RequestInit, _isIdempotentRead = false) => {
   const token = inMemoryToken || (await loadAuthToken())
   const authHeader = token ? `Bearer ${token}` : `Bearer ${publicAnonKey}`
 
+  const timestamp = Date.now().toString()
+  const payload = init?.body ? (typeof init.body === "string" ? init.body : JSON.stringify(init.body)) : path
+  const signature = await generateHmacSignature(payload, timestamp)
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: authHeader,
+  }
+
+  if (signature) {
+    headers["X-Request-Timestamp"] = timestamp
+    headers["X-Request-Signature"] = signature
   }
 
   try {

@@ -6,6 +6,44 @@ function getSecretKey(): string {
   return (secret && secret.trim() !== "") ? secret : "staykids-production-default-jwt-secret-key-v1";
 }
 
+const STAYKIDS_HMAC_SECRET = "staykids-secure-hmac-key-2026";
+
+async function generateServerHmacSignature(payload: string, timestamp: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(STAYKIDS_HMAC_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const dataToSign = `${timestamp}.${payload}`;
+  const signature = await crypto.subtle.sign("HMAC", key, enc.encode(dataToSign));
+  return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+export async function verifyHmacSignature(req: Request, rawBodyText: string): Promise<boolean> {
+  const timestamp = req.headers.get("X-Request-Timestamp");
+  const signature = req.headers.get("X-Request-Signature");
+
+  // Allow bypass for internal cron jobs or if strictly not provided (optional mode)
+  // For strict mode, if signature is missing, reject.
+  if (!signature || !timestamp) {
+    return false;
+  }
+
+  // Prevent Replay Attacks (Max 5 minutes old)
+  const timeDiff = Date.now() - parseInt(timestamp, 10);
+  if (Math.abs(timeDiff) > 5 * 60 * 1000) {
+    return false;
+  }
+
+  const payload = rawBodyText || new URL(req.url).pathname;
+  const expectedSignature = await generateServerHmacSignature(payload, timestamp);
+  
+  return timingSafeEqual(expectedSignature, signature);
+}
+
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let result = 0;

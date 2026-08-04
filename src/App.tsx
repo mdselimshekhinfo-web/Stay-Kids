@@ -15,6 +15,7 @@ import {
   handleNativeWebRTCSignal,
   listenWebRTCSignal,
   fetchAppRoleNative,
+  authenticateBiometricNative,
 } from "./lib/native"
 import { triggerToast } from "./components/Toast"
 import { subscribeToChildUpdates, isRealtimeAvailable, type RealtimeUpdate } from './lib/realtime'
@@ -89,6 +90,9 @@ export default function App() {
   const [tab, setTab] = useState("Home")
   const [state, setState] = useState<StayKidsState>(initialDefaultState)
   const [isForeground, setIsForeground] = useState(true)
+  const [biometricLocked, setBiometricLocked] = useState<boolean>(() => {
+    return localStorage.getItem("staykids_biometric_enabled") === "true"
+  })
 
   useEffect(() => {
     fetchAppRoleNative().then((nativeRole) => {
@@ -112,7 +116,17 @@ export default function App() {
           } else {
             if (token) {
               setAuthenticated(true)
-              setReady(true)
+              if (currentRole === "parent" && localStorage.getItem("staykids_biometric_enabled") === "true") {
+                authenticateBiometricNative().then(success => {
+                  if (success) {
+                    setBiometricLocked(false)
+                    setReady(true)
+                  }
+                })
+              } else {
+                setBiometricLocked(false)
+                setReady(true)
+              }
             }
           }
           setIsLoading(false)
@@ -597,6 +611,35 @@ export default function App() {
   if (isLoading) {
     return <div className="h-screen w-full bg-[#0a0e10] text-[#71807a] flex items-center justify-center">Loading...</div>
   }
+
+  // Show biometric lock screen if enabled for parent
+  if (biometricLocked) {
+    return (
+      <div className="h-screen w-full bg-[#0a0e10] text-[#e1e8e5] flex flex-col items-center justify-center gap-6 p-8 text-center">
+        <div className="w-20 h-20 bg-[#121916] rounded-full border border-[#172226] flex items-center justify-center text-3xl">
+          🔒
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold mb-2">App Locked</h2>
+          <p className="text-[#71807a]">Authenticate to access StayKids</p>
+        </div>
+        <button
+          onClick={() => {
+            authenticateBiometricNative().then(success => {
+              if (success) {
+                setBiometricLocked(false)
+                setReady(true)
+              }
+            })
+          }}
+          className="mt-4 px-8 py-4 bg-[#287555] text-white rounded-2xl font-medium shadow-[0_0_20px_rgba(40,117,85,0.2)]"
+        >
+          Unlock with Biometrics
+        </button>
+      </div>
+    )
+  }
+
 
   // 1. First Launch / Onboarding
   if (!selectedRole) {

@@ -1,6 +1,8 @@
 package com.staykids.parent;
 
 import android.Manifest;
+import androidx.biometric.BiometricPrompt;
+import java.util.concurrent.Executor;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -130,6 +132,46 @@ public class MainActivity extends BridgeActivity {
                 } catch (Exception ignored) {}
                 previousAlarmVolume = -1;
             }
+        }
+
+        @PluginMethod
+        public void authenticateBiometric(PluginCall call) {
+            String title = call.getString("title", "StayKids App Lock");
+            String subtitle = call.getString("subtitle", "Authenticate to open StayKids Parent App");
+            
+            getActivity().runOnUiThread(() -> {
+                Executor executor = ContextCompat.getMainExecutor(getContext());
+                BiometricPrompt biometricPrompt = new BiometricPrompt(getActivity(), executor, new BiometricPrompt.AuthenticationCallback() {
+                    @Override
+                    public void onAuthenticationError(int errorCode, CharSequence errString) {
+                        super.onAuthenticationError(errorCode, errString);
+                        call.reject("Authentication error: " + errString);
+                    }
+
+                    @Override
+                    public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                        super.onAuthenticationSucceeded(result);
+                        JSObject ret = new JSObject();
+                        ret.put("success", true);
+                        call.resolve(ret);
+                    }
+
+                    @Override
+                    public void onAuthenticationFailed() {
+                        super.onAuthenticationFailed();
+                        // Optional: do not reject immediately on failure, wait for error or success.
+                        // call.reject("Authentication failed"); 
+                    }
+                });
+
+                BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
+                        .setTitle(title)
+                        .setSubtitle(subtitle)
+                        .setDeviceCredentialAllowed(true)
+                        .build();
+
+                biometricPrompt.authenticate(promptInfo);
+            });
         }
 
         private StayKidsCameraService getCameraService() {
