@@ -1,0 +1,10 @@
+version: 2
+updates:
+  - package-ecosystem: "npm" # প্যাকেজ ম্যানেজার (আপনার প্রজেক্টের জন্য npm)
+    directory: "/" # কোথায় package.json ফাইলটি আছে
+    schedule:
+      interval: "weekly" # কতদিন পরপর চেক করবে (daily, weekly, monthly)
+    open-pull-requests-limit: 10 # একসাথে সর্বোচ্চ কয়টি Pull Request ওপেন করবে
+    labels:
+      - "security"
+      - "dependencies"
