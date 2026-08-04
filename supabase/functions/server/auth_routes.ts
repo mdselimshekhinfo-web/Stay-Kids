@@ -69,7 +69,8 @@ function isStrongPassword(password: string): boolean {
   const hasUpper = /[A-Z]/.test(password);
   const hasLower = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
-  return hasUpper && hasLower && hasNumber;
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
+  return hasUpper && hasLower && hasNumber && hasSpecial;
 }
 
 // Auth Sign Up Endpoint
@@ -81,7 +82,7 @@ authRoutes.post("/signup", async (c) => {
       return c.json({ error: "A valid email address and password are required." }, 400);
     }
     if (!isStrongPassword(password)) {
-      return c.json({ error: "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number." }, 400);
+      return c.json({ error: "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character." }, 400);
     }
 
     const allowed = await checkRateLimit(email, 5, 60000);
