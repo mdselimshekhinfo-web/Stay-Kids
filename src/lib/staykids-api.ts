@@ -13,9 +13,12 @@ import {
 } from './validation-schemas'
 import { getAppCheckToken } from './app-check'
 
+const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`
+const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || publicAnonKey
+
 export const supabaseAuthClient = createSupabaseClient(
-  `https://${projectId}.supabase.co`,
-  publicAnonKey
+  supabaseUrl,
+  supabaseAnonKey
 )
 
 const getApiBaseUrl = () => {
