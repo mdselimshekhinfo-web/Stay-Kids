@@ -15,7 +15,7 @@
     "android:child": "pnpm run android:sync && cd android && ./gradlew assembleChildDebug"
   },
   "dependencies": {
-    "@capacitor/android": "^6.2.0",
+    "@capacitor/android": "^8.5.0",
     "@capacitor/core": "^6.2.0",
     "@capacitor/preferences": "^6.0.3",
     "@supabase/supabase-js": "^2.112.0",
