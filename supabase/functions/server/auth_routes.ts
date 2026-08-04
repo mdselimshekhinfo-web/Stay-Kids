@@ -4,8 +4,11 @@ import { hashPassword, verifyPassword, signJwt, checkRateLimit } from './securit
 import * as kv from './kv_store.tsx';
 import { createClient } from 'npm:@supabase/supabase-js';
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL") || "https://ewsehvgwzczlshyoyhqf.supabase.co";
-const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3c2Vodmd3emN6bHNoeW95aHFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMTA2MjIsImV4cCI6MjA5OTY4NjYyMn0.kWqk1d-8mNt3mG5zwfaRC9RUgZt7WgEyRNrqn7frn-s";
+const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables are required.");
+}
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const authRoutes = new Hono();
@@ -35,7 +38,7 @@ async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "re
 
   if (brevoApiKey) {
     try {
-      const senderEmail = Deno.env.get("SENDER_EMAIL") || "mdselimshekh.info@gmail.com";
+      const senderEmail = Deno.env.get("SENDER_EMAIL") || "noreply@staykids.app";
       const res = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {

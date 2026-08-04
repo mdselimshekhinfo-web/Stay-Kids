@@ -5,8 +5,11 @@ import { checkRateLimit } from './security.ts';
 import * as kv from './kv_store.tsx';
 import { createClient } from 'npm:@supabase/supabase-js';
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables are required.");
+}
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const actionRoutes = new Hono();

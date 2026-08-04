@@ -1,5 +1,4 @@
 import { Hono } from 'npm:hono';
-import { getAuthenticatedUser } from './db.ts';
 import * as kv from './kv_store.tsx';
 
 export const cleanupRoutes = new Hono();
@@ -7,14 +6,13 @@ export const cleanupRoutes = new Hono();
 // 3. KV Store Cleanup Job Endpoint
 cleanupRoutes.all("/cleanup", async (c) => {
   try {
-    const providedSecret = c.req.header("X-Cleanup-Secret");
-    const isSecretValid = !!cleanupSecret && providedSecret === cleanupSecret;
-
-    if (!isSecretValid) {
-      const user = await getAuthenticatedUser(c);
-      if (!user) {
-        return c.json({ error: "Unauthorized cleanup request" }, 401);
-      }
+    const cleanupSecret = Deno.env.get("KV_CLEANUP_SECRET");
+    if (!cleanupSecret) {
+      console.error("[Cleanup] KV_CLEANUP_SECRET is not configured — refusing all cleanup requests.");
+      return c.json({ error: "Cleanup endpoint is not configured." }, 503);
+    }
+    if (c.req.header("X-Cleanup-Secret") !== cleanupSecret) {
+      return c.json({ error: "Unauthorized cleanup request" }, 401);
     }
 
     const now = Date.now();
