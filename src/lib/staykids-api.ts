@@ -341,50 +341,27 @@ export const resendEmailOtp = async (data: { email: string }) => {
 
 export const requestPasswordReset = async (data: { email: string }) => {
   const validated = OtpSchema.pick({ email: true }).parse(data)
-  try {
-    return await request("/auth/forgot-password", { method: "POST", body: JSON.stringify(validated) })
-  } catch (_e) {
-    return { success: true, message: `Password reset OTP sent to ${data.email}` }
-  }
+  return await request("/auth/forgot-password", { method: "POST", body: JSON.stringify(validated) })
 }
 
 export const confirmPasswordReset = async (data: { email: string; otp: string; newPassword?: string }) => {
   const validated = PasswordResetSchema.parse(data)
-  try {
-    const result = await request("/auth/reset-password", { method: "POST", body: JSON.stringify(validated) })
-    if (result.token) {
-      await setAuthToken(result.token)
-      await authManager.setSession({ name: result.user?.name || data.email.split('@')[0], email: data.email }, result.token, 'parent')
-    }
-    return result
-  } catch (_e) {
-    const fallbackToken = `staykids-session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-    await setAuthToken(fallbackToken)
-    await authManager.setSession({ name: data.email.split('@')[0], email: data.email }, fallbackToken, 'parent')
-    return { success: true, token: fallbackToken, user: { name: data.email.split('@')[0], email: data.email } }
+  const result = await request("/auth/reset-password", { method: "POST", body: JSON.stringify(validated) })
+  if (result.token) {
+    await setAuthToken(result.token)
+    await authManager.setSession({ name: result.user?.name || data.email.split('@')[0], email: data.email }, result.token, 'parent')
   }
+  return result
 }
 
 export const loginParent = async (data: { email: string; password?: string }) => {
   const validated = LoginSchema.parse(data)
-  try {
-    const result = await request("/auth/login", { method: "POST", body: JSON.stringify(validated) })
-    if (result.token) {
-      await setAuthToken(result.token)
-      await authManager.setSession({ name: result.user?.name || data.email.split('@')[0], email: data.email }, result.token, 'parent')
-    }
-    return result
-  } catch (err: any) {
-    console.warn("Cloud login fallback activated:", err?.message)
-    const fallbackToken = `staykids-session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-    await setAuthToken(fallbackToken)
-    await authManager.setSession({ name: data.email.split('@')[0], email: data.email }, fallbackToken, 'parent')
-    return {
-      success: true,
-      token: fallbackToken,
-      user: { name: data.email.split('@')[0], email: data.email },
-    }
+  const result = await request("/auth/login", { method: "POST", body: JSON.stringify(validated) })
+  if (result.token) {
+    await setAuthToken(result.token)
+    await authManager.setSession({ name: result.user?.name || data.email.split('@')[0], email: data.email }, result.token, 'parent')
   }
+  return result
 }
 
 export const logoutParent = async () => {
