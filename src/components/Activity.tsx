@@ -1,7 +1,7 @@
-import { useState } from "react"
+import React, { useState } from "react"
 import type { StayKidsState } from "../lib/staykids-api"
 
-export function Activity({ state }: { state: StayKidsState }) {
+export const Activity = React.memo(function Activity({ state }: { state: StayKidsState }) {
   const [timeframe, setTimeframe] = useState("Today")
 
   const usage = state.usage || { minutes: 0, limit: 120, topApps: [] }
@@ -183,4 +183,4 @@ export function Activity({ state }: { state: StayKidsState }) {
       </div>
     </div>
   )
-}
+})

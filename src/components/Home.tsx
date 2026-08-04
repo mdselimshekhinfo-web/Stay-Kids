@@ -1,4 +1,4 @@
-import { useState } from "react"
+import React, { useState } from "react"
 import type { StayKidsState } from "../lib/staykids-api"
 import { ChildDeviceSwitcherBar } from "./ChildDeviceSwitcherBar"
 import { AddChildModal } from "./AddChildModal"
@@ -11,7 +11,7 @@ const Icon = ({ name }: { name: string }) => (
   </span>
 )
 
-export function Home({
+export const Home = React.memo(function Home({
   onRemote,
   onProfile,
   state,
@@ -173,4 +173,4 @@ export function Home({
       </section>
     </div>
   )
-}
+})

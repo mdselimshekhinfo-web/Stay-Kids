@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import type { StayKidsState } from "../lib/staykids-api"
 import { fetchNativeInstalledApps, syncNativeAppBlock } from "../lib/native"
 
@@ -8,7 +8,7 @@ const Icon = ({ name }: { name: string }) => (
   </span>
 )
 
-export function Controls({ state, onAction }: { state: StayKidsState; onAction: (action: Record<string, unknown>) => void }) {
+export const Controls = React.memo(function Controls({ state, onAction }: { state: StayKidsState; onAction: (action: Record<string, unknown>) => void }) {
   const usage = state.usage
   const controls = state.controls
 
@@ -268,4 +268,4 @@ export function Controls({ state, onAction }: { state: StayKidsState; onAction: 
       </div>
     </div>
   )
-}
+})

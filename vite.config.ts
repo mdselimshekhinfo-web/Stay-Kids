@@ -17,6 +17,15 @@ export default defineConfig(({ mode }) => {
       cssTarget: 'chrome80',
       sourcemap: false,
       minify: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-zod': ['zod'],
+            'vendor-capacitor': ['@capacitor/core', '@capacitor/preferences'],
+          }
+        }
+      }
     },
     plugins: [
       react(),

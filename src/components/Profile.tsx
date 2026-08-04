@@ -123,8 +123,8 @@ export function Profile({
     }
     
     // Import schema dynamically to avoid top-level dependency loops if any, or just import it statically
-    const { PasswordResetSchema } = await import("../lib/validation-schemas")
-    const validationResult = PasswordResetSchema.safeParse({ password: newPassword })
+    const { StrongPasswordSchema } = await import("../lib/validation-schemas")
+    const validationResult = StrongPasswordSchema.safeParse(newPassword)
     
     if (!validationResult.success) {
       setPwdMsg({ type: "error", text: validationResult.error.errors[0].message })

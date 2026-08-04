@@ -27,8 +27,15 @@ import { Controls } from "./components/Controls"
 import { Activity } from "./components/Activity"
 import { Alerts } from "./components/Alerts"
 import { Profile } from "./components/Profile"
-import { Remote } from "./components/Remote"
-import { ChildDevice } from "./components/ChildDevice"
+
+const Remote = React.lazy(() => import("./components/Remote").then(m => ({ default: m.Remote })))
+const ChildDevice = React.lazy(() => import("./components/ChildDevice").then(m => ({ default: m.ChildDevice })))
+
+const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
+  <React.Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#0a0e10]"><div className="w-8 h-8 border-4 border-[#287555] border-t-transparent rounded-full animate-spin"></div></div>}>
+    {children}
+  </React.Suspense>
+)
 
 const initialDefaultState: StayKidsState = {
   isPremium: false,
@@ -595,7 +602,7 @@ export default function App() {
     Activity: <Activity state={state} />,
     Alerts: <Alerts state={state} onAction={action} />,
     Profile: <Profile state={state} switchRole={() => setRole("child")} onSignOut={handleSignOut} user={user} onAction={action} />,
-    Remote: <Remote state={state} onAction={action} />,
+    Remote: <SuspenseWrapper><Remote state={state} onAction={action} /></SuspenseWrapper>,
   }
 
   const nav = [
@@ -677,7 +684,7 @@ export default function App() {
         />
       )
     }
-    return <ChildDevice state={state} switchRole={resetRoleSelection} />
+    return <SuspenseWrapper><ChildDevice state={state} switchRole={resetRoleSelection} /></SuspenseWrapper>
   }
 
   // 3. Parent Device Flow
