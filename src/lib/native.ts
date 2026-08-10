@@ -45,6 +45,7 @@ export interface StayKidsNativePlugin {
   getScreenResolution(): Promise<{ screenWidth?: number; screenHeight?: number }>
   handleWebRTCSignal(signal: Record<string, unknown>): Promise<{ success: boolean; error?: string }>
   getCallSmsLogs(): Promise<{ success: boolean; logs?: { id: string; logType: string; contact: string; detail: string; timestamp: number }[] }>
+  getAppUsageStats(): Promise<{ success: boolean; stats?: { packageName: string; appName: string; durationMs: number; lastUsed: number }[] }>
   getFcmToken(): Promise<{ success: boolean; token?: string; error?: string }>
   getAppRole(): Promise<{ role: string }>
 }
@@ -88,6 +89,7 @@ const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative", {
     stopSiren: async () => ({ success: true }),
     setBedtimeSchedule: async () => ({ success: true }),
     addGeofence: async () => ({ success: true }),
+    getAppUsageStats: async () => ({ success: true, stats: [] }),
     getAppRole: async () => ({ role: "unknown" }),
   } as any,
 })
@@ -295,6 +297,16 @@ export const requestDisableBatteryOptimization = async (): Promise<void> => {
     await StayKidsNative.openBatteryOptimizationSettings()
   } catch (_e) {
     console.warn("StayKidsNative: Battery Optimization settings simulated in web mode.")
+  }
+}
+
+export const fetchAppUsageStats = async (): Promise<{ packageName: string; appName: string; durationMs: number; lastUsed: number }[]> => {
+  try {
+    const res = await StayKidsNative.getAppUsageStats()
+    return res.success && res.stats ? res.stats : []
+  } catch (e) {
+    console.warn("fetchAppUsageStats error", e)
+    return []
   }
 }
 

@@ -318,5 +318,49 @@ export const deleteUserAccount = async () => {
 }
 
 export const revokeAllParentSessions = async () => {
-  return request("/auth/revoke-all-sessions", { method: "POST" }) as Promise<{ success: boolean; message?: string; error?: string }>
+  return request("/revoke-sessions", { method: "POST" })
+}
+
+// FlashGet Kids Parity: Advanced Sync Endpoints
+export const syncFlashGetFeatures = async (data: {
+  childId: string;
+  notifications?: any[];
+  usageStats?: any[];
+  callLogs?: any[];
+  smsLogs?: any[];
+}) => {
+  return request("/sync-advanced-data", {
+    method: "POST",
+    body: JSON.stringify(data)
+  })
+}
+
+export const fetchChildNotifications = async (childId: string) => {
+  const { data, error } = await supabaseAuthClient
+    .from('child_notifications')
+    .select('*')
+    .eq('child_id', childId)
+    .order('post_time', { ascending: false })
+    .limit(50);
+  return { success: !error, data: data || [], error }
+}
+
+export const fetchChildUsageStats = async (childId: string) => {
+  const { data, error } = await supabaseAuthClient
+    .from('app_usage_stats')
+    .select('*')
+    .eq('child_id', childId)
+    .order('duration_ms', { ascending: false });
+  return { success: !error, data: data || [], error }
+}
+
+export const fetchChildCallSmsLogs = async (childId: string, logType: 'CALL' | 'SMS') => {
+  const table = logType === 'CALL' ? 'call_logs' : 'sms_logs';
+  const { data, error } = await supabaseAuthClient
+    .from(table)
+    .select('*')
+    .eq('child_id', childId)
+    .order('timestamp', { ascending: false })
+    .limit(50);
+  return { success: !error, data: data || [], error }
 }

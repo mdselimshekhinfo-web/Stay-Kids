@@ -26,6 +26,7 @@ import { Onboarding } from "./components/Onboarding"
 import { Home } from "./components/Home"
 import { Controls } from "./components/Controls"
 import { Activity } from "./components/Activity"
+import { Dashboard } from "./components/Dashboard"
 import { Alerts } from "./components/Alerts"
 import { Profile } from "./components/Profile"
 
@@ -618,6 +619,7 @@ export default function App() {
 
   const pages: Record<string, React.ReactNode> = {
     Home: <Home onRemote={() => setTab("Remote")} onProfile={() => setTab("Profile")} state={state} onAction={action} />,
+    Dashboard: <Dashboard state={state} />,
     Controls: <Controls state={state} onAction={action} />,
     Activity: <Activity state={state} />,
     Alerts: <Alerts state={state} onAction={action} />,
@@ -627,6 +629,7 @@ export default function App() {
 
   const nav = [
     ["Home", "⌂"],
+    ["Dashboard", "📊"],
     ["Controls", "◫"],
     ["Activity", "◌"],
     ["Remote", "▣"],

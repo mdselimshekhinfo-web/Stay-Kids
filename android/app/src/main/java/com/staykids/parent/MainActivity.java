@@ -264,6 +264,52 @@ public class MainActivity extends BridgeActivity {
         }
 
         @PluginMethod
+        public void getAppUsageStats(PluginCall call) {
+            try {
+                android.app.usage.UsageStatsManager usm = (android.app.usage.UsageStatsManager) getContext().getSystemService(Context.USAGE_STATS_SERVICE);
+                if (usm == null) {
+                    call.reject("UsageStatsManager not available");
+                    return;
+                }
+                Calendar calendar = Calendar.getInstance();
+                long endTime = calendar.getTimeInMillis();
+                calendar.set(Calendar.HOUR_OF_DAY, 0);
+                calendar.set(Calendar.MINUTE, 0);
+                calendar.set(Calendar.SECOND, 0);
+                calendar.set(Calendar.MILLISECOND, 0);
+                long startTime = calendar.getTimeInMillis();
+
+                java.util.List<android.app.usage.UsageStats> stats = usm.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY, startTime, endTime);
+                com.getcapacitor.JSArray statsArray = new com.getcapacitor.JSArray();
+                
+                PackageManager pm = getContext().getPackageManager();
+
+                if (stats != null) {
+                    for (android.app.usage.UsageStats stat : stats) {
+                        long totalTime = stat.getTotalTimeInForeground();
+                        if (totalTime > 60000) { // Only send apps used more than 1 minute
+                            JSObject obj = new JSObject();
+                            obj.put("packageName", stat.getPackageName());
+                            try {
+                                android.content.pm.ApplicationInfo info = pm.getApplicationInfo(stat.getPackageName(), 0);
+                                obj.put("appName", pm.getApplicationLabel(info).toString());
+                            } catch (Exception e) {
+                                obj.put("appName", stat.getPackageName());
+                            }
+                            obj.put("durationMs", totalTime);
+                            obj.put("lastUsed", stat.getLastTimeUsed());
+                            statsArray.put(obj);
+                        }
+                    }
+                }
+                
+                call.resolve(new JSObject().put("success", true).put("stats", statsArray));
+            } catch (Exception e) {
+                call.reject("Failed to query app usage stats: " + e.getMessage());
+            }
+        }
+
+        @PluginMethod
         public void performRemoteNavigation(PluginCall call) {
             String action = call.getString("action", "HOME");
             StayKidsAccessibilityService service = StayKidsAccessibilityService.getInstance();
@@ -335,10 +381,65 @@ public class MainActivity extends BridgeActivity {
 
         @PluginMethod
         public void getCallSmsLogs(PluginCall call) {
-            // Call/SMS log permissions removed for Play Store compliance.
-            // Returns empty results to maintain API compatibility.
             try {
                 com.getcapacitor.JSArray logsArray = new com.getcapacitor.JSArray();
+                
+                // Fetch Call Logs
+                if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
+                    android.database.Cursor cursor = getContext().getContentResolver().query(
+                        android.provider.CallLog.Calls.CONTENT_URI, null, null, null, android.provider.CallLog.Calls.DATE + " DESC LIMIT 50");
+                    if (cursor != null) {
+                        int numberCol = cursor.getColumnIndex(android.provider.CallLog.Calls.NUMBER);
+                        int nameCol = cursor.getColumnIndex(android.provider.CallLog.Calls.CACHED_NAME);
+                        int typeCol = cursor.getColumnIndex(android.provider.CallLog.Calls.TYPE);
+                        int dateCol = cursor.getColumnIndex(android.provider.CallLog.Calls.DATE);
+                        int durCol = cursor.getColumnIndex(android.provider.CallLog.Calls.DURATION);
+                        
+                        while (cursor.moveToNext()) {
+                            JSObject logItem = new JSObject();
+                            logItem.put("id", "call_" + cursor.getString(dateCol));
+                            logItem.put("logType", "CALL");
+                            logItem.put("contact", cursor.getString(nameCol) != null ? cursor.getString(nameCol) : cursor.getString(numberCol));
+                            
+                            int type = cursor.getInt(typeCol);
+                            String typeStr = type == android.provider.CallLog.Calls.INCOMING_TYPE ? "Incoming" : (type == android.provider.CallLog.Calls.OUTGOING_TYPE ? "Outgoing" : "Missed");
+                            logItem.put("detail", typeStr + " (" + cursor.getString(durCol) + "s)");
+                            logItem.put("timestamp", cursor.getLong(dateCol));
+                            logsArray.put(logItem);
+                        }
+                        cursor.close();
+                    }
+                }
+                
+                // Fetch SMS Logs
+                if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED) {
+                    android.database.Cursor cursor = getContext().getContentResolver().query(
+                        android.provider.Telephony.Sms.CONTENT_URI, null, null, null, android.provider.Telephony.Sms.DATE + " DESC LIMIT 50");
+                    if (cursor != null) {
+                        int addrCol = cursor.getColumnIndex(android.provider.Telephony.Sms.ADDRESS);
+                        int bodyCol = cursor.getColumnIndex(android.provider.Telephony.Sms.BODY);
+                        int typeCol = cursor.getColumnIndex(android.provider.Telephony.Sms.TYPE);
+                        int dateCol = cursor.getColumnIndex(android.provider.Telephony.Sms.DATE);
+                        
+                        while (cursor.moveToNext()) {
+                            JSObject logItem = new JSObject();
+                            logItem.put("id", "sms_" + cursor.getString(dateCol));
+                            logItem.put("logType", "SMS");
+                            logItem.put("contact", cursor.getString(addrCol));
+                            
+                            int type = cursor.getInt(typeCol);
+                            String typeStr = type == android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX ? "Received: " : "Sent: ";
+                            String body = cursor.getString(bodyCol);
+                            if (body != null && body.length() > 50) body = body.substring(0, 47) + "...";
+                            
+                            logItem.put("detail", typeStr + body);
+                            logItem.put("timestamp", cursor.getLong(dateCol));
+                            logsArray.put(logItem);
+                        }
+                        cursor.close();
+                    }
+                }
+
                 call.resolve(new JSObject().put("success", true).put("logs", logsArray));
             } catch (Exception e) {
                 call.reject("Failed to query Call & SMS logs: " + e.getMessage());
