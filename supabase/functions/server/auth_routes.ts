@@ -129,7 +129,7 @@ authRoutes.post("/signup", async (c) => {
     });
   } catch (err: any) {
     console.error("Signup error:", err);
-    return c.json({ error: err?.message || "Failed to initiate registration" }, 500);
+    return c.json({ error: "Failed to initiate registration. Please try again." }, 500);
   }
 });
 
@@ -171,7 +171,7 @@ authRoutes.post("/verify-otp", async (c) => {
 
     if (insertError) {
       console.error("Profile insert error:", insertError);
-      return c.json({ error: "Failed to create account. Please try again." }, 500);
+      return c.json({ error: "Failed to create account: " + insertError.message }, 500);
     }
 
     await kv.set(pendingKey, null);

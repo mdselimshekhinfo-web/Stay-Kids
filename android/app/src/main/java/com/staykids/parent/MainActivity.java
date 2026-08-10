@@ -230,7 +230,7 @@ public class MainActivity extends BridgeActivity {
             try {
                 Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getContext().startActivity(intent);
+                getActivity().startActivity(intent);
                 call.resolve();
             } catch (Exception e) {
                 call.reject("Could not open Accessibility Settings: " + e.getMessage());
@@ -256,7 +256,7 @@ public class MainActivity extends BridgeActivity {
             try {
                 Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getContext().startActivity(intent);
+                getActivity().startActivity(intent);
                 call.resolve();
             } catch (Exception e) {
                 call.reject("Could not open Usage Access Settings: " + e.getMessage());
@@ -571,7 +571,7 @@ public class MainActivity extends BridgeActivity {
                 intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, compName);
                 intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "StayKids anti-uninstall protection prevents unauthorized removal.");
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getContext().startActivity(intent);
+                getActivity().startActivity(intent);
                 call.resolve();
             } catch (Exception e) {
                 call.reject("Could not request Device Admin: " + e.getMessage());
@@ -627,15 +627,13 @@ public class MainActivity extends BridgeActivity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
                     intent.setData(Uri.parse("package:" + getContext().getPackageName()));
-                } else {
-                    intent.setAction(Settings.ACTION_BATTERY_SAVER_SETTINGS);
                 }
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getContext().startActivity(intent);
+                getActivity().startActivity(intent);
             } catch (Exception e) {
                 Intent fallback = new Intent(Settings.ACTION_SETTINGS);
                 fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getContext().startActivity(fallback);
+                getActivity().startActivity(fallback);
             }
             call.resolve();
         }

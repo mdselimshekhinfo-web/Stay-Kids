@@ -4,6 +4,7 @@ import { changeParentPassword, exportUserData, deleteUserAccount } from "../lib/
 import { LegalModal } from "./LegalModal"
 import { SubscriptionModal } from "./SubscriptionModal"
 import { PREMIUM_ENABLED } from "../lib/config"
+import { triggerToast } from "./Toast"
 
 export function Profile({
   state,
@@ -58,12 +59,23 @@ export function Profile({
   // B.4 Account Deletion Modal State
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteInput, setDeleteInput] = useState("")
+  const [deleteLoading, setDeleteLoading] = useState(false)
+
+  // Custom Action Modal for Prompts & Confirms
+  const [actionModal, setActionModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    desc: string;
+    actionText: string;
+    isInput?: boolean;
+    defaultValue?: string;
+    onConfirm: (val?: string) => void;
+  } | null>(null);
 
   // B.5 App Lock State
   const [biometricEnabled, setBiometricEnabled] = useState(() => {
     return localStorage.getItem("staykids_biometric_enabled") === "true"
   })
-  const [deleteLoading, setDeleteLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
 
   // B.5 Notification Preferences State
@@ -168,7 +180,7 @@ export function Profile({
       a.click()
       URL.revokeObjectURL(url)
     } catch (e: any) {
-      alert("Failed to export data: " + (e?.message || "Unknown error"))
+      triggerToast("Failed to export data: " + (e?.message || "Unknown error"), "error")
     } finally {
       setExportLoading(false)
     }
@@ -176,20 +188,20 @@ export function Profile({
 
   const handleDeleteAccountSubmit = async () => {
     if (deleteInput.trim().toUpperCase() !== "DELETE") {
-      alert('Please type "DELETE" to confirm account deletion.')
+      triggerToast('Please type "DELETE" to confirm account deletion.', "error")
       return
     }
     setDeleteLoading(true)
     try {
       const res = await deleteUserAccount()
       if (res.success) {
-        alert("Account deleted. You will now be signed out.")
+        triggerToast("Account deleted. You will now be signed out.", "success")
         onSignOut()
       } else {
-        alert("Account deletion failed: " + (res.error || "Unknown error"))
+        triggerToast("Account deletion failed: " + (res.error || "Unknown error"), "error")
       }
     } catch (e: any) {
-      alert("Error deleting account: " + (e?.message || "Unknown error"))
+      triggerToast("Error deleting account: " + (e?.message || "Unknown error"), "error")
     } finally {
       setDeleteLoading(false)
     }
@@ -217,6 +229,38 @@ export function Profile({
     <div className="space-y-5 pb-24 font-sans text-[#172226]">
       <LegalModal isOpen={showLegal} onClose={() => setShowLegal(false)} initialTab={legalTab} />
       {PREMIUM_ENABLED && <SubscriptionModal isOpen={showSubModal} onClose={() => setShowSubModal(false)} />}
+      
+      {actionModal?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[24px] bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-bold text-[#172226]">{actionModal.title}</h3>
+            <p className="mt-2 text-sm text-[#71807a]">{actionModal.desc}</p>
+            {actionModal.isInput && (
+              <input 
+                id="action-modal-input"
+                type="text" 
+                defaultValue={actionModal.defaultValue}
+                className="mt-4 w-full rounded-xl border border-[#cbe0d3] p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#287555]" 
+              />
+            )}
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={() => setActionModal(null)} className="rounded-xl px-4 py-2 text-xs font-bold text-[#71807a] hover:bg-[#f0f4f4]">
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  const val = actionModal.isInput ? (document.getElementById("action-modal-input") as HTMLInputElement).value : undefined;
+                  actionModal.onConfirm(val);
+                  setActionModal(null);
+                }} 
+                className="rounded-xl bg-[#287555] px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-[#1f5c43]"
+              >
+                {actionModal.actionText}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="pt-2">
         <p className="text-sm text-[#70808b]">Account & Preferences</p>
@@ -261,10 +305,19 @@ export function Profile({
                 <button
                   type="button"
                   onClick={() => {
-                    const val = prompt("Enter Child's School Name:", state.child.school || "")
-                    if (val !== null) {
-                      onAction({ type: "update-school", school: val.trim() })
-                    }
+                    setActionModal({
+                      isOpen: true,
+                      title: "Edit School Name",
+                      desc: "Enter your child's school name.",
+                      actionText: "Save",
+                      isInput: true,
+                      defaultValue: state.child.school || "",
+                      onConfirm: (val) => {
+                        if (val !== undefined && val !== null) {
+                          onAction({ type: "update-school", school: val.trim() })
+                        }
+                      }
+                    })
                   }}
                   className="text-[10px] font-bold text-[#287555] hover:underline"
                 >
@@ -338,9 +391,15 @@ export function Profile({
               {onAction && pairedChildren.length > 1 && (
                 <button
                   onClick={() => {
-                    if (confirm(`Unpair and revoke token for ${ch.name}'s device? This device will lose access.`)) {
-                      onAction({ type: "unpair-device", childId: ch.id })
-                    }
+                    setActionModal({
+                      isOpen: true,
+                      title: "Unpair Device?",
+                      desc: `Unpair and revoke token for ${ch.name}'s device? This device will lose access.`,
+                      actionText: "Unpair",
+                      onConfirm: () => {
+                        onAction({ type: "unpair-device", childId: ch.id })
+                      }
+                    })
                   }}
                   className="rounded-xl border border-[#ffcdd2] bg-[#feebee] px-3 py-1.5 text-xs font-bold text-[#c62828] hover:bg-[#ffcdd2] transition"
                 >
@@ -369,7 +428,7 @@ export function Profile({
                       localStorage.setItem("staykids_biometric_enabled", "true")
                       setBiometricEnabled(true)
                     } else {
-                      alert("Biometric setup failed or cancelled.")
+                      triggerToast("Biometric setup failed or cancelled.", "error")
                     }
                   })
                 })
@@ -459,15 +518,23 @@ export function Profile({
           </div>
           <button
             type="button"
-            onClick={async () => {
-              if (confirm("Revoke all active parent sessions across all devices? You will be required to log in again.")) {
-                const { revokeAllParentSessions } = await import("../lib/staykids-api")
-                const res = await revokeAllParentSessions()
-                if (res.success) {
-                  alert("All active sessions revoked. Signing out.")
-                  onSignOut()
+            onClick={() => {
+              setActionModal({
+                isOpen: true,
+                title: "Revoke All Sessions?",
+                desc: "Revoke all active parent sessions across all devices? You will be required to log in again.",
+                actionText: "Revoke",
+                onConfirm: async () => {
+                  const { revokeAllParentSessions } = await import("../lib/staykids-api")
+                  const res = await revokeAllParentSessions()
+                  if (res.success) {
+                    triggerToast("All active sessions revoked. Signing out.", "success")
+                    onSignOut()
+                  } else {
+                    triggerToast("Failed to revoke sessions.", "error")
+                  }
                 }
-              }
+              })
             }}
             className="rounded-xl border border-[#cbe0d3] bg-[#f8fbf9] px-3 py-1.5 text-xs font-bold text-[#287555] hover:bg-[#ebf7e4] transition"
           >
@@ -513,7 +580,6 @@ export function Profile({
       <div className="rounded-[24px] border border-[#e1e7e8] bg-white p-5 shadow-sm space-y-2">
         <div className="flex items-center justify-between">
           <p className="font-bold text-base text-[#172226]">👥 Family Guardians & Co-Parents</p>
-          <span className="text-[10px] font-bold text-[#287555] bg-[#edf3ef] px-2 py-0.5 rounded-full">(Coming Soon)</span>
         </div>
         <p className="text-xs text-[#71807a]">
           Invite a secondary parent, grandparent, or trusted guardian to co-monitor child devices with customized permission levels.

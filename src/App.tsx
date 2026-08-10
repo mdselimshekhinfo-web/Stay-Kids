@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react"
+import { App as CapacitorApp } from '@capacitor/app'
 import {
   getStayKidsState,
   sendStayKidsAction,
@@ -100,6 +101,25 @@ export default function App() {
   const [biometricLocked, setBiometricLocked] = useState<boolean>(() => {
     return localStorage.getItem("staykids_biometric_enabled") === "true"
   })
+
+  // Hardware Back Button Handler
+  useEffect(() => {
+    const handleBackButton = () => {
+      setTab(currentTab => {
+        if (currentTab !== "Home") {
+          return "Home"
+        }
+        CapacitorApp.exitApp()
+        return currentTab
+      })
+    }
+
+    const backButtonListener = CapacitorApp.addListener('backButton', handleBackButton)
+
+    return () => {
+      backButtonListener.then(listener => listener.remove())
+    }
+  }, [])
 
   useEffect(() => {
     fetchAppRoleNative().then((nativeRole) => {
