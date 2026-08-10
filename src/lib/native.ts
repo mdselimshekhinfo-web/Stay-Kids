@@ -83,7 +83,7 @@ const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative", {
     stopLiveCamera: async () => ({ success: true }),
     isLiveCameraActive: async () => ({ active: false }),
     addListener: async () => ({ remove: () => {} }),
-    authenticateBiometric: async (_options) => ({ success: true }),
+    authenticateBiometric: async (_options: any) => ({ success: true }),
     triggerSiren: async () => ({ success: true }),
     stopSiren: async () => ({ success: true }),
     setBedtimeSchedule: async () => ({ success: true }),

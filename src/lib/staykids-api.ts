@@ -1,7 +1,6 @@
 import { projectId, publicAnonKey } from "../../utils/supabase/info"
-import { Preferences } from '@capacitor/preferences'
+import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin'
 import { authManager } from './auth-manager'
-import { encryptData, decryptData } from './crypto'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import {
   SignUpSchema,
@@ -11,7 +10,6 @@ import {
   PairingClaimSchema,
   ActionSchema,
 } from './validation-schemas'
-import { getAppCheckToken } from './app-check'
 
 const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`
 const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || publicAnonKey
@@ -74,9 +72,9 @@ export const setAuthToken = async (token: string | null) => {
   try {
     if (typeof window !== 'undefined') {
       if (token) {
-        await Preferences.set({ key: 'staykids_jwt_token', value: token })
+        await SecureStoragePlugin.set({ key: 'staykids_jwt_token', value: token })
       } else {
-        await Preferences.remove({ key: 'staykids_jwt_token' })
+        await SecureStoragePlugin.remove({ key: 'staykids_jwt_token' })
         await authManager.clearSession()
       }
     }
@@ -190,12 +188,9 @@ const request = async (path: string, init?: RequestInit, _isIdempotentRead = fal
   const payload = init?.body ? (typeof init.body === "string" ? init.body : JSON.stringify(init.body)) : path
   const signature = await generateHmacSignature(payload, timestamp)
 
-  const appCheckToken = await getAppCheckToken()
-
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: authHeader,
-    "X-Firebase-AppCheck": appCheckToken,
   }
 
   if (signature) {

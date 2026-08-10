@@ -156,21 +156,39 @@ actionRoutes.post("/action", async (c) => {
         state.blockedApps = state.perChild[action.childId].blockedApps || state.blockedApps;
       }
     } else if (action.type === "add-child" && action.newChild) {
+      // Sanitize newChild input: only extract known safe fields
+      const nc = action.newChild;
+      if (!nc.id || typeof nc.id !== "string" || !nc.name || typeof nc.name !== "string") {
+        return c.json({ error: "Invalid child data: id and name are required." }, 400);
+      }
+      const sanitizedChild = {
+        id: nc.id.slice(0, 64),
+        name: nc.name.slice(0, 100),
+        device: typeof nc.device === "string" ? nc.device.slice(0, 100) : "Android Device",
+        location: typeof nc.location === "string" ? nc.location.slice(0, 200) : "Unknown",
+        battery: typeof nc.battery === "number" ? Math.min(100, Math.max(0, nc.battery)) : 100,
+        online: typeof nc.online === "boolean" ? nc.online : true,
+        protected: true,
+      };
       if (!state.children) state.children = [state.child];
-      state.children.push(action.newChild);
-      state.activeChildId = action.newChild.id;
-      state.child = action.newChild;
-      state.perChild[action.newChild.id] = {
+      state.children.push(sanitizedChild);
+      state.activeChildId = sanitizedChild.id;
+      state.child = sanitizedChild;
+      state.perChild[sanitizedChild.id] = {
         controls: { paused: false, limits: true, bedtime: true, filter: true },
         usage: { minutes: 0, limit: 120, topApps: [] },
         blockedApps: {},
       };
-      state.controls = state.perChild[action.newChild.id].controls;
-      state.usage = state.perChild[action.newChild.id].usage;
-      state.blockedApps = state.perChild[action.newChild.id].blockedApps;
+      state.controls = state.perChild[sanitizedChild.id].controls;
+      state.usage = state.perChild[sanitizedChild.id].usage;
+      state.blockedApps = state.perChild[sanitizedChild.id].blockedApps;
     } else if (action.type === "upgrade-premium") {
       state.isPremium = true;
     } else if (action.type === "toggle-control" && typeof action.key === "string") {
+      const ALLOWED_CONTROL_KEYS = ["paused", "limits", "bedtime", "filter", "geofence"];
+      if (!ALLOWED_CONTROL_KEYS.includes(action.key)) {
+        return c.json({ error: "Invalid control key" }, 400);
+      }
       childState.controls[action.key] = !childState.controls[action.key];
       state.controls = { ...childState.controls };
 
@@ -185,6 +203,9 @@ actionRoutes.post("/action", async (c) => {
       });
       needsFullSave = false;
     } else if (action.type === "toggle-app-lock" && typeof action.appName === "string") {
+      if (action.appName.length > 256) {
+        return c.json({ error: "App name too long" }, 400);
+      }
       if (!childState.blockedApps) childState.blockedApps = {};
       childState.blockedApps[action.appName] = !childState.blockedApps[action.appName];
       state.blockedApps = { ...childState.blockedApps };

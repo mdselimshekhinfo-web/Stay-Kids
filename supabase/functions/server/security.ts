@@ -2,9 +2,9 @@
 import * as kv from "./kv_store.tsx";
 
 function getSecretKey(): string {
-  const secret = Deno.env.get("JWT_SECRET") || Deno.env.get("SUPABASE_AUTH_JWT_SECRET") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const secret = Deno.env.get("JWT_SECRET");
   if (!secret || secret.trim() === "") {
-    throw new Error("Critical: Missing JWT secret in environment variables.");
+    throw new Error("Critical: Missing JWT_SECRET in environment variables.");
   }
   return secret;
 }
@@ -53,21 +53,7 @@ export async function verifyHmacSignature(req: Request, rawBodyText: string, req
   return timingSafeEqual(expectedSignature, signature);
 }
 
-export async function verifyFirebaseAppCheckToken(token: string | null): Promise<boolean> {
-  const isEnforced = Deno.env.get("ENABLE_APP_CHECK_ENFORCEMENT") === "true";
-  if (!isEnforced) {
-    // Development / non-enforced mode fallback
-    return true;
-  }
-  if (!token) return false;
-  // Validates attestation token or dev debug token
-  if (token === "staykids-dev-debug-appcheck-token-v1" || token.length > 20) {
-    return true;
-  }
-  return false;
-}
-
-function timingSafeEqual(a: string, b: string): boolean {
+export function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let result = 0;
   for (let i = 0; i < a.length; i++) {

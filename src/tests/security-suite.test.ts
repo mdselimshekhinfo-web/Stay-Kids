@@ -47,7 +47,7 @@ describe('Security & Validation Test Suite', () => {
     const validSignup = SignUpSchema.safeParse({
       name: 'Parent User',
       email: 'parent@example.com',
-      password: 'SecurePassword123',
+      password: 'SecurePassword123!',
     })
     expect(validSignup.success).toBe(true)
 
@@ -145,7 +145,7 @@ describe('Security & Validation Test Suite', () => {
     const { signUpParent, verifyEmailOtp } = await import('../lib/staykids-api')
     
     const testEmail = `test.parent.${Date.now()}@gmail.com`
-    const signupRes = await signUpParent({ name: 'Integration Test Parent', email: testEmail, password: 'SecurePassword123' })
+    const signupRes = await signUpParent({ name: 'Integration Test Parent', email: testEmail, password: 'SecurePassword123!' })
     expect(signupRes.success).toBe(true)
     expect(signupRes.requiresOtp).toBe(true)
 

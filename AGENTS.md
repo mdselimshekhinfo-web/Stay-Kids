@@ -25,3 +25,5 @@ This project uses **Tailwind CSS v4** for styling. Use Tailwind utility classes 
 ## Agent Guidelines
 
 - **Always Backup Code**: After completing major features or code updates, you MUST automatically commit and push the updated code to GitHub (git add ., git commit, git push origin HEAD). Additionally, you MUST automatically create a versioned/timestamped ZIP archive of the source code (e.g. `StayKids_Source_$(Get-Date -Format 'yyyyMMdd_HHmm').zip`) and build the latest APK files, copying them to the user's Desktop ($env:USERPROFILE\Desktop). Do this proactively without needing to be reminded by the user.
+- **Pre-Packaging Secret Check**: Before packaging this project for upload or handoff, verify `.env` and `supabase/functions/server/.env` do not contain real secrets — replace with placeholders or exclude the files.
+

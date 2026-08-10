@@ -1,3 +1,9 @@
+/**
+ * NOTE: This module is currently inactive.
+ * Postgres changes realtime subscription relies on RLS policies keyed to auth.uid(),
+ * which our custom JWT auth does not populate. The app currently uses the /state polling
+ * endpoint for live updates.
+ */
 import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ewsehvgwzczlshyoyhqf.supabase.co'

@@ -1,4 +1,4 @@
-import { Preferences } from '@capacitor/preferences'
+import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin'
 
 export interface UserSession {
   email: string
@@ -16,12 +16,12 @@ class AuthManager {
 
   async init(): Promise<UserSession | null> {
     try {
-      const { value: sessionStr } = await Preferences.get({ key: SESSION_KEY })
+      const { value: sessionStr } = await SecureStoragePlugin.get({ key: SESSION_KEY })
       if (sessionStr) {
         const session: UserSession = JSON.parse(sessionStr)
         if (session.expiresAt > Date.now()) {
           this.currentSession = session
-          await Preferences.set({ key: TOKEN_KEY, value: session.token })
+          await SecureStoragePlugin.set({ key: TOKEN_KEY, value: session.token })
           return session
         } else {
           await this.clearSession()
@@ -47,8 +47,8 @@ class AuthManager {
     this.currentSession = session
     try {
       if (typeof window !== 'undefined') {
-        await Preferences.set({ key: TOKEN_KEY, value: token })
-        await Preferences.set({ key: SESSION_KEY, value: JSON.stringify(session) })
+        await SecureStoragePlugin.set({ key: TOKEN_KEY, value: token })
+        await SecureStoragePlugin.set({ key: SESSION_KEY, value: JSON.stringify(session) })
       }
     } catch (_e) {}
     return session
@@ -67,7 +67,7 @@ class AuthManager {
     }
     try {
       if (typeof window !== 'undefined') {
-        const { value } = await Preferences.get({ key: TOKEN_KEY })
+        const { value } = await SecureStoragePlugin.get({ key: TOKEN_KEY })
         return value
       }
     } catch (_e) {}
@@ -77,7 +77,7 @@ class AuthManager {
   async restoreSession(): Promise<UserSession | null> {
     try {
       if (typeof window !== 'undefined') {
-        const { value } = await Preferences.get({ key: SESSION_KEY })
+        const { value } = await SecureStoragePlugin.get({ key: SESSION_KEY })
         if (value) {
           const session: UserSession = JSON.parse(value)
           if (session.expiresAt > Date.now()) {
@@ -94,8 +94,8 @@ class AuthManager {
     this.currentSession = null
     try {
       if (typeof window !== 'undefined') {
-        await Preferences.remove({ key: TOKEN_KEY })
-        await Preferences.remove({ key: SESSION_KEY })
+        await SecureStoragePlugin.remove({ key: TOKEN_KEY })
+        await SecureStoragePlugin.remove({ key: SESSION_KEY })
       }
     } catch (_e) {}
   }

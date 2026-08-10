@@ -1,17 +1,19 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
+import { timingSafeEqual } from './security.ts';
 
 export const cleanupRoutes = new Hono();
 
-// 3. KV Store Cleanup Job Endpoint
-cleanupRoutes.all("/cleanup", async (c) => {
+// 3. KV Store Cleanup Job Endpoint (POST-only to prevent CSRF via browser GET)
+cleanupRoutes.post("/cleanup", async (c) => {
   try {
     const cleanupSecret = Deno.env.get("KV_CLEANUP_SECRET");
     if (!cleanupSecret) {
       console.error("[Cleanup] KV_CLEANUP_SECRET is not configured — refusing all cleanup requests.");
       return c.json({ error: "Cleanup endpoint is not configured." }, 503);
     }
-    if (c.req.header("X-Cleanup-Secret") !== cleanupSecret) {
+    const providedSecret = c.req.header("X-Cleanup-Secret") || "";
+    if (!timingSafeEqual(providedSecret, cleanupSecret)) {
       return c.json({ error: "Unauthorized cleanup request" }, 401);
     }
 
@@ -68,13 +70,13 @@ cleanupRoutes.all("/cleanup", async (c) => {
       await kv.mdel(keysToDelete);
     }
 
+    // Security: Don't leak internal KV key names in response
     return c.json({
       success: true,
       timestamp: new Date().toISOString(),
       deletedCount: keysToDelete.length,
-      deletedKeys: keysToDelete,
     });
   } catch (err: any) {
-    return c.json({ error: err.message || "KV cleanup failed" }, 500);
+    return c.json({ error: "KV cleanup failed" }, 500);
   }
 });

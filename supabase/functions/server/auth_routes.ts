@@ -1,6 +1,6 @@
 import { Hono } from 'npm:hono';
 import { getAuthenticatedUser, getProfile, isValidEmail, getStateFromDB } from './db.ts';
-import { hashPassword, verifyPassword, signJwt, checkRateLimit } from './security.ts';
+import { hashPassword, verifyPassword, signJwt, checkRateLimit, timingSafeEqual } from './security.ts';
 import * as kv from './kv_store.tsx';
 import { createClient } from 'npm:@supabase/supabase-js';
 
@@ -63,12 +63,12 @@ async function sendRealEmailOtp(email: string, otp: string, type: "signup" | "re
     console.error("BREVO_API_KEY is not configured in environment variables.");
   }
 
-  console.error(`[STAYKIDS OTP DELIVERY FAILED] Could not send OTP email to ${email} — Brevo unavailable.`);
+  console.error(`[STAYKIDS OTP DELIVERY FAILED] Could not send OTP email — Brevo unavailable.`);
   return false;
 }
 
 function isStrongPassword(password: string): boolean {
-  if (!password || typeof password !== "string" || password.length < 8) return false;
+  if (!password || typeof password !== "string" || password.length < 8 || password.length > 128) return false;
   const hasUpper = /[A-Z]/.test(password);
   const hasLower = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
@@ -88,7 +88,7 @@ authRoutes.post("/signup", async (c) => {
       return c.json({ error: "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character." }, 400);
     }
 
-    const allowed = await checkRateLimit(email, 5, 60000);
+    const allowed = await checkRateLimit(`signup:${email}`, 5, 60000);
     if (!allowed) {
       return c.json({ error: "Too many registration attempts. Please try again in 1 minute." }, 429);
     }
@@ -159,7 +159,7 @@ authRoutes.post("/verify-otp", async (c) => {
       return c.json({ error: "OTP code has expired (valid for 5 minutes). Please request a new code." }, 400);
     }
 
-    if (pending.otp !== otp.trim()) {
+    if (!timingSafeEqual(pending.otp, otp.trim())) {
       return c.json({ error: "Invalid 6-digit OTP verification code. Please check your email and try again." }, 400);
     }
 
@@ -170,7 +170,8 @@ authRoutes.post("/verify-otp", async (c) => {
     }).select().single();
 
     if (insertError) {
-      return c.json({ error: "Failed to create account", details: insertError }, 500);
+      console.error("Profile insert error:", insertError);
+      return c.json({ error: "Failed to create account. Please try again." }, 500);
     }
 
     await kv.set(pendingKey, null);
@@ -229,7 +230,7 @@ authRoutes.post("/reset-password", async (c) => {
       return c.json({ error: "A valid email address, OTP code, and new password are required." }, 400);
     }
     if (!isStrongPassword(newPassword)) {
-      return c.json({ error: "New password must be at least 10 characters long and contain at least one uppercase letter, one lowercase letter, and one number." }, 400);
+      return c.json({ error: "New password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character." }, 400);
     }
 
     const allowed = await checkRateLimit(`reset-pwd:${email.toLowerCase()}`, 10, 5 * 60000);
@@ -248,7 +249,7 @@ authRoutes.post("/reset-password", async (c) => {
       return c.json({ error: "Password reset OTP code expired. Please request a new code." }, 400);
     }
 
-    if (resetRecord.otp !== otp.trim()) {
+    if (!timingSafeEqual(resetRecord.otp, otp.trim())) {
       return c.json({ error: "Invalid 6-digit OTP code." }, 400);
     }
 
@@ -289,7 +290,7 @@ authRoutes.post("/change-password", async (c) => {
       return c.json({ error: "Current password and new password are required." }, 400);
     }
     if (!isStrongPassword(newPassword)) {
-      return c.json({ error: "New password must be at least 10 characters long and contain at least one uppercase letter, one lowercase letter, and one number." }, 400);
+      return c.json({ error: "New password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character." }, 400);
     }
 
     const { data: user } = await supabase.from('profiles').select('*').eq('email', authCtx.email).maybeSingle();
@@ -427,7 +428,7 @@ authRoutes.post("/login", async (c) => {
       return c.json({ error: "A valid email address and password are required." }, 400);
     }
 
-    const allowed = await checkRateLimit(email, 5, 60000);
+    const allowed = await checkRateLimit(`login:${email}`, 5, 60000);
     if (!allowed) {
       return c.json({ error: "Too many login attempts. Please wait 1 minute before trying again." }, 429);
     }
