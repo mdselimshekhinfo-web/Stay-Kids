@@ -24,6 +24,10 @@ export interface StayKidsNativePlugin {
   isAppIconHidden(): Promise<{ hidden: boolean }>
   isUsageStatsPermissionGranted(): Promise<{ granted: boolean }>
   openUsageAccessSettings(): Promise<void>
+  checkNotificationAccess(): Promise<{ granted: boolean }>
+  openNotificationSettings(): Promise<void>
+  checkCallSmsPermission(): Promise<{ granted: boolean }>
+  requestCallSmsPermission(): Promise<{ granted: boolean }>
   isBatteryOptimizationDisabled(): Promise<{ disabled: boolean }>
   openBatteryOptimizationSettings(): Promise<void>
   isOverlayPermissionGranted(): Promise<{ granted: boolean }>
@@ -72,6 +76,10 @@ const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative", {
     enableDeviceAdmin: async () => {},
     isBatteryOptimizationDisabled: async () => ({ disabled: false }),
     openBatteryOptimizationSettings: async () => {},
+    checkNotificationAccess: async () => ({ granted: false }),
+    openNotificationSettings: async () => {},
+    checkCallSmsPermission: async () => ({ granted: false }),
+    requestCallSmsPermission: async () => ({ granted: false }),
     isOverlayPermissionGranted: async () => ({ granted: false }),
     requestOverlayPermission: async () => {},
     startScreenShare: async () => ({ success: true, streaming: true }),
@@ -307,6 +315,40 @@ export const fetchAppUsageStats = async (): Promise<{ packageName: string; appNa
   } catch (e) {
     console.warn("fetchAppUsageStats error", e)
     return []
+  }
+}
+
+export const checkNotificationAccess = async (): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.checkNotificationAccess()
+    return res.granted ?? false
+  } catch (_e) {
+    return true
+  }
+}
+
+export const openNotificationSettings = async (): Promise<void> => {
+  try {
+    await StayKidsNative.openNotificationSettings()
+  } catch (_e) {
+    console.warn("Simulated web mode openNotificationSettings")
+  }
+}
+
+export const checkCallSmsPermission = async (): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.checkCallSmsPermission()
+    return res.granted ?? false
+  } catch (_e) {
+    return true
+  }
+}
+
+export const requestCallSmsPermission = async (): Promise<{ granted: boolean; error?: string }> => {
+  try {
+    return await StayKidsNative.requestCallSmsPermission()
+  } catch (e: any) {
+    return { granted: true }
   }
 }
 

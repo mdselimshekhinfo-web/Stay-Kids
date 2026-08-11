@@ -14,9 +14,12 @@ import {
   checkLocationPermission,
   requestLocationPermission,
   checkMicrophonePermission,
-  requestMicrophonePermission,
   checkUsageStatsPermission,
   openUsageAccessSettings,
+  checkNotificationAccess,
+  openNotificationSettings,
+  checkCallSmsPermission,
+  requestCallSmsPermission,
   startNativeScreenShare,
   stopNativeScreenShare,
 } from "../lib/native"
@@ -48,6 +51,8 @@ export function Onboarding({
   const [locationGranted, setLocationGranted] = useState(false)
   const [micGranted, setMicGranted] = useState(false)
   const [screenCaptureGranted, setScreenCaptureGranted] = useState(false)
+  const [notifGranted, setNotifGranted] = useState(false)
+  const [callSmsGranted, setCallSmsGranted] = useState(false)
 
   // Guided Permission Instruction Modal State
   const [guideModal, setGuideModal] = useState<{
@@ -65,7 +70,7 @@ export function Onboarding({
   // Fix 5: Parallelize permission checks with Promise.all
   const refreshPermissionsState = async () => {
     try {
-      const [acc, bat, adm, usage, ovl, cam, loc, mic] = await Promise.all([
+      const [acc, bat, adm, usage, ovl, cam, loc, mic, notif, callSms] = await Promise.all([
         checkAccessibilityEnabled().catch(() => false),
         checkBatteryOptimizationDisabled().catch(() => false),
         checkDeviceAdminEnabled().catch(() => false),
@@ -74,6 +79,8 @@ export function Onboarding({
         checkCameraPermission().catch(() => false),
         checkLocationPermission().catch(() => false),
         checkMicrophonePermission().catch(() => false),
+        checkNotificationAccess().catch(() => false),
+        checkCallSmsPermission().catch(() => false),
       ])
       setAccEnabled(acc)
       setBatteryOptDisabled(bat)
@@ -83,6 +90,8 @@ export function Onboarding({
       setCameraGranted(cam)
       setLocationGranted(loc)
       setMicGranted(mic)
+      setNotifGranted(notif)
+      setCallSmsGranted(callSms)
     } catch (_e) {
       // Permission query error fallback
     }
@@ -471,10 +480,61 @@ export function Onboarding({
                     </button>
                   </div>
 
+                  {/* Permission 3c: Notification Access */}
+                  <div className="flex items-center justify-between rounded-xl bg-white p-3 border border-[#d2e2d7] shadow-sm">
+                    <div>
+                      <p className="font-bold text-[#172226]">5. Notification Access</p>
+                      <p className="text-[10px] text-[#71807a]">Tracks incoming WhatsApp/SMS notifications</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGuideModal({
+                          isOpen: true,
+                          title: "Notification Access",
+                          steps: [
+                            "নিচে 'Open System Settings Now' বাটন চাপুন।",
+                            "Device & app notifications পেজ খুলবে।",
+                            "'StayKids' খুঁজে বের করে সিলেক্ট করুন।",
+                            "'Allow notification access' সুইচটি অন করে দিন।",
+                          ],
+                          onOpenSettings: async () => {
+                            await openNotificationSettings().catch(() => {})
+                          },
+                        })
+                      }}
+                      className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
+                        notifGranted ? "bg-[#287555] text-white" : "bg-[#d6f4ad] text-[#17352b] hover:bg-[#c3e895]"
+                      }`}
+                    >
+                      {notifGranted ? "Granted ✓" : "🔔 Allow"}
+                    </button>
+                  </div>
+
+                  {/* Permission 3d: Call & SMS Logs */}
+                  <div className="flex items-center justify-between rounded-xl bg-white p-3 border border-[#d2e2d7] shadow-sm">
+                    <div>
+                      <p className="font-bold text-[#172226]">6. Call & SMS Logs</p>
+                      <p className="text-[10px] text-[#71807a]">Allows tracking calls and messages</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await requestCallSmsPermission()
+                        if (res.granted) setCallSmsGranted(true)
+                      }}
+                      className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
+                        callSmsGranted ? "bg-[#287555] text-white" : "bg-[#d6f4ad] text-[#17352b] hover:bg-[#c3e895]"
+                      }`}
+                    >
+                      {callSmsGranted ? "Granted ✓" : "📞 Allow"}
+                    </button>
+                  </div>
+
                   {/* Permission 4: Display Over Other Apps (Overlay) */}
                   <div className="flex items-center justify-between rounded-xl bg-white p-3 border border-[#d2e2d7] shadow-sm">
                     <div>
-                      <p className="font-bold text-[#172226]">4. Display Over Other Apps</p>
+                      <p className="font-bold text-[#172226]">7. Display Over Other Apps</p>
                       <p className="text-[10px] text-[#71807a]">Displays instant "App Blocked" overlay</p>
                     </div>
                     <button

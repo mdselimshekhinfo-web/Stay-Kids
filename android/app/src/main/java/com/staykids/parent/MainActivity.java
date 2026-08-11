@@ -264,6 +264,73 @@ public class MainActivity extends BridgeActivity {
         }
 
         @PluginMethod
+        public void checkNotificationAccess(PluginCall call) {
+            boolean granted = false;
+            try {
+                String pkgName = getContext().getPackageName();
+                String flat = Settings.Secure.getString(getContext().getContentResolver(), "enabled_notification_listeners");
+                if (flat != null && flat.contains(pkgName)) {
+                    granted = true;
+                }
+            } catch (Exception e) {
+                granted = false;
+            }
+            call.resolve(new JSObject().put("granted", granted));
+        }
+
+        @PluginMethod
+        public void openNotificationSettings(PluginCall call) {
+            try {
+                Intent intent = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getActivity().startActivity(intent);
+                call.resolve();
+            } catch (Exception e) {
+                call.reject("Could not open Notification Settings: " + e.getMessage());
+            }
+        }
+
+        @PluginMethod
+        public void checkCallSmsPermission(PluginCall call) {
+            boolean granted = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
+                && ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED;
+            call.resolve(new JSObject().put("granted", granted));
+        }
+
+        @PluginMethod
+        public void requestCallSmsPermission(PluginCall call) {
+            String[] permissions = {
+                Manifest.permission.READ_CALL_LOG,
+                Manifest.permission.READ_SMS,
+                Manifest.permission.READ_CONTACTS
+            };
+            boolean granted = true;
+            for (String perm : permissions) {
+                if (ContextCompat.checkSelfPermission(getContext(), perm) != PackageManager.PERMISSION_GRANTED) {
+                    granted = false;
+                    break;
+                }
+            }
+            if (granted) {
+                call.resolve(new JSObject().put("granted", true));
+            } else {
+                ActivityCompat.requestPermissions(getActivity(), permissions, 902);
+                call.resolve(new JSObject().put("granted", true));
+            }
+        }
+        @PluginMethod
+        public void openUsageAccessSettings(PluginCall call) {
+            try {
+                Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getActivity().startActivity(intent);
+                call.resolve();
+            } catch (Exception e) {
+                call.reject("Could not open Usage Access Settings: " + e.getMessage());
+            }
+        }
+
+        @PluginMethod
         public void getAppUsageStats(PluginCall call) {
             try {
                 android.app.usage.UsageStatsManager usm = (android.app.usage.UsageStatsManager) getContext().getSystemService(Context.USAGE_STATS_SERVICE);
