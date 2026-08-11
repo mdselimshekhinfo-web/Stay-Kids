@@ -99,6 +99,8 @@ const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative", {
     addGeofence: async () => ({ success: true }),
     getAppUsageStats: async () => ({ success: true, stats: [] }),
     getAppRole: async () => ({ role: "unknown" }),
+    toggleAppIconVisibility: async () => ({ success: true, hidden: false }),
+    isAppIconHidden: async () => ({ hidden: false }),
   } as any,
 })
 
@@ -177,6 +179,35 @@ export const syncNativeAppBlock = async (appName: string, blocked: boolean): Pro
     return res.success ?? false
   } catch (_e) {
     console.warn(`StayKidsNative: App block ${appName} (${blocked ? "blocked" : "allowed"}) simulated in web mode.`)
+    return false
+  }
+}
+
+export const syncNativeAppBlockDirect = async (packageName: string, blocked: boolean): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.updateBlockedApp({ packageName, blocked })
+    return res.success ?? false
+  } catch (e) {
+    console.warn("Failed to block app natively:", e)
+    return false
+  }
+}
+
+export const toggleNativeAppIconVisibility = async (hide: boolean): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.toggleAppIconVisibility({ hide })
+    return res.success ?? false
+  } catch (e) {
+    console.warn("Failed to toggle app icon visibility:", e)
+    return false
+  }
+}
+
+export const checkNativeAppIconHidden = async (): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.isAppIconHidden()
+    return res.hidden ?? false
+  } catch (e) {
     return false
   }
 }

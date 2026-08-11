@@ -19,7 +19,7 @@ import {
   authenticateBiometricNative,
 } from "./lib/native"
 import { triggerToast } from "./components/Toast"
-import { subscribeToChildUpdates, isRealtimeAvailable, type RealtimeUpdate } from './lib/realtime'
+import { subscribeToChildUpdates, isRealtimeAvailable, subscribeToWebRTCSignals, sendWebRTCSignal, type RealtimeUpdate } from './lib/realtime'
 
 import { Auth } from "./components/Auth"
 import { Onboarding } from "./components/Onboarding"
@@ -270,14 +270,30 @@ export default function App() {
 
   useEffect(() => {
     let unsubscribeWebRTCSignalListener: (() => void) | null = null
+    let unsubscribeSupabaseSignal: (() => void) | null = null
 
     if (role === "child") {
-      // Forward native WebRTC signal events (answers & candidates) to backend
+      // Forward native WebRTC signal events (answers & candidates) to parent via broadcast
       unsubscribeWebRTCSignalListener = listenWebRTCSignal((signal) => {
-        sendStayKidsAction({
-          type: "webrtc-signal",
-          ...signal,
-        }).catch(() => {})
+        sendWebRTCSignal(state.child.id, signal).catch(() => {})
+      })
+      
+      // Receive WebRTC signal events (offers & candidates) from parent via broadcast
+      unsubscribeSupabaseSignal = subscribeToWebRTCSignals(state.child.id, (signal) => {
+        handleNativeWebRTCSignal(signal).catch(() => {})
+      })
+    } else {
+      // Receive WebRTC signal events from child via broadcast
+      unsubscribeSupabaseSignal = subscribeToWebRTCSignals(state.activeChildId || state.child.id, (signal) => {
+        if (signal.answer) {
+          setState(prev => ({ ...prev, remote: { ...prev.remote, webrtcAnswer: signal.answer } }))
+        } else if (signal.candidate) {
+          setState(prev => {
+            const candidates = Array.isArray(prev.remote.webrtcCandidates) ? [...prev.remote.webrtcCandidates] : []
+            candidates.push(signal.candidate)
+            return { ...prev, remote: { ...prev.remote, webrtcCandidates: candidates } }
+          })
+        }
       })
     }
 
@@ -285,8 +301,11 @@ export default function App() {
       if (unsubscribeWebRTCSignalListener) {
         unsubscribeWebRTCSignalListener()
       }
+      if (unsubscribeSupabaseSignal) {
+        unsubscribeSupabaseSignal()
+      }
     }
-  }, [role])
+  }, [role, state.child.id, state.activeChildId])
 
   // Part A: Native Geofence Alert Event Listener for Child Device
   useEffect(() => {
@@ -559,7 +578,8 @@ export default function App() {
       } else if (data.type === "capture-snapshot") {
         next.remote = { ...next.remote, lastSnapshotTime: Date.now() as any };
       } else if (data.type === "remote-touch") {
-        next.remote = { ...next.remote, lastTouchAction: `${data.x},${data.y}` };
+        const actionStr = data.actionType === "TOUCH" ? `Tap (${data.x}, ${data.y})` : `${data.actionType}`;
+        next.remote = { ...next.remote, lastTouchAction: actionStr };
       } else if (data.type === "webrtc-signal") {
         if (data.frame) next.remote = { ...next.remote, liveFrame: data.frame as any };
       } else if (data.type === "trigger-alarm") {
@@ -592,6 +612,14 @@ export default function App() {
     })
 
     // Fix 2: Re-fetch latest server state on failure to avoid stale snapshot rollbacks
+    if (data.type === "webrtc-signal") {
+      const targetChildId = state.activeChildId || state.child.id;
+      sendWebRTCSignal(targetChildId, data).catch((err) => {
+        console.warn("Failed to broadcast WebRTC signal via Supabase:", err);
+      });
+      return; // Do not send via HTTP API to avoid latency
+    }
+
     sendStayKidsAction(data).catch((err) => {
       fetchLatestState()
       triggerToast(err.message || "Couldn't sync change — check connection", "error")

@@ -325,19 +325,48 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             </div>
 
             <div
-              onClick={(e) => {
+              onPointerDown={(e) => {
                 if (!state.remote.mirrorStreamActive && !state.remote.liveFrame && !webrtcConnected) return
-                const rect = e.currentTarget.getBoundingClientRect()
-                const clickX = e.clientX - rect.left
-                const clickY = e.clientY - rect.top
-                const targetW = state.child.screenWidth || 1080
-                const targetH = state.child.screenHeight || 1920
-                const targetX = Math.round((clickX / rect.width) * targetW)
-                const targetY = Math.round((clickY / rect.height) * targetH)
-                onAction({ type: "remote-touch", x: targetX, y: targetY, actionType: "TOUCH" })
-                triggerRemoteTouch(targetX, targetY).catch(() => {
-                  triggerToast("Touch command failed", "error")
-                })
+                
+                const mediaEl = (webrtcConnected && streamMode === "webrtc")
+                  ? videoRef.current
+                  : (e.currentTarget.querySelector('img') as HTMLImageElement);
+                
+                if (!mediaEl) return;
+                
+                const rect = mediaEl.getBoundingClientRect();
+                
+                let nativeW = 1080;
+                let nativeH = 1920;
+                
+                if (mediaEl instanceof HTMLVideoElement) {
+                    nativeW = mediaEl.videoWidth || 1080;
+                    nativeH = mediaEl.videoHeight || 1920;
+                } else if (mediaEl instanceof HTMLImageElement) {
+                    nativeW = mediaEl.naturalWidth || 1080;
+                    nativeH = mediaEl.naturalHeight || 1920;
+                }
+                
+                const scale = Math.min(rect.width / nativeW, rect.height / nativeH);
+                const renderedW = nativeW * scale;
+                const renderedH = nativeH * scale;
+                const offsetX = (rect.width - renderedW) / 2;
+                const offsetY = (rect.height - renderedH) / 2;
+                
+                const clickX = e.clientX - rect.left;
+                const clickY = e.clientY - rect.top;
+                
+                if (clickX >= offsetX && clickX <= offsetX + renderedW &&
+                    clickY >= offsetY && clickY <= offsetY + renderedH) {
+                    
+                    const targetX = Math.round(((clickX - offsetX) / renderedW) * nativeW);
+                    const targetY = Math.round(((clickY - offsetY) / renderedH) * nativeH);
+                    
+                    onAction({ type: "remote-touch", x: targetX, y: targetY, actionType: "TOUCH" });
+                    triggerRemoteTouch(targetX, targetY).catch(() => {
+                        triggerToast("Touch command failed", "error");
+                    });
+                }
               }}
               className="relative flex flex-1 w-full cursor-crosshair flex-col items-center justify-center rounded-xl border border-[#287555] bg-[#0a0a0a] text-center select-none overflow-hidden"
             >
@@ -390,7 +419,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               <button
                 type="button"
                 onClick={async () => {
@@ -417,18 +446,38 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 {state.remote.mirrorStreamActive ? "Stop Mirror ⏹" : "Start Mirror 🔴"}
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  onAction({ type: "remote-touch", actionType: "HOME" })
-                  triggerRemoteNavigation("HOME").catch(() => {
-                    triggerToast("Home gesture failed", "error")
-                  })
-                }}
-                className="w-full rounded-xl bg-[#287555]/30 border border-[#287555] py-4 text-sm font-bold text-white hover:bg-[#287555]/50 transition"
-              >
-                🏠 Home Gesture
-              </button>
+              <div className="flex bg-[#287555]/20 border border-[#287555] rounded-xl overflow-hidden mt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAction({ type: "remote-touch", actionType: "RECENTS" })
+                    triggerRemoteNavigation("RECENTS").catch(() => triggerToast("Recents gesture failed", "error"))
+                  }}
+                  className="flex-1 py-3 text-sm font-bold text-white hover:bg-[#287555]/50 transition flex items-center justify-center border-r border-[#287555]"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAction({ type: "remote-touch", actionType: "HOME" })
+                    triggerRemoteNavigation("HOME").catch(() => triggerToast("Home gesture failed", "error"))
+                  }}
+                  className="flex-1 py-3 text-sm font-bold text-white hover:bg-[#287555]/50 transition flex items-center justify-center border-r border-[#287555]"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAction({ type: "remote-touch", actionType: "BACK" })
+                    triggerRemoteNavigation("BACK").catch(() => triggerToast("Back gesture failed", "error"))
+                  }}
+                  className="flex-1 py-3 text-sm font-bold text-white hover:bg-[#287555]/50 transition flex items-center justify-center"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </button>
+              </div>
             </div>
           </div>
         )}

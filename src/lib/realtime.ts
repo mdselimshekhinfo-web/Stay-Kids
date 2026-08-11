@@ -65,3 +65,48 @@ export function isRealtimeAvailable(): boolean {
   return !!SUPABASE_ANON_KEY
 }
 
+// WebRTC P2P Signaling via Supabase Broadcast
+let webrtcChannel: any = null
+
+export function subscribeToWebRTCSignals(
+  childId: string,
+  onSignal: (signal: any) => void
+): (() => void) {
+  const client = getClient()
+  if (!client || !childId) return () => {}
+
+  if (webrtcChannel) {
+    client.removeChannel(webrtcChannel)
+  }
+
+  webrtcChannel = client.channel(`webrtc-${childId}`)
+  webrtcChannel
+    .on('broadcast', { event: 'webrtc-signal' }, (payload: { payload: any }) => {
+      onSignal(payload.payload)
+    })
+    .subscribe()
+
+  return () => {
+    if (webrtcChannel) {
+      client.removeChannel(webrtcChannel)
+      webrtcChannel = null
+    }
+  }
+}
+
+export async function sendWebRTCSignal(childId: string, signal: any) {
+  const client = getClient()
+  if (!client || !childId) return
+
+  if (!webrtcChannel) {
+    webrtcChannel = client.channel(`webrtc-${childId}`)
+    await webrtcChannel.subscribe()
+  }
+
+  await webrtcChannel.send({
+    type: 'broadcast',
+    event: 'webrtc-signal',
+    payload: signal
+  })
+}
+

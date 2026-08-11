@@ -11,8 +11,8 @@ function getSecretKey(): string {
 
 function getHmacSecret(): string {
   const secret = Deno.env.get("HMAC_SECRET");
-  if (!secret || secret.trim() === "") {
-    throw new Error("Critical: Missing HMAC_SECRET in environment variables.");
+  if (!secret || secret.trim() === "" || secret.includes("GENERATE_NEW_RANDOM_SECRET") || secret.includes("CHANGE_ME") || secret.length < 16) {
+    throw new Error("Critical: HMAC_SECRET is missing or still set to a placeholder value. Generate a real secret with `openssl rand -hex 32` before deploying.");
   }
   return secret;
 }

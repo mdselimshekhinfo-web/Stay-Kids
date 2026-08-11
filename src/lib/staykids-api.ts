@@ -153,7 +153,12 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2)
 const getHmacSecret = () => {
   try {
     if (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_HMAC_SECRET) {
-      return import.meta.env.VITE_HMAC_SECRET;
+      const secret = import.meta.env.VITE_HMAC_SECRET;
+      if (!secret || secret.trim() === "" || secret.includes("GENERATE_NEW_RANDOM_SECRET") || secret.includes("CHANGE_ME") || secret.length < 16) {
+        console.error("VITE_HMAC_SECRET is a placeholder — requests will be sent unsigned or rejected by the server");
+        return "";
+      }
+      return secret;
     }
   } catch (_e) {}
   return ""; 

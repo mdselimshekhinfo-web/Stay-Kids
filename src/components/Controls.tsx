@@ -46,6 +46,7 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
     ["App limits", "Social apps stop after limit", "limits", controls.limits, "◫"],
     ["Bedtime", "Blocks non-essential apps between bedtime and wake time", "bedtime", controls.bedtime, "◐"],
     ["Web filter", "Blocking mature & unsafe content", "filter", controls.filter, "◉"],
+    ["Stealth mode", "Hide StayKids app icon from child's device", "stealth", controls.stealth, "👻"],
   ]
 
   return (

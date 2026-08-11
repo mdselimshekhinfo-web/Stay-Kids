@@ -25,6 +25,18 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
     isAppIconHiddenNative().then(setIconHidden).catch(() => {})
   }, [])
 
+  useEffect(() => {
+    // Parent toggled Stealth Mode
+    const shouldHide = !!state.controls.stealth
+    if (shouldHide !== iconHidden) {
+      toggleAppIconVisibilityNative({ hide: shouldHide })
+        .then((res) => {
+          if (res.success) setIconHidden(shouldHide)
+        })
+        .catch(() => {})
+    }
+  }, [state.controls.stealth]) // Removed iconHidden to prevent redundant effect triggers
+
   // Periodic Health-Check for Accessibility, Device Admin & System Protection
   useEffect(() => {
     const runHealthCheck = async () => {
