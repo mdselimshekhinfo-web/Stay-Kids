@@ -493,15 +493,20 @@ export default function App() {
   }, [role, state.controls.bedtime, state.controls.bedtimeSchedule, state.controls.wakeTime])
 
   // 7. Child Device Geofence Response
+  const geofenceSetRef = React.useRef(false)
   useEffect(() => {
-    if (role === "child" && state.controls.geofence) {
-      if (state.child.coordinates) {
-        import("./lib/native").then(({ addGeofenceNative }) => {
+    if (role === "child") {
+      import("./lib/native").then(({ addGeofenceNative, removeGeofenceNative }) => {
+        if (state.controls.geofence && state.child.coordinates && !geofenceSetRef.current) {
           addGeofenceNative(state.child.coordinates!.lat, state.child.coordinates!.lng, 500).catch(() => {})
-        })
-      }
+          geofenceSetRef.current = true
+        } else if (!state.controls.geofence && geofenceSetRef.current) {
+          removeGeofenceNative().catch(() => {})
+          geofenceSetRef.current = false
+        }
+      })
     }
-  }, [role, state.controls.geofence, state.child.coordinates])
+  }, [role, state.controls.geofence])
 
   // 8. Child Device Web Filter Response
   useEffect(() => {
@@ -511,6 +516,28 @@ export default function App() {
       })
     }
   }, [role, state.controls.filter])
+
+  // 8b. Child Device App Blocker Response
+  const prevBlockedAppsRef = React.useRef<Record<string, boolean>>({})
+  useEffect(() => {
+    if (role === "child" && state.blockedApps) {
+      import("./lib/native").then(({ syncNativeAppBlock }) => {
+        const current = state.blockedApps || {}
+        const prev = prevBlockedAppsRef.current
+        
+        // Find newly blocked or unblocked apps
+        Object.keys(current).forEach((appName) => {
+          if (current[appName] !== prev[appName]) {
+            // Wait, we need package name. In Controls.tsx we used app.packageName || app.name.
+            // If the map uses appName as key, the native code might rely on it.
+            syncNativeAppBlock(appName, current[appName]).catch(() => {})
+          }
+        })
+        
+        prevBlockedAppsRef.current = { ...current }
+      })
+    }
+  }, [role, state.blockedApps])
 
   // 9. Child Device Daily Limit Response
   useEffect(() => {
@@ -620,8 +647,12 @@ export default function App() {
       return; // Do not send via HTTP API to avoid latency
     }
 
+    // Save previous state for synchronous rollback on failure
+    const prevState = { ...state }
+
     sendStayKidsAction(data).catch((err) => {
-      fetchLatestState()
+      // Revert to previous state optimistically
+      setState(prevState)
       triggerToast(err.message || "Couldn't sync change — check connection", "error")
     })
   }

@@ -95,7 +95,7 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-[#287555]">{Math.round(stat.duration_ms / 60000)} min</p>
+                          <p className="font-bold text-[#287555]">{Math.round((stat.duration_ms || 0) / 60000)} min</p>
                         </div>
                       </li>
                     ))}
@@ -144,7 +144,7 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
                         <li key={idx} className="flex items-center justify-between bg-[#f8fbf9] p-3 rounded-xl border border-[#e8f0eb]">
                           <div>
                             <p className="font-bold text-[#172226]">{log.contact_name || log.phone_number}</p>
-                            <p className="text-xs text-[#71807a] capitalize">{log.type?.toLowerCase()} • {Math.round(log.duration / 60)} min</p>
+                            <p className="text-xs text-[#71807a] capitalize">{log.type?.toLowerCase()} · {Math.round((log.duration || 0) / 60)} min</p>
                           </div>
                           <span className="text-xs text-[#809098]">{new Date(log.timestamp).toLocaleString()}</span>
                         </li>

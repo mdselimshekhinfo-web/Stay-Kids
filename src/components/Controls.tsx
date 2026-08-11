@@ -232,7 +232,6 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
                     type="button"
                     onClick={() => {
                       onAction({ type: "toggle-app-lock", appName: app.name })
-                      syncNativeAppBlock(app.packageName || app.name, !isBlocked).catch(() => {})
                     }}
                     className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition hover:scale-105 w-[90px] text-center ${isBlocked ? "bg-[#feebee] text-[#c62828] border border-[#ffcdd2]" : "bg-[#f3faee] text-[#287555] border border-[#c5e6b9]"}`}
                   >

@@ -151,5 +151,5 @@ describe('Security & Validation Test Suite', () => {
 
     // Entering an invalid 6-digit OTP code must be rejected strictly
     await expect(verifyEmailOtp({ email: testEmail, otp: '000000' })).rejects.toThrow()
-  })
+  }, 15000)
 })

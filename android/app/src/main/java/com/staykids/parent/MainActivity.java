@@ -21,6 +21,7 @@ import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Log;
 import androidx.core.content.ContextCompat;
+import androidx.core.app.ActivityCompat;
 import java.util.Calendar;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingClient;
@@ -318,18 +319,6 @@ public class MainActivity extends BridgeActivity {
                 call.resolve(new JSObject().put("granted", true));
             }
         }
-        @PluginMethod
-        public void openUsageAccessSettings(PluginCall call) {
-            try {
-                Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getActivity().startActivity(intent);
-                call.resolve();
-            } catch (Exception e) {
-                call.reject("Could not open Usage Access Settings: " + e.getMessage());
-            }
-        }
-
         @PluginMethod
         public void getAppUsageStats(PluginCall call) {
             try {
@@ -1232,6 +1221,22 @@ public class MainActivity extends BridgeActivity {
                         .addOnFailureListener(e -> call.reject("Failed to add geofence: " + e.getMessage()));
             } catch (Exception e) {
                 call.reject("Exception setting up geofence: " + e.getMessage());
+            }
+        }
+
+        @PluginMethod
+        public void removeGeofence(PluginCall call) {
+            String geofenceId = call.getString("id", "safe_zone_1");
+            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                call.reject("Location permission not granted.");
+                return;
+            }
+            try {
+                getGeofencingClient().removeGeofences(java.util.Collections.singletonList(geofenceId))
+                        .addOnSuccessListener(aVoid -> call.resolve(new JSObject().put("success", true)))
+                        .addOnFailureListener(e -> call.reject("Failed to remove geofence: " + e.getMessage()));
+            } catch (Exception e) {
+                call.reject("Exception removing geofence: " + e.getMessage());
             }
         }
 

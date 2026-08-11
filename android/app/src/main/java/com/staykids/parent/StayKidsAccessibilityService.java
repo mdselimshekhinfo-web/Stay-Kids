@@ -90,7 +90,9 @@ public class StayKidsAccessibilityService extends AccessibilityService {
         }
         if (instance != null) {
             android.content.SharedPreferences prefs = instance.getSharedPreferences("StayKidsPrefs", android.content.Context.MODE_PRIVATE);
-            prefs.edit().putStringSet("blockedApps", new java.util.HashSet<>(blockedPackageNames)).apply();
+            synchronized (blockedPackageNames) {
+                prefs.edit().putStringSet("blockedApps", new java.util.HashSet<>(blockedPackageNames)).apply();
+            }
         }
     }
 

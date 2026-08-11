@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react"
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet"
+
+function MapTracker({ center }: { center: [number, number] }) {
+  const map = useMap()
+  useEffect(() => {
+    map.flyTo(center, map.getZoom())
+  }, [center, map])
+  return null
+}
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 
@@ -112,23 +120,27 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
   useEffect(() => {
     if (!pcRef.current) return
 
-    // Apply SDP Answer from child device
-    if (state.remote.webrtcAnswer && !pcRef.current.currentRemoteDescription) {
-      const answerObj = typeof state.remote.webrtcAnswer === "string" ? JSON.parse(state.remote.webrtcAnswer) : state.remote.webrtcAnswer
-      pcRef.current.setRemoteDescription(answerObj).catch((err) => console.warn("Error setting remote answer:", err))
+    const applyWebRtcState = async () => {
+      // Apply SDP Answer from child device
+      if (state.remote.webrtcAnswer && !pcRef.current!.currentRemoteDescription) {
+        const answerObj = typeof state.remote.webrtcAnswer === "string" ? JSON.parse(state.remote.webrtcAnswer) : state.remote.webrtcAnswer
+        await pcRef.current!.setRemoteDescription(answerObj).catch((err) => console.warn("Error setting remote answer:", err))
+      }
+
+      // Apply backend-accumulated ICE candidates
+      if (state.remote.webrtcCandidates && Array.isArray(state.remote.webrtcCandidates)) {
+        const candidates = state.remote.webrtcCandidates
+        for (let i = appliedCandidatesCount.current; i < candidates.length; i++) {
+          const cand = candidates[i]
+          if (cand && pcRef.current && pcRef.current.remoteDescription) {
+            await pcRef.current.addIceCandidate(new RTCIceCandidate(cand)).catch((err) => console.warn("Error adding candidate:", err))
+          }
+        }
+        appliedCandidatesCount.current = candidates.length
+      }
     }
 
-    // Apply backend-accumulated ICE candidates
-    if (state.remote.webrtcCandidates && Array.isArray(state.remote.webrtcCandidates)) {
-      const candidates = state.remote.webrtcCandidates
-      for (let i = appliedCandidatesCount.current; i < candidates.length; i++) {
-        const cand = candidates[i]
-        if (cand && pcRef.current) {
-          pcRef.current.addIceCandidate(new RTCIceCandidate(cand)).catch((err) => console.warn("Error adding candidate:", err))
-        }
-      }
-      appliedCandidatesCount.current = candidates.length
-    }
+    applyWebRtcState()
   }, [state.remote.webrtcAnswer, state.remote.webrtcCandidates])
 
   const tools = [
@@ -271,13 +283,14 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 zoomControl={false}
               >
                 <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
+                <MapTracker center={[lat, lng]} />
                 <Marker position={[lat, lng]}>
                   <Popup>
                     <div className="text-center font-bold text-[#17352b]">
-                      {childName}'s Device
+                      {childName}'s location
                     </div>
                   </Popup>
                 </Marker>
@@ -340,11 +353,13 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 let nativeH = 1920;
                 
                 if (mediaEl instanceof HTMLVideoElement) {
-                    nativeW = mediaEl.videoWidth || 1080;
-                    nativeH = mediaEl.videoHeight || 1920;
+                    if (mediaEl.videoWidth === 0) return; // Guard against uninitialized video metadata
+                    nativeW = mediaEl.videoWidth;
+                    nativeH = mediaEl.videoHeight;
                 } else if (mediaEl instanceof HTMLImageElement) {
-                    nativeW = mediaEl.naturalWidth || 1080;
-                    nativeH = mediaEl.naturalHeight || 1920;
+                    if (mediaEl.naturalWidth === 0) return;
+                    nativeW = mediaEl.naturalWidth;
+                    nativeH = mediaEl.naturalHeight;
                 }
                 
                 const scale = Math.min(rect.width / nativeW, rect.height / nativeH);

@@ -29,9 +29,9 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
     // Parent toggled Stealth Mode
     const shouldHide = !!state.controls.stealth
     if (shouldHide !== iconHidden) {
-      toggleAppIconVisibilityNative({ hide: shouldHide })
-        .then((res) => {
-          if (res.success) setIconHidden(shouldHide)
+      toggleAppIconVisibilityNative(shouldHide)
+        .then((ok) => {
+          if (ok) setIconHidden(shouldHide)
         })
         .catch(() => {})
     }
@@ -149,11 +149,9 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
                 setSendingSos(true)
                 setSosError(false)
 
-                // Capture native location & surroundings snapshot in parallel
-                const [locRes, snapRes] = await Promise.all([
-                  getNativeLocation().catch(() => null),
-                  captureNativeSnapshot().catch(() => null),
-                ])
+                // Capture native location & surroundings snapshot sequentially to avoid permission dialog overlaps
+                const locRes = await getNativeLocation().catch(() => null)
+                const snapRes = await captureNativeSnapshot().catch(() => null)
 
                 const payload: Record<string, unknown> = {
                   type: "trigger-sos",
@@ -170,8 +168,9 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
                     if (res && (res as any).success !== false) {
                       setHelp(true)
                       setTimeout(() => setHelp(false), 7000)
-                      if (snapRes?.success) {
-                        sendStayKidsAction({ type: "capture-snapshot", facing: "environment" }).catch(() => {})
+                      if (snapRes?.success && snapRes.filePath) {
+                        console.log("SOS snapshot saved at:", snapRes.filePath)
+                        // Do not re-trigger a network capture-snapshot request as it's already saved locally
                       }
                     } else {
                       setSosError(true)

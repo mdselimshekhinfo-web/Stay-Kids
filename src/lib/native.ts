@@ -580,6 +580,15 @@ export const addGeofenceNative = async (latitude: number, longitude: number, rad
   }
 }
 
+export const removeGeofenceNative = async (id = "safe_zone_1"): Promise<{ success: boolean; error?: string }> => {
+  try {
+    return await StayKidsNative.removeGeofence({ id })
+  } catch (e: any) {
+    console.warn(`StayKidsNative: Geofence removed in web mode.`)
+    return { success: true }
+  }
+}
+
 export const getScreenResolutionNative = async (): Promise<{ screenWidth: number; screenHeight: number }> => {
   try {
     const res = await StayKidsNative.getScreenResolution()
