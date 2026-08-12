@@ -213,7 +213,7 @@ export function Onboarding({
               stay<span className="text-[#287555]">kids</span>
             </p>
             <div className="flex gap-1">
-              {pages.map((_, i) => (
+              {(role === "parent" ? pages.slice(0, 2) : pages).map((_, i) => (
                 <span key={i} className={`h-1.5 w-6 rounded-full ${i <= step ? "bg-[#287555]" : "bg-[#dbe4e2]"}`} />
               ))}
             </div>

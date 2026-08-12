@@ -21,6 +21,16 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
   }, [state.usage.limit])
 
   useEffect(() => {
+    if (state.controls.appLimits) {
+      const stringifiedLimits: Record<string, string> = {}
+      for (const [key, val] of Object.entries(state.controls.appLimits)) {
+        stringifiedLimits[key] = String(val)
+      }
+      setAppLimits(stringifiedLimits)
+    }
+  }, [state.controls.appLimits])
+
+  useEffect(() => {
     fetchNativeInstalledApps().then((apps) => {
       if (apps && apps.length > 0) {
         setRealApps(apps)
@@ -252,9 +262,14 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
                           setAppLimits((prev) => ({ ...prev, [app.name]: valStr }))
                         }}
                         onBlur={() => {
-                          const val = Number(appLimits[app.name])
-                          if (val >= 0) {
-                            onAction({ type: "set-app-limit", appName: app.name, limit: val })
+                          const valStr = appLimits[app.name]
+                          if (valStr === "" || valStr === undefined) {
+                            onAction({ type: "remove-app-limit", appName: app.name })
+                          } else {
+                            const val = Number(valStr)
+                            if (val >= 0) {
+                              onAction({ type: "set-app-limit", appName: app.name, limit: val })
+                            }
                           }
                         }}
                       />

@@ -28,14 +28,16 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
   useEffect(() => {
     // Parent toggled Stealth Mode
     const shouldHide = !!state.controls.stealth
-    if (shouldHide !== iconHidden) {
-      toggleAppIconVisibilityNative(shouldHide)
-        .then((ok) => {
-          if (ok) setIconHidden(shouldHide)
-        })
-        .catch(() => {})
-    }
-  }, [state.controls.stealth]) // Removed iconHidden to prevent redundant effect triggers
+    isAppIconHiddenNative().then(currentlyHidden => {
+      if (shouldHide !== currentlyHidden) {
+        toggleAppIconVisibilityNative(shouldHide)
+          .then((ok) => {
+            if (ok) setIconHidden(shouldHide)
+          })
+          .catch(() => {})
+      }
+    })
+  }, [state.controls.stealth])
 
   // Periodic Health-Check for Accessibility, Device Admin & System Protection
   useEffect(() => {

@@ -528,18 +528,17 @@ export default function App() {
   const prevBlockedAppsRef = React.useRef<Record<string, boolean>>({})
   useEffect(() => {
     if (role === "child" && state.blockedApps) {
+      const current = state.blockedApps || {}
+      const prev = prevBlockedAppsRef.current
+      prevBlockedAppsRef.current = { ...current }
+      
       import("./lib/native").then(({ syncNativeAppBlock }) => {
-        const current = state.blockedApps || {}
-        const prev = prevBlockedAppsRef.current
-        
         // Keys in the blockedApps map are now packageNames (from Controls.tsx fix)
         Object.keys(current).forEach((appKey) => {
           if (current[appKey] !== prev[appKey]) {
             syncNativeAppBlock(appKey, current[appKey]).catch(() => {})
           }
         })
-        
-        prevBlockedAppsRef.current = { ...current }
       })
     }
   }, [role, state.blockedApps])

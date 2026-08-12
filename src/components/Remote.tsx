@@ -42,7 +42,8 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
   const [webrtcConnected, setWebrtcConnected] = useState(false)
   const videoRef = React.useRef<HTMLVideoElement | null>(null)
   const pcRef = React.useRef<RTCPeerConnection | null>(null)
-  const audio = state.remote.audioActive
+  const remote = state.remote || {}
+  const audio = remote.audioActive
 
   useEffect(() => {
     if (!cameraStreaming) return
@@ -56,7 +57,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
   const appliedCandidatesCount = React.useRef(0)
 
   useEffect(() => {
-    if (tool !== "Screen Mirror" || !state.remote.mirrorStreamActive) {
+    if (tool !== "Screen Mirror" || !remote.mirrorStreamActive) {
       if (pcRef.current) {
         pcRef.current.close()
         pcRef.current = null
@@ -117,21 +118,25 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     }
   }, [tool, state.remote.mirrorStreamActive])
 
-  // 2. Watch for state.remote.webrtcAnswer & state.remote.webrtcCandidates
+  // 2. Watch for remote.webrtcAnswer & remote.webrtcCandidates
   useEffect(() => {
     if (!pcRef.current) return
 
     const applyWebRtcState = async () => {
       // Apply SDP Answer from child device
-      if (state.remote.webrtcAnswer && !pcRef.current!.currentRemoteDescription) {
-        const answerObj = typeof state.remote.webrtcAnswer === "string" ? JSON.parse(state.remote.webrtcAnswer) : state.remote.webrtcAnswer
-        await pcRef.current!.setRemoteDescription(answerObj).catch((err) => console.warn("Error setting remote answer:", err))
+      if (remote.webrtcAnswer && !pcRef.current!.currentRemoteDescription) {
+        try {
+          const answerObj = typeof remote.webrtcAnswer === "string" ? JSON.parse(remote.webrtcAnswer) : remote.webrtcAnswer
+          await pcRef.current!.setRemoteDescription(answerObj)
+        } catch (err) {
+          console.warn("Error setting remote answer:", err)
+        }
       }
 
       // Apply backend-accumulated ICE candidates — only if remote description is set
       if (!pcRef.current!.remoteDescription) return // Wait until answer is applied
-      if (state.remote.webrtcCandidates && Array.isArray(state.remote.webrtcCandidates)) {
-        const candidates = state.remote.webrtcCandidates
+      if (remote.webrtcCandidates && Array.isArray(remote.webrtcCandidates)) {
+        const candidates = remote.webrtcCandidates
         for (let i = appliedCandidatesCount.current; i < candidates.length; i++) {
           const cand = candidates[i]
           if (cand && pcRef.current) {
@@ -143,7 +148,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     }
 
     applyWebRtcState()
-  }, [state.remote.webrtcAnswer, state.remote.webrtcCandidates])
+  }, [remote.webrtcAnswer, remote.webrtcCandidates, pcRef.current?.remoteDescription])
 
   // 2b. Cleanup WebRTC on unmount
   useEffect(() => {

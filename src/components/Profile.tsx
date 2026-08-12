@@ -74,7 +74,7 @@ export function Profile({
 
   // B.5 App Lock State
   const [biometricEnabled, setBiometricEnabled] = useState(() => {
-    return localStorage.getItem("staykids_biometric_enabled") === "true"
+    try { return localStorage.getItem("staykids_biometric_enabled") === "true" } catch { return false }
   })
   const [exportLoading, setExportLoading] = useState(false)
 
@@ -134,22 +134,22 @@ export function Profile({
       return
     }
     
-    // Import schema dynamically to avoid top-level dependency loops if any, or just import it statically
-    const { StrongPasswordSchema } = await import("../lib/validation-schemas")
-    const validationResult = StrongPasswordSchema.safeParse(newPassword)
-    
-    if (!validationResult.success) {
-      setPwdMsg({ type: "error", text: validationResult.error.errors[0].message })
-      return
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPwdMsg({ type: "error", text: "New passwords do not match." })
-      return
-    }
-
-    setPwdLoading(true)
     try {
+      // Import schema dynamically to avoid top-level dependency loops if any, or just import it statically
+      const { StrongPasswordSchema } = await import("../lib/validation-schemas")
+      const validationResult = StrongPasswordSchema.safeParse(newPassword)
+      
+      if (!validationResult.success) {
+        setPwdMsg({ type: "error", text: validationResult.error.errors[0].message })
+        return
+      }
+
+      if (newPassword !== confirmPassword) {
+        setPwdMsg({ type: "error", text: "New passwords do not match." })
+        return
+      }
+
+      setPwdLoading(true)
       const res = await changeParentPassword({ currentPassword, newPassword })
       if (res.success) {
         setPwdMsg({ type: "success", text: res.message || "Password updated successfully!" })
@@ -423,17 +423,14 @@ export function Profile({
               const nextState = !biometricEnabled;
               if (nextState) {
                 import('../lib/native').then(({ authenticateBiometricNative }) => {
-                  authenticateBiometricNative().then(success => {
+                  authenticateBiometricNative("StayKids Security", "Verify it's you to enable biometrics").then(success => {
                     if (success) {
-                      localStorage.setItem("staykids_biometric_enabled", "true")
+                      try { localStorage.setItem("staykids_biometric_enabled", "true") } catch {}
                       setBiometricEnabled(true)
-                    } else {
-                      triggerToast("Biometric setup failed or cancelled.", "error")
                     }
-                  })
-                })
+                  }).catch(() => triggerToast("Biometric error", "error"))
+                }).catch(() => triggerToast("Native module load error", "error"))
               } else {
-                localStorage.setItem("staykids_biometric_enabled", "false")
                 setBiometricEnabled(false)
               }
             }}
@@ -525,13 +522,17 @@ export function Profile({
                 desc: "Revoke all active parent sessions across all devices? You will be required to log in again.",
                 actionText: "Revoke",
                 onConfirm: async () => {
-                  const { revokeAllParentSessions } = await import("../lib/staykids-api")
-                  const res = await revokeAllParentSessions()
-                  if (res.success) {
-                    triggerToast("All active sessions revoked. Signing out.", "success")
-                    onSignOut()
-                  } else {
-                    triggerToast("Failed to revoke sessions.", "error")
+                  try {
+                    const { revokeAllParentSessions } = await import("../lib/staykids-api")
+                    const res = await revokeAllParentSessions()
+                    if (res.success) {
+                      triggerToast("All active sessions revoked. Signing out.", "success")
+                      onSignOut()
+                    } else {
+                      triggerToast("Failed to revoke sessions.", "error")
+                    }
+                  } catch (e: any) {
+                    triggerToast(e?.message || "Error revoking sessions", "error")
                   }
                 }
               })

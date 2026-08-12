@@ -138,7 +138,7 @@ export const Activity = React.memo(function Activity({ state }: { state: StayKid
         <h2 className="font-bold text-[#172226] flex items-center gap-2 mb-3">
           <span className="text-[#287555]">📞</span> Call & SMS History (Metadata)
         </h2>
-        {state.child.callSmsLogs && state.child.callSmsLogs.length > 0 ? (
+        {state.child?.callSmsLogs && state.child.callSmsLogs.length > 0 ? (
           <ul className="space-y-2 text-xs">
             {state.child.callSmsLogs.slice(0, 15).map((log) => (
               <li key={log.id} className="flex items-center justify-between bg-[#f8fbf9] p-2.5 rounded-xl border border-[#e8f0eb]">
@@ -161,9 +161,9 @@ export const Activity = React.memo(function Activity({ state }: { state: StayKid
       {/* Priority 4: Web & Search History Card */}
       <div className="rounded-[22px] border border-[#e1e7e8] bg-white p-5 shadow-sm">
         <h2 className="font-bold text-[#172226] flex items-center gap-2 mb-3">
-          <span className="text-[#287555]">🌐</span> Web & Search History
+          <span className="text-[#3b82f6]">🌐</span> Web Browsing History
         </h2>
-        {state.child.webHistory && state.child.webHistory.length > 0 ? (
+        {state.child?.webHistory && state.child.webHistory.length > 0 ? (
           <ul className="space-y-2 text-xs">
             {state.child.webHistory.slice(0, 15).map((web) => (
               <li key={web.id} className="flex items-center justify-between bg-[#f8fbf9] p-2.5 rounded-xl border border-[#e8f0eb]">

@@ -34,18 +34,21 @@ export function AddChildModal({
     onClose()
   }
 
-  const fetchPairingPin = async (childId: string) => {
+  const fetchPairingPin = async (childId: string): Promise<boolean> => {
     setIsGeneratingPin(true)
     setPinError(null)
     try {
       const res = await generatePairingCode(childId)
       if (res && res.pin) {
         setPairingPin(res.pin)
+        return true
       } else {
         setPinError("Failed to generate backend pairing code. Please try again.")
+        return false
       }
     } catch (err: any) {
-      setPinError(err.message || "Network error generating pairing code. Please try again.")
+      setPinError(err.message || "Failed to generate pairing code.")
+      return false
     } finally {
       setIsGeneratingPin(false)
     }
@@ -69,10 +72,10 @@ export function AddChildModal({
 
     setCreatedChildId(childId)
     setStep("pin")
-    try {
-      await fetchPairingPin(childId)
+    const success = await fetchPairingPin(childId)
+    if (success) {
       onDeviceAdded(newChild)
-    } catch {
+    } else {
       setStep("form")
       setCreatedChildId(null)
     }

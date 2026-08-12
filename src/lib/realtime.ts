@@ -80,16 +80,19 @@ export function subscribeToWebRTCSignals(
   }
 
   webrtcChannel = client.channel(`webrtc-${childId}`)
-  webrtcChannel
+  const localChannel = webrtcChannel
+  localChannel
     .on('broadcast', { event: 'webrtc-signal' }, (payload: { payload: any }) => {
       onSignal(payload.payload)
     })
     .subscribe()
 
   return () => {
-    if (webrtcChannel) {
-      client.removeChannel(webrtcChannel)
-      webrtcChannel = null
+    if (localChannel) {
+      client.removeChannel(localChannel)
+      if (webrtcChannel === localChannel) {
+        webrtcChannel = null
+      }
     }
   }
 }

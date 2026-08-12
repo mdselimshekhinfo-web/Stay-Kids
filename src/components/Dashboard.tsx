@@ -25,8 +25,8 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
           if (mounted && res.success) setNotifications(res.data || [])
         } else if (activeTab === "calls") {
           const [callsRes, smsRes] = await Promise.all([
-            fetchChildCallSmsLogs(childId, 'CALL'),
-            fetchChildCallSmsLogs(childId, 'SMS')
+            fetchChildCallSmsLogs(childId, 'CALL').catch(() => ({ success: false, data: [] })),
+            fetchChildCallSmsLogs(childId, 'SMS').catch(() => ({ success: false, data: [] }))
           ])
           if (mounted) {
             if (callsRes.success) setCallLogs(callsRes.data || [])
@@ -91,7 +91,7 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
                           <div className="w-10 h-10 bg-[#e2e8ea] rounded-xl flex items-center justify-center text-xl">📱</div>
                           <div>
                             <p className="font-bold text-[#172226]">{stat.app_name || stat.package_name}</p>
-                            <p className="text-xs text-[#71807a]">Last used: {new Date(stat.last_used_time).toLocaleString()}</p>
+                            <p className="text-xs text-[#71807a]">Last used: {stat.last_used_time ? new Date(stat.last_used_time).toLocaleString() : 'N/A'}</p>
                           </div>
                         </div>
                         <div className="text-right">
@@ -146,7 +146,7 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
                             <p className="font-bold text-[#172226]">{log.contact_name || log.phone_number}</p>
                             <p className="text-xs text-[#71807a] capitalize">{log.type?.toLowerCase()} · {Math.round((log.duration || 0) / 60)} min</p>
                           </div>
-                          <span className="text-xs text-[#809098]">{new Date(log.timestamp).toLocaleString()}</span>
+                          <span className="text-xs text-[#809098]">{log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}</span>
                         </li>
                       ))}
                     </ul>
@@ -163,7 +163,7 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
                         <li key={idx} className="flex flex-col gap-1 bg-[#f8fbf9] p-3 rounded-xl border border-[#e8f0eb]">
                           <div className="flex justify-between items-start">
                             <span className="font-bold text-[#172226]">{log.contact_name || log.phone_number}</span>
-                            <span className="text-xs text-[#809098]">{new Date(log.timestamp).toLocaleString()}</span>
+                            <span className="text-xs text-[#809098]">{log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}</span>
                           </div>
                           <p className="text-xs text-[#71807a] capitalize mb-1">{log.type?.toLowerCase()}</p>
                           {log.message_body && <p className="text-sm text-[#46545b] bg-white p-2 rounded-lg border border-[#e1e7e8]">{log.message_body}</p>}

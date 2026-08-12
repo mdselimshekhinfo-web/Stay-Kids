@@ -248,8 +248,14 @@ export const sendStayKidsAction = async (action: Record<string, unknown>) => {
 }
 
 export const signUpParent = async (data: { name?: string; email: string; password?: string }) => {
-  const validated = SignUpSchema.parse(data)
-  return await request("/auth/signup", { method: "POST", body: JSON.stringify(validated) })
+  const validated = SignUpSchema.safeParse(data)
+  if (!validated.success) throw new Error(validated.error.errors[0].message)
+  const result = await request("/auth/signup", { method: "POST", body: JSON.stringify(validated.data) })
+  if (result.token) {
+    await setAuthToken(result.token)
+    await authManager.setSession({ name: result.user?.name || data.name || data.email.split('@')[0], email: data.email }, result.token, 'parent')
+  }
+  return result
 }
 
 export const verifyEmailOtp = async (data: { email: string; otp: string }) => {
@@ -273,8 +279,9 @@ export const requestPasswordReset = async (data: { email: string }) => {
 }
 
 export const confirmPasswordReset = async (data: { email: string; otp: string; newPassword?: string }) => {
-  const validated = PasswordResetSchema.parse(data)
-  const result = await request("/auth/reset-password", { method: "POST", body: JSON.stringify(validated) })
+  const validated = PasswordResetSchema.safeParse(data)
+  if (!validated.success) throw new Error(validated.error.errors[0].message)
+  const result = await request("/auth/reset-password", { method: "POST", body: JSON.stringify(validated.data) })
   if (result.token) {
     await setAuthToken(result.token)
     await authManager.setSession({ name: result.user?.name || data.email.split('@')[0], email: data.email }, result.token, 'parent')
@@ -283,8 +290,9 @@ export const confirmPasswordReset = async (data: { email: string; otp: string; n
 }
 
 export const loginParent = async (data: { email: string; password?: string }) => {
-  const validated = LoginSchema.parse(data)
-  const result = await request("/auth/login", { method: "POST", body: JSON.stringify(validated) })
+  const validated = LoginSchema.safeParse(data)
+  if (!validated.success) throw new Error(validated.error.errors[0].message)
+  const result = await request("/auth/login", { method: "POST", body: JSON.stringify(validated.data) })
   if (result.token) {
     await setAuthToken(result.token)
     await authManager.setSession({ name: result.user?.name || data.email.split('@')[0], email: data.email }, result.token, 'parent')
@@ -301,11 +309,12 @@ export const generatePairingCode = (childId?: string) =>
   request("/pairing/generate", { method: "POST", body: JSON.stringify({ childId }) }) as Promise<{ pin: string; qrCode: string }>
 
 export const claimDevicePairing = async (data: { pin: string; deviceName?: string }) => {
-  const validated = PairingClaimSchema.parse(data)
-  const result = await request("/pairing/claim", { method: "POST", body: JSON.stringify(validated) })
+  const validated = PairingClaimSchema.safeParse(data)
+  if (!validated.success) throw new Error(validated.error.errors[0].message)
+  const result = await request("/pairing/claim", { method: "POST", body: JSON.stringify(validated.data) })
   if (result.deviceToken) {
     await setAuthToken(result.deviceToken)
-    // Device token already saved via setAuthToken above; remove insecure localStorage duplicate
+    await authManager.setSession({ name: data.deviceName || 'Child Device', email: '' }, result.deviceToken, 'device')
   }
   return result
 }

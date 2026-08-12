@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { PREMIUM_ENABLED } from "../lib/config"
 
 export function FamilyPremiumModal({
@@ -16,11 +16,19 @@ export function FamilyPremiumModal({
   const [promoErr, setPromoErr] = useState("")
   const [loading, setLoading] = useState(false)
 
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [])
+
   if (!PREMIUM_ENABLED || !isOpen) return null
 
   const handleSubscribe = () => {
     setLoading(true)
-    setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       setLoading(false)
       onUpgradeSuccess()
       onClose()
@@ -32,7 +40,7 @@ export function FamilyPremiumModal({
     const clean = promoCode.trim().toUpperCase()
     if (clean === "STAYKIDS_FREE_VIP" || clean === "VIP2026" || clean === "FREEPASS" || clean === "ADMIN") {
       setLoading(true)
-      setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         setLoading(false)
         onUpgradeSuccess()
         onClose()
@@ -45,7 +53,7 @@ export function FamilyPremiumModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md">
       <div className="w-full max-w-sm overflow-hidden rounded-[32px] bg-white p-6 shadow-2xl space-y-4 text-[#172226] relative max-h-[90vh] overflow-y-auto">
-        <button onClick={onClose} className="absolute top-4 right-4 rounded-full bg-[#edf2ef] p-1.5 text-xs font-bold text-[#5c6e67] hover:bg-[#dce6e1]">
+        <button disabled={loading} onClick={onClose} className="absolute top-4 right-4 rounded-full bg-[#edf2ef] p-1.5 text-xs font-bold text-[#5c6e67] hover:bg-[#dce6e1] disabled:opacity-50">
           ✕
         </button>
 

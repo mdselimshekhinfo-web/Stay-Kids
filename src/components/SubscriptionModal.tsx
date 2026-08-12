@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { PREMIUM_ENABLED } from "../lib/config"
 
-export function SubscriptionModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export function SubscriptionModal({ isOpen, onClose, onUpgradeSuccess }: { isOpen: boolean; onClose: () => void; onUpgradeSuccess?: () => void }) {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">("yearly")
   const [paymentMethod, setPaymentMethod] = useState<"gplay" | "bkash" | "nagad" | "card">("bkash")
   const [subscribed, setSubscribed] = useState(false)
@@ -129,7 +129,12 @@ export function SubscriptionModal({ isOpen, onClose }: { isOpen: boolean; onClos
             </div>
           ) : (
             <button
-              onClick={() => setSubscribed(true)}
+              onClick={() => {
+                setSubscribed(true)
+                if (onUpgradeSuccess) {
+                  onUpgradeSuccess()
+                }
+              }}
               className="w-full rounded-2xl bg-[#287555] py-3.5 text-sm font-bold text-white hover:bg-[#1f5c43] transition shadow-md"
             >
               Start 7-Day Free Trial (৳০ Today)

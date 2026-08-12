@@ -106,9 +106,17 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
 
   useEffect(() => {
     if (resendCooldown <= 0) return
-    const timer = setInterval(() => setResendCooldown((prev) => prev - 1), 1000)
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
     return () => clearInterval(timer)
-  }, [resendCooldown])
+  }, [resendCooldown > 0])
 
   const handleResendOtp = async () => {
     if (resendCooldown > 0) return
