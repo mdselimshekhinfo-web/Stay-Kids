@@ -19,18 +19,18 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
       try {
         if (activeTab === "usage") {
           const res = await fetchChildUsageStats(childId)
-          if (mounted && res.success) setUsageStats(res.data)
+          if (mounted && res.success) setUsageStats(res.data || [])
         } else if (activeTab === "notifications") {
           const res = await fetchChildNotifications(childId)
-          if (mounted && res.success) setNotifications(res.data)
+          if (mounted && res.success) setNotifications(res.data || [])
         } else if (activeTab === "calls") {
           const [callsRes, smsRes] = await Promise.all([
             fetchChildCallSmsLogs(childId, 'CALL'),
             fetchChildCallSmsLogs(childId, 'SMS')
           ])
           if (mounted) {
-            if (callsRes.success) setCallLogs(callsRes.data)
-            if (smsRes.success) setSmsLogs(smsRes.data)
+            if (callsRes.success) setCallLogs(callsRes.data || [])
+            if (smsRes.success) setSmsLogs(smsRes.data || [])
           }
         }
       } catch (error) {

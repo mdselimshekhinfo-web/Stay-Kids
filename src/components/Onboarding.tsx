@@ -14,6 +14,7 @@ import {
   checkLocationPermission,
   requestLocationPermission,
   checkMicrophonePermission,
+  requestMicrophonePermission,
   checkUsageStatsPermission,
   openUsageAccessSettings,
   checkNotificationAccess,
@@ -144,7 +145,11 @@ export function Onboarding({
 
   const handleNextStep = async () => {
     if (step === 0 && role === "parent") {
-      complete(role)
+      setStep(1) // Show pairing code screen first
+      return
+    }
+    if (step === 1 && role === "parent") {
+      complete(role) // Complete after parent has seen the pairing code
       return
     }
 

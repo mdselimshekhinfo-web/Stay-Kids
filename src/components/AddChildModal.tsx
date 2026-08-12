@@ -67,10 +67,15 @@ export function AddChildModal({
       protected: true,
     }
 
-    onDeviceAdded(newChild)
     setCreatedChildId(childId)
     setStep("pin")
-    await fetchPairingPin(childId)
+    try {
+      await fetchPairingPin(childId)
+      onDeviceAdded(newChild)
+    } catch {
+      setStep("form")
+      setCreatedChildId(null)
+    }
   }
 
   return (

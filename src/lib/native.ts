@@ -46,6 +46,7 @@ export interface StayKidsNativePlugin {
   stopSiren(): Promise<{ success: boolean }>
   setBedtimeSchedule(options: { time: string; wakeTime?: string }): Promise<{ success: boolean }>
   addGeofence(options: { latitude: number; longitude: number; radius: number }): Promise<{ success: boolean }>
+  removeGeofence(options: { id: string }): Promise<{ success: boolean }>
   getScreenResolution(): Promise<{ screenWidth?: number; screenHeight?: number }>
   handleWebRTCSignal(signal: Record<string, unknown>): Promise<{ success: boolean; error?: string }>
   getCallSmsLogs(): Promise<{ success: boolean; logs?: { id: string; logType: string; contact: string; detail: string; timestamp: number }[] }>

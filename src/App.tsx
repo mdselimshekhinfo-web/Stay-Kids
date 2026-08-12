@@ -485,10 +485,17 @@ export default function App() {
 
   // 6. Child Device Bedtime Enforcement Response (Fix 1: Pass wakeTime to native scheduler)
   useEffect(() => {
-    if (role === "child" && state.controls.bedtime && state.controls.bedtimeSchedule) {
-      import("./lib/native").then(({ setBedtimeNative }) => {
-        setBedtimeNative(state.controls.bedtimeSchedule!, state.controls.wakeTime || "07:00").catch(() => {})
-      })
+    if (role === "child") {
+      if (state.controls.bedtime && state.controls.bedtimeSchedule) {
+        import("./lib/native").then(({ setBedtimeNative }) => {
+          setBedtimeNative(state.controls.bedtimeSchedule!, state.controls.wakeTime || "07:00").catch(() => {})
+        })
+      } else if (!state.controls.bedtime) {
+        // Clear bedtime schedule when disabled
+        import("./lib/native").then(({ setBedtimeNative }) => {
+          setBedtimeNative("00:00", "00:00").catch(() => {})
+        })
+      }
     }
   }, [role, state.controls.bedtime, state.controls.bedtimeSchedule, state.controls.wakeTime])
 
@@ -506,7 +513,7 @@ export default function App() {
         }
       })
     }
-  }, [role, state.controls.geofence])
+  }, [role, state.controls.geofence, state.child.coordinates])
 
   // 8. Child Device Web Filter Response
   useEffect(() => {
@@ -525,12 +532,10 @@ export default function App() {
         const current = state.blockedApps || {}
         const prev = prevBlockedAppsRef.current
         
-        // Find newly blocked or unblocked apps
-        Object.keys(current).forEach((appName) => {
-          if (current[appName] !== prev[appName]) {
-            // Wait, we need package name. In Controls.tsx we used app.packageName || app.name.
-            // If the map uses appName as key, the native code might rely on it.
-            syncNativeAppBlock(appName, current[appName]).catch(() => {})
+        // Keys in the blockedApps map are now packageNames (from Controls.tsx fix)
+        Object.keys(current).forEach((appKey) => {
+          if (current[appKey] !== prev[appKey]) {
+            syncNativeAppBlock(appKey, current[appKey]).catch(() => {})
           }
         })
         
@@ -543,10 +548,11 @@ export default function App() {
   useEffect(() => {
     if (role === "child") {
       import("./lib/native").then(({ syncDailyLimit }) => {
-        syncDailyLimit(state.usage.limit).catch(() => {})
+        const effectiveLimit = state.controls.limits === false ? 9999 : (state.usage.limit || 120)
+        syncDailyLimit(effectiveLimit).catch(() => {})
       })
     }
-  }, [role, state.usage.limit])
+  }, [role, state.usage.limit, state.controls.limits])
 
   // 10. Child Device Screen Resolution Telemetry Response
   useEffect(() => {
@@ -616,6 +622,9 @@ export default function App() {
         if (next.activeChildId === data.childId && (next.children || []).length > 0) {
           next.child = next.children![0];
           next.activeChildId = next.children![0].id;
+        } else if ((next.children || []).length === 0) {
+          next.activeChildId = "";
+          next.child = { id: "", name: "", device: "", school: "" } as any;
         }
       } else if (data.type === "update-school" && typeof data.school === "string") {
         next.child.school = data.school as string;

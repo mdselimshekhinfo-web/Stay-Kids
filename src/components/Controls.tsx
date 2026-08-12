@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react"
 import type { StayKidsState } from "../lib/staykids-api"
-import { fetchNativeInstalledApps, syncNativeAppBlock } from "../lib/native"
+import { fetchNativeInstalledApps } from "../lib/native"
 
 const Icon = ({ name }: { name: string }) => (
   <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f0f3f6] text-lg" aria-hidden="true">
@@ -217,7 +217,8 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
         <div className="space-y-3 pt-1">
           {displayAppsList.map((app) => {
             const blockedMap = state.blockedApps || {}
-            const isBlocked = blockedMap[app.name] ?? false
+            const appKey = app.packageName || app.name
+            const isBlocked = blockedMap[appKey] ?? false
             return (
               <div key={app.packageName || app.name} className="flex items-center justify-between border-b pb-3 border-[#f0f4f4] last:border-0 last:pb-0">
                 <div className="flex items-center gap-3">
@@ -231,7 +232,7 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
                   <button
                     type="button"
                     onClick={() => {
-                      onAction({ type: "toggle-app-lock", appName: app.name })
+                      onAction({ type: "toggle-app-lock", appName: appKey })
                     }}
                     className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition hover:scale-105 w-[90px] text-center ${isBlocked ? "bg-[#feebee] text-[#c62828] border border-[#ffcdd2]" : "bg-[#f3faee] text-[#287555] border border-[#c5e6b9]"}`}
                   >

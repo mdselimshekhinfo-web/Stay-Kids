@@ -3,9 +3,10 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet"
 
 function MapTracker({ center }: { center: [number, number] }) {
   const map = useMap()
+  const [lat, lng] = center
   useEffect(() => {
-    map.flyTo(center, map.getZoom())
-  }, [center, map])
+    map.flyTo([lat, lng], map.getZoom())
+  }, [lat, lng, map])
   return null
 }
 import L from "leaflet"
@@ -127,12 +128,13 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         await pcRef.current!.setRemoteDescription(answerObj).catch((err) => console.warn("Error setting remote answer:", err))
       }
 
-      // Apply backend-accumulated ICE candidates
+      // Apply backend-accumulated ICE candidates — only if remote description is set
+      if (!pcRef.current!.remoteDescription) return // Wait until answer is applied
       if (state.remote.webrtcCandidates && Array.isArray(state.remote.webrtcCandidates)) {
         const candidates = state.remote.webrtcCandidates
         for (let i = appliedCandidatesCount.current; i < candidates.length; i++) {
           const cand = candidates[i]
-          if (cand && pcRef.current && pcRef.current.remoteDescription) {
+          if (cand && pcRef.current) {
             await pcRef.current.addIceCandidate(new RTCIceCandidate(cand)).catch((err) => console.warn("Error adding candidate:", err))
           }
         }
@@ -142,6 +144,16 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
 
     applyWebRtcState()
   }, [state.remote.webrtcAnswer, state.remote.webrtcCandidates])
+
+  // 2b. Cleanup WebRTC on unmount
+  useEffect(() => {
+    return () => {
+      if (pcRef.current) {
+        pcRef.current.close()
+        pcRef.current = null
+      }
+    }
+  }, [])
 
   const tools = [
     ["Live Camera", "📷", "View child surroundings"],

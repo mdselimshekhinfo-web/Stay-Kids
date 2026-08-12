@@ -59,6 +59,11 @@ export function Auth({ onAuthenticate }: { onAuthenticate: (user: { name: string
       } else {
         const res = await loginParent({ email, password })
         if (res.error) throw new Error(res.error)
+        if (res.requiresOtp) {
+          setOtpStep(true)
+          if (res.message) setOtpMsg(res.message)
+          return
+        }
         onAuthenticate(res.user || { name: email.split("@")[0], email })
       }
     } catch (err: any) {
