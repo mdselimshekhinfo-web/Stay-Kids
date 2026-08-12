@@ -327,15 +327,6 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
       const initMirror = async () => {
         onAction({ type: "webrtc-signal", signalState: "requesting-consent" })
         onAction({ type: "mirror-toggle", active: true })
-      })
-        onAction({ type: "mirror-toggle", active: true })
-        if (res.error) {
-          onAction({ type: "webrtc-signal", signalState: "denied" })
-          triggerToast("Consent Error: " + res.error, "error")
-        } else {
-          onAction({ type: "mirror-toggle", active: true })
-          onAction({ type: "webrtc-signal", signalState: "connecting" })
-        }
       }
       const timeout = setTimeout(initMirror, 500)
       return () => clearTimeout(timeout)
@@ -348,17 +339,6 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
       const initCam = async () => {
         onAction({ type: "webrtc-signal", signalState: "connecting" })
         onAction({ type: "live-cam-toggle", active: true, facing: camFacing })
-      })
-        setCameraStreaming(true)
-        setLiveCamFrame(null)
-        onAction({ type: "live-cam-toggle", active: true, facing: camFacing })
-        if (res.error) {
-          setCameraStreaming(false)
-          onAction({ type: "webrtc-signal", signalState: "denied" })
-          triggerToast("Camera Error: " + res.error, "error")
-        } else {
-          onAction({ type: "webrtc-signal", signalState: "live" })
-        }
       }
       const timeout = setTimeout(initCam, 500)
       return () => clearTimeout(timeout)
@@ -926,4 +906,5 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     </div>
   )
 }
+
 
