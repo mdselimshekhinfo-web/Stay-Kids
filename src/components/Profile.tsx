@@ -209,13 +209,12 @@ export function Profile({
 
   const handleNotifToggle = (key: keyof typeof defaultPrefs) => {
     const updated = { ...notifPrefs, [key]: !notifPrefs[key] }
-    setNotifPrefs(updated)
     if (onAction) {
       onAction({ type: "update-notification-prefs", prefs: updated })
     }
   }
 
-  const pairedChildren = state.children && state.children.length > 0 ? state.children : [state.child]
+  const pairedChildren = state.children && state.children.length > 0 ? state.children : (state.child ? [state.child] : [])
 
   const initials = (user?.name || "")
     .split(" ")
@@ -747,4 +746,5 @@ export function Profile({
     </div>
   )
 }
+
 

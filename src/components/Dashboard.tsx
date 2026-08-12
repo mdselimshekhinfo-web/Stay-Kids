@@ -85,8 +85,8 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
                 <h2 className="font-bold text-[#172226] text-lg mb-2">Daily App Usage</h2>
                 {usageStats.length > 0 ? (
                   <ul className="space-y-3">
-                    {usageStats.map((stat) => (
-                      <li key={stat.id || stat.package_name || Math.random()} className="flex items-center justify-between bg-[#f8fbf9] p-3 rounded-xl border border-[#e8f0eb]">
+                    {usageStats.map((stat, index) => (
+                      <li key={stat.id || stat.package_name || index} className="flex items-center justify-between bg-[#f8fbf9] p-3 rounded-xl border border-[#e8f0eb]">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-[#e2e8ea] rounded-xl flex items-center justify-center text-xl">📱</div>
                           <div>
@@ -114,7 +114,7 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
                 <h2 className="font-bold text-[#172226] text-lg mb-2">Intercepted Notifications</h2>
                 {notifications.length > 0 ? (
                   <ul className="space-y-3">
-                    {notifications.map((notif) => (
+                    {notifications.map((notif, index) => (
                       <li key={notif.id || notif.post_time || Math.random()} className="flex flex-col gap-1 bg-[#f8fbf9] p-3 rounded-xl border border-[#e8f0eb]">
                         <div className="flex justify-between items-start">
                           <span className="font-bold text-[#172226]">{notif.app_name || notif.package_name}</span>
@@ -182,3 +182,4 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
     </div>
   )
 })
+

@@ -32,11 +32,13 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
   }, [controls.appLimits])
 
   useEffect(() => {
+    let mounted = true
     fetchNativeInstalledApps().then((apps) => {
-      if (apps && apps.length > 0) {
+      if (mounted && apps && apps.length > 0) {
         setRealApps(apps)
       }
     }).catch(() => {})
+    return () => { mounted = false }
   }, [])
 
   const defaultAppList = [
@@ -139,7 +141,7 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
             <span className="text-xl">📍</span>
             <div>
               <p className="font-bold text-sm text-[#172226]">Geofencing (Safe Zones)</p>
-              <p className="text-xs text-[#71807a]">Alert if {state.child.name} leaves current location (500m radius)</p>
+              <p className="text-xs text-[#71807a]">Alert if {child.name} leaves current location (500m radius)</p>
             </div>
           </div>
           <button
@@ -181,21 +183,21 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
                   <input 
                     type="time" 
                     className="bg-gray-100 text-xs px-2 py-0.5 rounded font-medium focus:outline-none"
-                    value={state.controls.bedtimeSchedule || "21:00"}
+                    value={controls.bedtimeSchedule || "21:00"}
                     onChange={(e) => onAction({
                       type: "set-bedtime",
                       bedtime: e.target.value,
-                      wakeTime: (state.controls as any).wakeTime || "07:00"
+                      wakeTime: (controls as any).wakeTime || "07:00"
                     })}
                   />
                   <span className="font-normal text-[#71807a]">Wake:</span>
                   <input 
                     type="time" 
                     className="bg-gray-100 text-xs px-2 py-0.5 rounded font-medium focus:outline-none"
-                    value={(state.controls as any).wakeTime || "07:00"}
+                    value={(controls as any).wakeTime || "07:00"}
                     onChange={(e) => onAction({
                       type: "set-bedtime",
-                      bedtime: state.controls.bedtimeSchedule || "21:00",
+                      bedtime: controls.bedtimeSchedule || "21:00",
                       wakeTime: e.target.value
                     })}
                   />
@@ -291,3 +293,4 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
     </div>
   )
 })
+

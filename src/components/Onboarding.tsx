@@ -38,7 +38,6 @@ export function Onboarding({
   const [step, setStep] = useState(0)
   const [role, setRole] = useState<"parent" | "child">(defaultRole)
   const [pairMode, setPairMode] = useState<"pin" | "qr">("pin")
-  const [dynamicPin, setDynamicPin] = useState("849201")
   const [inputPin, setInputPin] = useState("")
   const [qrScanned, setQrScanned] = useState(false)
   const [error, setError] = useState("")
@@ -625,3 +624,4 @@ export function Onboarding({
     </main>
   )
 }
+

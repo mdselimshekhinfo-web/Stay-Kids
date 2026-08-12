@@ -41,7 +41,7 @@ export const Activity = React.memo(function Activity({ state }: { state: StayKid
         <div className="mt-3">
           <div className="flex justify-between text-sm mb-2">
             <span className="font-medium">{Math.floor(usage.minutes / 60)}h {usage.minutes % 60}m used</span>
-            <span className="text-[#71807a]">{Math.floor(usage.limit / 60)}h {usage.limit % 60}m limit</span>
+            <span className="text-[#71807a]">{Math.floor((usage.limit || 120) / 60)}h {(usage.limit || 120) % 60}m limit</span>
           </div>
           <div className="h-2 w-full bg-[#edf1f2] rounded-full overflow-hidden">
             <div 
@@ -184,3 +184,4 @@ export const Activity = React.memo(function Activity({ state }: { state: StayKid
     </div>
   )
 })
+

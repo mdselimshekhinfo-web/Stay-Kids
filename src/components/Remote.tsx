@@ -114,93 +114,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
   const remote = state.remote || {}
   const audio = remote.audioActive
 
-  // FlashGet Style Connection Overlay
-  const FlashgetConnectionUI = ({
-    status,
-    title,
-    onRetry,
-    onBack,
-    onSnapshot
-  }: {
-    status: "connecting" | "failed"
-    title: string
-    onRetry: () => void
-    onBack: () => void
-    onSnapshot?: () => void
-  }) => {
-    return (
-      <div className="absolute inset-0 z-[150] bg-white flex flex-col items-center">
-        {/* Header */}
-        <div className="w-full flex items-center h-14 px-4 border-b border-[#f0f0f0]">
-          <button onClick={onBack} className="p-2 text-black">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-          </button>
-          <h1 className="text-lg font-semibold text-black ml-4">{title}</h1>
-        </div>
 
-        {/* Illustration */}
-        <div className="mt-20 flex items-center justify-center gap-4">
-          <div className="w-24 h-48 rounded-[24px] border border-[#d8d3f6] bg-[#b8aef4] shadow-sm flex flex-col items-center justify-center relative">
-            <div className="w-6 h-1 rounded-full bg-white/50 absolute top-3"></div>
-            <span className="text-4xl">🏠</span>
-          </div>
-          
-          <div className="flex flex-col items-center gap-1">
-            {status === "connecting" ? (
-              <div className="w-16 h-[2px] bg-gray-200 overflow-hidden relative">
-                 <div className="absolute inset-0 bg-[#f48c42] w-1/2 animate-[ping_1.5s_infinite]"></div>
-              </div>
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-[#f48c42] flex items-center justify-center text-white text-3xl font-bold shadow-md">
-                !
-              </div>
-            )}
-          </div>
-
-          <div className="w-24 h-48 rounded-[24px] border border-[#d8d3f6] bg-[#b8aef4] shadow-sm flex flex-col items-center justify-center relative">
-             <div className="w-6 h-1 rounded-full bg-white/50 absolute top-3"></div>
-             <span className="text-4xl">🚀</span>
-          </div>
-        </div>
-
-        {/* Text Area */}
-        <div className="mt-8 px-8 text-center max-w-sm">
-          {status === "connecting" ? (
-            <>
-              <h2 className="text-lg font-bold text-[#333]">Connecting to the device...</h2>
-              <p className="text-sm text-[#888] mt-3">It takes time to connect, please wait patiently</p>
-            </>
-          ) : (
-            <>
-              <h2 className="text-lg font-bold text-[#333]">Connection failed (Channel 1)</h2>
-              <p className="text-xs text-[#aaa] mt-1">{state.child?.name}</p>
-              <div className="text-sm text-[#666] text-left mt-6 space-y-4 leading-relaxed">
-                <p>You can click [Retry] to reconnect.<br/>If reconnection fails, you can use [Camera Snapshot] to take photos of the surroundings of your child's device for viewing.</p>
-                <p>If the above solutions do not solve your problem, you can click [How to Fix] for support.</p>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Bottom Buttons */}
-        {status === "failed" && (
-          <div className="mt-auto mb-8 w-full px-6 flex flex-col gap-3">
-            <button onClick={onRetry} className="w-full py-3.5 rounded-full bg-[#7c5ff0] text-white font-bold text-[15px] hover:bg-[#6c4be0] active:scale-95 transition">
-              Retry
-            </button>
-            {onSnapshot && (
-              <button onClick={onSnapshot} className="w-full py-3.5 rounded-full border border-[#7c5ff0] text-[#7c5ff0] font-bold text-[15px] hover:bg-[#f5f3ff] active:scale-95 transition">
-                Camera Snapshot
-              </button>
-            )}
-            <button className="w-full py-3.5 text-[#7c5ff0] font-bold text-[15px] mt-2">
-              How to Fix
-            </button>
-          </div>
-        )}
-      </div>
-    )
-  }
 
   useEffect(() => {
     if (!cameraStreaming) return
@@ -215,7 +129,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
   const appliedCandidatesCount = React.useRef(0)
 
   useEffect(() => {
-    if (tool !== "Screen Mirror" || !remote.mirrorStreamActive) {
+    if ((tool !== "Screen Mirror" && tool !== "Remote access") || !remote.mirrorStreamActive) {
       if (pcRef.current) {
         pcRef.current.close()
         pcRef.current = null
@@ -294,7 +208,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
       }
 
       // Apply backend-accumulated ICE candidates — only if remote description is set
-      if (!hasRemoteDesc) return // Wait until answer is applied
+      if (!pcRef.current?.currentRemoteDescription) return // Wait until answer is applied
       if (remote.webrtcCandidates && Array.isArray(remote.webrtcCandidates)) {
         const candidates = remote.webrtcCandidates
         for (let i = appliedCandidatesCount.current; i < candidates.length; i++) {
@@ -906,5 +820,6 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     </div>
   )
 }
+
 
 

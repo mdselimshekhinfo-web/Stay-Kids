@@ -145,7 +145,7 @@ export default function App() {
             if (token) {
               setAuthenticated(true)
               if (currentRole === "parent" && localStorage.getItem("staykids_biometric_enabled") === "true") {
-                authenticateBiometricNative().then(success => {
+                authenticateBiometricNative().catch(() => {}).then(success => {
                   if (success) {
                     setBiometricLocked(false)
                     setReady(true)
@@ -253,7 +253,7 @@ export default function App() {
   useEffect(() => {
     let unsubscribeFrameListener: (() => void) | null = null
 
-    if (role === "child" || state.remote.mirrorStreamActive) {
+    if (role === "child") {
       unsubscribeFrameListener = listenScreenFrame((frameBase64) => {
         sendStayKidsAction({
           type: "webrtc-signal",
@@ -744,7 +744,7 @@ export default function App() {
         <div className="flex flex-col gap-3 mt-4">
           <button
             onClick={() => {
-              authenticateBiometricNative().then(success => {
+              authenticateBiometricNative().catch(() => {}).then(success => {
                 if (success) {
                   setBiometricLocked(false)
                   setReady(true)
@@ -845,3 +845,4 @@ export default function App() {
     </main>
   )
 }
+
