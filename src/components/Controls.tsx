@@ -203,6 +203,11 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
             <p className="truncate text-sm text-[#72808a]">
               {key === "bedtime" ? "Blocks non-essential apps between bedtime and wake time" : desc}
             </p>
+            {key === "stealth" && value && (
+              <p className="text-[10px] text-[#287555] mt-1 font-medium bg-[#edf3ef] p-1.5 rounded-md border border-[#cbe1d7]">
+                <span className="font-bold">To open:</span> Dial <code className="bg-white px-1 py-0.5 rounded">*#*#1234#*#*</code> on the child's phone
+              </p>
+            )}
           </div>
           <button
             onClick={() => onAction({ type: "toggle-control", key })}
@@ -218,7 +223,7 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-bold text-base text-[#172226]">App Locker</h2>
-            <p className="text-xs text-[#71807a]">Block or allow specific installed apps instantly</p>
+            <p className="text-xs text-[#71807a]">Block or limit apps (Blocked apps will show a "Time is up" screen)</p>
           </div>
           <span className="rounded-full bg-[#edf3ef] px-2.5 py-0.5 text-[10px] font-bold text-[#287555]">
             Real App Inspector ✓

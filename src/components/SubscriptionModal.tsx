@@ -25,7 +25,7 @@ export function SubscriptionModal({ isOpen, onClose, onUpgradeSuccess }: { isOpe
           {/* 7 Day Free Trial Banner */}
           <div className="rounded-2xl bg-[#f3faee] p-4 border border-[#c4e5b7] text-xs text-[#287555] space-y-1">
             <p className="font-bold text-sm text-[#1b503a]">🎉 7-Day Free Trial Activated!</p>
-            <p className="text-[11px] leading-5 text-[#426154]">First 7 days: 100% free access to ALL features. After 7 days, basic location & screen time tracking stay <strong>100% FREE FOREVER</strong>, or upgrade to Premium for live screen/audio mirroring.</p>
+            <p className="text-[11px] leading-5 text-[#426154]">First 7 days: 100% free access to ALL features. After 7 days, basic location & screen time tracking stay <strong>100% FREE FOREVER</strong>. <span className="text-[#9f1239] font-medium bg-[#fff1f2] px-1 rounded">Live Camera, Screen Mirror & Audio will lock</span> unless you upgrade.</p>
           </div>
 
           {/* Feature Tier Breakdown */}

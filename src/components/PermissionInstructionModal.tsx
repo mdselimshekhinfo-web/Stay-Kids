@@ -43,6 +43,15 @@ export function PermissionInstructionModal({
               <p className="leading-5 font-semibold text-[#17352b]">{step}</p>
             </div>
           ))}
+
+          {title.toLowerCase().includes("accessibility") && (
+            <div className="bg-[#fff1f2] border border-[#fecdd3] p-3 rounded-xl mt-2">
+              <p className="text-[10px] font-bold text-[#be123c] mb-1">⚠️ Android 13+ Restricted Settings</p>
+              <p className="text-[10px] text-[#9f1239] leading-4">
+                If the option is greyed out, go back to your phone's Settings &gt; Apps &gt; StayKids. Tap the 3 dots (top right) and select <strong>Allow restricted settings</strong>, then try again.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="pt-2 space-y-2">

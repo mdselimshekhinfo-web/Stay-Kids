@@ -24,10 +24,11 @@ export function ChildDeviceSwitcherBar({
               isActive
                 ? "bg-[#1d5946] text-white shadow-md ring-2 ring-[#287555]"
                 : "bg-white text-[#586770] border border-[#e0e8e4] hover:bg-[#f0f5f2]"
-            }`}
+            } ${!c.online && !isActive ? "opacity-70" : ""}`}
           >
-            <span className={`h-2.5 w-2.5 rounded-full ${c.online ? "bg-[#43a878]" : "bg-[#9e9e9e]"}`} />
+            <span className={`h-2.5 w-2.5 rounded-full ${c.online ? "bg-[#43a878]" : "bg-[#ef4444]"}`} />
             <span>{c.name}</span>
+            {!c.online && <span className="text-[9px] uppercase tracking-wider text-[#ef4444] font-bold bg-[#fef2f2] px-1.5 py-0.5 rounded">Offline</span>}
             <span className="text-[10px] opacity-75 font-normal">({c.device})</span>
           </button>
         )
