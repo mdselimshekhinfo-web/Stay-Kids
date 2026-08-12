@@ -28,7 +28,19 @@ class AuthManager {
         }
       }
     } catch (_e) {
-      await this.clearSession()
+      // Fallback to localStorage
+      try {
+        const sessionStr = localStorage.getItem(SESSION_KEY)
+        if (sessionStr) {
+          const session: UserSession = JSON.parse(sessionStr)
+          if (session.expiresAt > Date.now()) {
+            this.currentSession = session
+            return session
+          } else {
+            await this.clearSession()
+          }
+        }
+      } catch (_e2) {}
     }
     return null
   }
@@ -50,7 +62,12 @@ class AuthManager {
         await SecureStoragePlugin.set({ key: TOKEN_KEY, value: token })
         await SecureStoragePlugin.set({ key: SESSION_KEY, value: JSON.stringify(session) })
       }
-    } catch (_e) {}
+    } catch (_e) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(TOKEN_KEY, token)
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+      }
+    }
     return session
   }
 
@@ -70,7 +87,11 @@ class AuthManager {
         const { value } = await SecureStoragePlugin.get({ key: TOKEN_KEY })
         return value
       }
-    } catch (_e) {}
+    } catch (_e) {
+      if (typeof window !== 'undefined') {
+        return localStorage.getItem(TOKEN_KEY)
+      }
+    }
     return null
   }
 
@@ -86,7 +107,20 @@ class AuthManager {
           }
         }
       }
-    } catch (_e) {}
+    } catch (_e) {
+      try {
+        if (typeof window !== 'undefined') {
+          const value = localStorage.getItem(SESSION_KEY)
+          if (value) {
+            const session: UserSession = JSON.parse(value)
+            if (session.expiresAt > Date.now()) {
+              this.currentSession = session
+              return session
+            }
+          }
+        }
+      } catch (_e2) {}
+    }
     return null
   }
 
@@ -97,7 +131,13 @@ class AuthManager {
         await SecureStoragePlugin.remove({ key: TOKEN_KEY })
         await SecureStoragePlugin.remove({ key: SESSION_KEY })
       }
-    } catch (_e) {}
+    } catch (_e) {
+    } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(TOKEN_KEY)
+        localStorage.removeItem(SESSION_KEY)
+      }
+    }
   }
 
   isSessionValid(): boolean {

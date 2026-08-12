@@ -57,19 +57,6 @@ export function PermissionInstructionModal({
         <div className="pt-2 space-y-2">
           <button
             type="button"
-            onClick={async () => {
-              try {
-                await onOpenSettings()
-              } finally {
-                onClose()
-              }
-            }}
-            className="w-full rounded-2xl bg-[#287555] py-3.5 text-xs font-bold text-white hover:bg-[#1f5c43] shadow-md transition"
-          >
-            ⚙️ Open System Settings Now →
-          </button>
-          <button
-            type="button"
             onClick={onClose}
             className="w-full py-2 text-center text-xs font-bold text-[#71807a] hover:underline"
           >

@@ -69,6 +69,9 @@ export const loadAuthToken = async () => {
 
 export const setAuthToken = async (token: string | null) => {
   inMemoryToken = token
+  if (token) {
+    await supabaseAuthClient.auth.setSession({ access_token: token, refresh_token: '' })
+  }
   try {
     if (typeof window !== 'undefined') {
       if (token) {
@@ -78,7 +81,16 @@ export const setAuthToken = async (token: string | null) => {
         await authManager.clearSession()
       }
     }
-  } catch (_e) {}
+  } catch (_e) {
+    if (typeof window !== 'undefined') {
+      if (token) {
+        localStorage.setItem('staykids_jwt_token', token)
+      } else {
+        localStorage.removeItem('staykids_jwt_token')
+        await authManager.clearSession()
+      }
+    }
+  }
 }
 
 export const getAuthToken = () => inMemoryToken

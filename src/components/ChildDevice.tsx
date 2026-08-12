@@ -9,6 +9,7 @@ import {
   checkOverlayPermissionGranted,
   isAppIconHiddenNative,
   toggleAppIconVisibilityNative,
+  setDevicePausedNative,
 } from "../lib/native"
 
 export function ChildDevice({ state, switchRole }: { state: StayKidsState; switchRole: () => void }) {
@@ -17,6 +18,7 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
   const [sendingSos, setSendingSos] = useState(false)
   const [sosError, setSosError] = useState(false)
   const [iconHidden, setIconHidden] = useState(false)
+  const [isRedeeming, setIsRedeeming] = useState(false)
   const isPaused = state.controls.paused
   const remainingMins = Math.max(0, state.usage.limit - state.usage.minutes)
   const rewards = state.rewards || { earned: 0, balance: 0 }
@@ -38,6 +40,10 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
       }
     })
   }, [state.controls.stealth])
+
+  useEffect(() => {
+    setDevicePausedNative(isPaused).catch(() => {})
+  }, [isPaused])
 
   // Periodic Health-Check for Accessibility, Device Admin & System Protection
   useEffect(() => {
@@ -106,25 +112,26 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => {
-                  if (goalCompleted) return
+                  if (state.rewards?.goalClaimedToday) return
                   sendStayKidsAction({ type: "add-reward-points", points: 10 })
-                  setGoalCompleted(true)
                 }}
-                disabled={goalCompleted}
+                disabled={state.rewards?.goalClaimedToday}
                 className="w-full rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 p-3 text-sm font-bold transition flex flex-col items-center justify-center gap-1"
               >
                 <span className="text-2xl">✅</span>
-                <span>{goalCompleted ? "Goal Done ✓" : "Complete Goal"}</span>
-                <span className="text-[10px] text-[#d6f4ad]">{goalCompleted ? "Claimed" : "+10 pts"}</span>
+                <span>{state.rewards?.goalClaimedToday ? "Goal Done ✓" : "Complete Goal"}</span>
+                <span className="text-[10px] text-[#d6f4ad]">{state.rewards?.goalClaimedToday ? "Claimed" : "+10 pts"}</span>
               </button>
               
               <button
-                onClick={() => {
-                  if (rewards.balance >= 30) {
-                    sendStayKidsAction({ type: "redeem-reward-points", cost: 30, mins: 15 })
+                onClick={async () => {
+                  if (rewards.balance >= 30 && !isRedeeming) {
+                    setIsRedeeming(true)
+                    await sendStayKidsAction({ type: "redeem-reward-points", cost: 30, mins: 15 }).catch(() => {})
+                    setIsRedeeming(false)
                   }
                 }}
-                disabled={rewards.balance < 30}
+                disabled={rewards.balance < 30 || isRedeeming}
                 className={`w-full rounded-xl p-3 text-sm font-bold transition flex flex-col items-center justify-center gap-1 ${
                   rewards.balance >= 30 
                     ? "bg-[#d6f4ad] text-[#17352b] hover:bg-[#c5e69c] shadow-[0_0_10px_rgba(214,244,173,0.2)]" 
@@ -162,6 +169,9 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
                 if (locRes?.latitude && locRes?.longitude) {
                   payload.lat = locRes.latitude
                   payload.lng = locRes.longitude
+                }
+                if (snapRes?.success && snapRes.filePath) {
+                  payload.photoPath = snapRes.filePath
                 }
 
                 sendStayKidsAction(payload)
@@ -225,7 +235,10 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
                 onClick={async () => {
                   const nextState = !iconHidden
                   const ok = await toggleAppIconVisibilityNative(nextState)
-                  if (ok) setIconHidden(nextState)
+                  if (ok) {
+                    setIconHidden(nextState)
+                    sendStayKidsAction({ type: "toggle-control", key: "stealth" }).catch(() => {})
+                  }
                 }}
                 className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
                   iconHidden ? "bg-[#d6f4ad] text-[#17352b]" : "bg-white/20 text-white hover:bg-white/30"

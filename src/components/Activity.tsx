@@ -146,7 +146,7 @@ export const Activity = React.memo(function Activity({ state }: { state: StayKid
                   <span className="font-bold text-[#172226]">{log.contact}</span>
                   <p className="text-[#71807a] text-[11px]">{log.detail}</p>
                 </div>
-                <span className="text-[10px] text-[#809098] shrink-0">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="text-[10px] text-[#809098] shrink-0">{log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</span>
               </li>
             ))}
           </ul>
@@ -170,7 +170,7 @@ export const Activity = React.memo(function Activity({ state }: { state: StayKid
                 <div className="min-w-0 flex-1 pr-2">
                   <p className="font-bold text-[#172226] truncate">{web.url}</p>
                 </div>
-                <span className="text-[10px] text-[#809098] shrink-0">{new Date(web.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="text-[10px] text-[#809098] shrink-0">{web.timestamp ? new Date(web.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</span>
               </li>
             ))}
           </ul>

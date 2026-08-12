@@ -106,7 +106,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
           ) : (
             <>
               <h2 className="text-lg font-bold text-[#333]">Connection failed (Channel 1)</h2>
-              <p className="text-xs text-[#aaa] mt-1">{state.child.name}</p>
+              <p className="text-xs text-[#aaa] mt-1">{state.child?.name}</p>
               <div className="text-sm text-[#666] text-left mt-6 space-y-4 leading-relaxed">
                 <p>You can click [Retry] to reconnect.<br/>If reconnection fails, you can use [Camera Snapshot] to take photos of the surroundings of your child's device for viewing.</p>
                 <p>If the above solutions do not solve your problem, you can click [How to Fix] for support.</p>
@@ -206,7 +206,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         console.warn("Browser WebRTC initialization fallback:", e)
       }
     }
-  }, [tool, state.remote.mirrorStreamActive])
+  }, [tool, remote.mirrorStreamActive])
 
   // 2. Watch for remote.webrtcAnswer & remote.webrtcCandidates
   useEffect(() => {
@@ -214,7 +214,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
 
     const applyWebRtcState = async () => {
       // Apply SDP Answer from child device
-      if (remote.webrtcAnswer && !pcRef.current!.currentRemoteDescription) {
+      if (remote.webrtcAnswer && !pcRef.current!.currentRemoteDescription && pcRef.current!.signalingState === 'have-local-offer') {
         try {
           const answerObj = typeof remote.webrtcAnswer === "string" ? JSON.parse(remote.webrtcAnswer) : remote.webrtcAnswer
           await pcRef.current!.setRemoteDescription(answerObj)
@@ -247,12 +247,18 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         pcRef.current.close()
         pcRef.current = null
       }
+      // Cleanup native streams
+      import("./lib/native").then(({ stopNativeLiveCamera, stopNativeScreenShare, stopNativeAudioCapture }) => {
+        stopNativeLiveCamera().catch(() => {})
+        stopNativeScreenShare().catch(() => {})
+        stopNativeAudioCapture().catch(() => {})
+      })
     }
   }, [])
 
   // Auto-start Screen Mirror & Remote Access
   useEffect(() => {
-    if ((tool === "Screen Mirror" || tool === "Remote access") && !state.remote.mirrorStreamActive && state.remote.connectionState !== "denied" && state.remote.connectionState !== "requesting-consent") {
+    if ((tool === "Screen Mirror" || tool === "Remote access") && !remote.mirrorStreamActive && remote.connectionState !== "denied" && remote.connectionState !== "requesting-consent") {
       const initMirror = async () => {
         onAction({ type: "webrtc-signal", signalState: "requesting-consent" })
         const res = await startNativeScreenShare()
@@ -267,11 +273,11 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
       const timeout = setTimeout(initMirror, 500)
       return () => clearTimeout(timeout)
     }
-  }, [tool, state.remote.mirrorStreamActive, state.remote.connectionState])
+  }, [tool, remote.mirrorStreamActive, remote.connectionState])
 
   // Auto-start Live Camera
   useEffect(() => {
-    if (tool === "Live Camera" && !cameraStreaming && state.remote.connectionState !== "denied" && state.remote.connectionState !== "connecting") {
+    if (tool === "Live Camera" && !cameraStreaming && remote.connectionState !== "denied" && remote.connectionState !== "connecting") {
       const initCam = async () => {
         onAction({ type: "webrtc-signal", signalState: "connecting" })
         setCameraStreaming(true)
@@ -288,7 +294,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
       const timeout = setTimeout(initCam, 500)
       return () => clearTimeout(timeout)
     }
-  }, [tool, cameraStreaming, state.remote.connectionState])
+  }, [tool, cameraStreaming, remote.connectionState])
 
   const tools = [
     ["Live Camera", "📷", "View child surroundings"],
@@ -299,31 +305,31 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     ["Snapshot", "◉", "Silent camera snapshot"],
   ]
 
-  const childName = state.child.name || "Child Device"
-  const lat = state.child.coordinates?.lat || 23.8103
-  const lng = state.child.coordinates?.lng || 90.4125
+  const childName = state.child?.name || "Child Device"
+  const lat = state.child?.coordinates?.lat || 23.8103
+  const lng = state.child?.coordinates?.lng || 90.4125
 
   if (tool) {
     const isImmersive = tool === "Screen Mirror" || tool === "Live Camera" || tool === "Remote access"
     
     const handleQuitTool = async (force: boolean = false) => {
-      if (!force && isImmersive && (state.remote.mirrorStreamActive || cameraStreaming || webrtcConnected)) {
+      if (!force && isImmersive && (remote.mirrorStreamActive || cameraStreaming || webrtcConnected)) {
         setShowQuitModal(true)
         return
       }
       setShowQuitModal(false)
       
       if (tool === "Live Camera" && cameraStreaming) {
-        await stopNativeLiveCamera()
+        await stopNativeLiveCamera().catch(() => {})
         setCameraStreaming(false)
         setLiveCamFrame(null)
       }
-      if ((tool === "Screen Mirror" || tool === "Remote access") && state.remote.mirrorStreamActive) {
+      if ((tool === "Screen Mirror" || tool === "Remote access") && remote.mirrorStreamActive) {
         await stopNativeScreenShare().catch(() => {})
         onAction({ type: "mirror-toggle", active: false })
         onAction({ type: "webrtc-signal", signalState: "idle", clearSignal: true })
       }
-      if (tool === "One-way audio" && state.remote.audioActive) {
+      if (tool === "One-way audio" && remote.audioActive) {
         onAction({ type: "audio-toggle", active: false })
       }
       setTool(null)
@@ -367,7 +373,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             </button>
             
             {/* Connection States */}
-            {state.remote.connectionState === "connecting" && (
+            {remote.connectionState === "connecting" && (
               <FlashgetConnectionUI 
                 status="connecting"
                 title="Remote Camera"
@@ -376,7 +382,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               />
             )}
             
-            {state.remote.connectionState === "denied" && (
+            {remote.connectionState === "denied" && (
                <FlashgetConnectionUI 
                 status="failed"
                 title="Remote Camera"
@@ -412,14 +418,14 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             </div>
             
             {/* Overlay Controls (Bottom) */}
-            {cameraStreaming && state.remote.connectionState === "live" && (
+            {cameraStreaming && remote.connectionState === "live" && (
               <div className="absolute bottom-6 inset-x-0 flex items-center justify-between px-8 z-[120]">
                 <button 
                   onClick={async () => {
                     const newFacing = camFacing === "environment" ? "user" : "environment"
                     setCamFacing(newFacing)
                     if (cameraStreaming) {
-                      await stopNativeLiveCamera()
+                      await stopNativeLiveCamera().catch(() => {})
                       setLiveCamFrame(null)
                       setCameraStreaming(true)
                       startNativeLiveCamera(newFacing).catch(() => {})
@@ -495,7 +501,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             </button>
             
             {/* Connection States */}
-            {(!state.remote.mirrorStreamActive || state.remote.connectionState === "connecting" || state.remote.connectionState === "requesting-consent") && state.remote.connectionState !== "denied" && (
+            {(!remote.mirrorStreamActive || remote.connectionState === "connecting" || remote.connectionState === "requesting-consent") && remote.connectionState !== "denied" && (
               <FlashgetConnectionUI 
                 status="connecting"
                 title="Screen Mirroring"
@@ -504,7 +510,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               />
             )}
             
-            {state.remote.connectionState === "denied" && (
+            {remote.connectionState === "denied" && (
                <FlashgetConnectionUI 
                 status="failed"
                 title="Screen Mirroring"
@@ -526,7 +532,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             {/* Immersive View */}
             <div
               onPointerDown={(e) => {
-                if (!state.remote.mirrorStreamActive && !state.remote.liveFrame && !webrtcConnected) return
+                if (!remote.mirrorStreamActive && !remote.liveFrame && !webrtcConnected) return
                 const mediaEl = (webrtcConnected && streamMode === "webrtc") ? videoRef.current : (e.currentTarget.querySelector('img') as HTMLImageElement);
                 if (!mediaEl) return;
                 const rect = mediaEl.getBoundingClientRect();
@@ -559,7 +565,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               }}
               className="relative flex-1 w-full h-full bg-black flex items-center justify-center select-none overflow-hidden"
             >
-               {(state.remote.liveFrame || webrtcConnected) && (
+               {(remote.liveFrame || webrtcConnected) && (
                  <>
                   <video
                     ref={videoRef}
@@ -568,7 +574,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                     className={`absolute inset-0 w-full h-full object-contain ${webrtcConnected && streamMode === "webrtc" ? "block" : "hidden"}`}
                   />
                   <img
-                    src={state.remote.liveFrame || ""}
+                    src={remote.liveFrame || ""}
                     alt="Child Screen"
                     className={`absolute inset-0 w-full h-full object-contain ${!webrtcConnected || streamMode === "jpeg" ? "block" : "hidden"}`}
                   />
@@ -577,7 +583,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             </div>
             
             {/* Overlay Controls (Bottom) */}
-            {state.remote.mirrorStreamActive && (
+            {remote.mirrorStreamActive && (
               <>
                 <div className="absolute bottom-6 inset-x-0 flex items-center justify-between px-8 z-[120]">
                   <button className="p-3 bg-black/40 rounded-full text-white hover:bg-black/60 transition">
@@ -622,7 +628,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             </div>
 
             <div className="flex-1 flex flex-col items-center justify-center">
-              {audio && state.remote.liveAudioChunk ? (
+              {audio && remote.liveAudioChunk ? (
                 <div className="space-y-4 w-full max-w-xs p-6 bg-[#0a0a0a] rounded-2xl border border-[#287555] text-center">
                   <div className="mx-auto h-16 w-16 bg-[#287555] rounded-full flex items-center justify-center animate-pulse">
                     <span className="text-3xl">🎙️</span>
@@ -630,7 +636,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                   <p className="text-sm font-bold text-[#baf26b]">
                     Streaming Live Audio...
                   </p>
-                  <audio src={state.remote.liveAudioChunk} autoPlay controls className="w-full h-10 rounded-lg" />
+                  <audio src={remote.liveAudioChunk} autoPlay controls className="w-full h-10 rounded-lg" />
                 </div>
               ) : audio ? (
                 <div className="p-4 text-center space-y-4">
@@ -682,9 +688,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             >
               Take Snapshot Now
             </button>
-            {state.remote.lastSnapshotTime && (
+            {remote.lastSnapshotTime && (
               <p className="text-sm text-center text-[#baf26b] font-semibold bg-[#baf26b]/10 px-4 py-2 rounded-lg">
-                ✓ Captured at {state.remote.lastSnapshotTime}
+                ✓ Captured at {remote.lastSnapshotTime}
               </p>
             )}
           </div>
@@ -698,7 +704,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             </button>
             
             {/* Connection States */}
-            {(!state.remote.mirrorStreamActive || state.remote.connectionState === "connecting" || state.remote.connectionState === "requesting-consent") && state.remote.connectionState !== "denied" && (
+            {(!remote.mirrorStreamActive || remote.connectionState === "connecting" || remote.connectionState === "requesting-consent") && remote.connectionState !== "denied" && (
               <FlashgetConnectionUI 
                 status="connecting"
                 title="Remote Access"
@@ -707,7 +713,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               />
             )}
             
-            {state.remote.connectionState === "denied" && (
+            {remote.connectionState === "denied" && (
                <FlashgetConnectionUI 
                 status="failed"
                 title="Remote Access"
@@ -729,7 +735,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             {/* Immersive View */}
             <div
               onPointerDown={(e) => {
-                if (!state.remote.mirrorStreamActive && !state.remote.liveFrame && !webrtcConnected) return
+                if (!remote.mirrorStreamActive && !remote.liveFrame && !webrtcConnected) return
                 const mediaEl = (webrtcConnected && streamMode === "webrtc") ? videoRef.current : (e.currentTarget.querySelector('img') as HTMLImageElement);
                 if (!mediaEl) return;
                 const rect = mediaEl.getBoundingClientRect();
@@ -762,7 +768,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               }}
               className="relative flex-1 w-full h-full bg-black flex items-center justify-center select-none overflow-hidden cursor-crosshair"
             >
-               {(state.remote.liveFrame || webrtcConnected) && (
+               {(remote.liveFrame || webrtcConnected) && (
                  <>
                   <video
                     ref={videoRef}
@@ -771,7 +777,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                     className={`absolute inset-0 w-full h-full object-contain ${webrtcConnected && streamMode === "webrtc" ? "block" : "hidden"}`}
                   />
                   <img
-                    src={state.remote.liveFrame || ""}
+                    src={remote.liveFrame || ""}
                     alt="Child Screen"
                     className={`absolute inset-0 w-full h-full object-contain ${!webrtcConnected || streamMode === "jpeg" ? "block" : "hidden"}`}
                   />
@@ -780,13 +786,13 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             </div>
             
             {/* Overlay Navigation Controls (Bottom Dock) */}
-            {state.remote.mirrorStreamActive && (
+            {remote.mirrorStreamActive && (
               <div className="absolute bottom-6 inset-x-6 z-[120] bg-black/70 backdrop-blur-md border border-white/10 rounded-3xl p-3 shadow-2xl flex flex-col gap-3">
                 <div className="flex justify-between items-center px-4">
                    <p className="text-white text-xs font-bold opacity-70">REMOTE ASSISTANCE</p>
-                   {state.remote.lastTouchAction && (
+                   {remote.lastTouchAction && (
                      <span className="text-[10px] text-[#baf26b] bg-[#baf26b]/20 px-2 py-0.5 rounded-full">
-                       {state.remote.lastTouchAction}
+                       {remote.lastTouchAction}
                      </span>
                    )}
                 </div>

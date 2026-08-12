@@ -159,6 +159,8 @@ export default function App() {
           }
           setIsLoading(false)
         })
+      }).catch(() => {
+        setIsLoading(false)
       })
     })
 
@@ -534,9 +536,11 @@ export default function App() {
       
       import("./lib/native").then(({ syncNativeAppBlock }) => {
         // Keys in the blockedApps map are now packageNames (from Controls.tsx fix)
-        Object.keys(current).forEach((appKey) => {
-          if (current[appKey] !== prev[appKey]) {
-            syncNativeAppBlock(appKey, current[appKey]).catch(() => {})
+        const allKeys = Array.from(new Set([...Object.keys(current), ...Object.keys(prev)]))
+        allKeys.forEach((appKey) => {
+          const isBlocked = !!current[appKey]
+          if (isBlocked !== !!prev[appKey]) {
+            syncNativeAppBlock(appKey, isBlocked).catch(() => {})
           }
         })
       })
@@ -659,8 +663,8 @@ export default function App() {
     const prevState = { ...state }
 
     sendStayKidsAction(data).catch((err) => {
-      // Revert to previous state optimistically
-      setState(prevState)
+      // Re-fetch latest state to safely resync instead of wiping out realtime background updates
+      fetchLatestState()
       triggerToast(err.message || "Couldn't sync change — check connection", "error")
     })
   }
@@ -675,9 +679,11 @@ export default function App() {
     setReady(false)
   }
 
-  const resetRoleSelection = () => {
+  const resetRoleSelection = async () => {
     localStorage.removeItem("staykids_selected_role")
     setSelectedRole(null)
+    const { setAuthToken } = await import("./lib/staykids-api")
+    await setAuthToken(null)
     setAuthenticated(false)
     setReady(false)
   }
@@ -769,6 +775,7 @@ export default function App() {
           defaultRole="child"
           complete={(nextRole) => {
             setRole(nextRole)
+            setAuthenticated(true)
             setReady(true)
           }}
         />

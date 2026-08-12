@@ -20,6 +20,7 @@ public class StayKidsAccessibilityService extends AccessibilityService {
     private static final Set<String> blockedPackageNames = java.util.Collections.synchronizedSet(new HashSet<>());
     private static boolean isWebFilterEnabled = false;
     private static boolean isBedtimeModeActive = false;
+    private static boolean isDevicePaused = false;
     private static final List<String> BLOCKED_KEYWORDS = Arrays.asList("porn", "xxx", "casino", "gambling", "adult");
 
     // Allowed system/emergency packages during Bedtime mode
@@ -64,6 +65,7 @@ public class StayKidsAccessibilityService extends AccessibilityService {
         }
         isWebFilterEnabled = prefs.getBoolean("webFilter", false);
         isBedtimeModeActive = prefs.getBoolean("bedtimeActive", false);
+        isDevicePaused = prefs.getBoolean("devicePaused", false);
     }
 
     public static StayKidsAccessibilityService getInstance() {
@@ -75,6 +77,14 @@ public class StayKidsAccessibilityService extends AccessibilityService {
         if (instance != null) {
             android.content.SharedPreferences prefs = instance.getSharedPreferences("StayKidsPrefs", android.content.Context.MODE_PRIVATE);
             prefs.edit().putBoolean("bedtimeActive", active).apply();
+        }
+    }
+
+    public static void setDevicePaused(boolean paused) {
+        isDevicePaused = paused;
+        if (instance != null) {
+            android.content.SharedPreferences prefs = instance.getSharedPreferences("StayKidsPrefs", android.content.Context.MODE_PRIVATE);
+            prefs.edit().putBoolean("devicePaused", paused).apply();
         }
     }
 
@@ -118,8 +128,8 @@ public class StayKidsAccessibilityService extends AccessibilityService {
             if (packageName != null) {
                 String pkg = packageName.toString();
 
-                if (isBedtimeModeActive && !ALLOWED_BEDTIME_PACKAGES.contains(pkg)) {
-                    Log.w(TAG, "Bedtime active. Non-essential app launch blocked: " + pkg + ". Enforcing HOME redirection.");
+                if ((isBedtimeModeActive || isDevicePaused) && !ALLOWED_BEDTIME_PACKAGES.contains(pkg)) {
+                    Log.w(TAG, "Device paused or bedtime active. Non-essential app launch blocked: " + pkg + ". Enforcing HOME redirection.");
                     performGlobalAction(GLOBAL_ACTION_HOME);
                     return;
                 }
@@ -163,8 +173,8 @@ public class StayKidsAccessibilityService extends AccessibilityService {
         sendBroadcast(intent);
     }
 
-    private void checkNodesForUrl(AccessibilityNodeInfo node, int depth) {
-        if (node == null || depth > MAX_TREE_DEPTH) return;
+    private boolean checkNodesForUrl(AccessibilityNodeInfo node, int depth) {
+        if (node == null || depth > MAX_TREE_DEPTH) return false;
         
         try {
             if (node.getText() != null) {
@@ -175,7 +185,7 @@ public class StayKidsAccessibilityService extends AccessibilityService {
                         if (text.contains(keyword)) {
                             Log.w(TAG, "Blocked website detected: " + text + ". Enforcing HOME redirection.");
                             performGlobalAction(GLOBAL_ACTION_HOME);
-                            return;
+                            return true;
                         }
                     }
                 }
@@ -185,7 +195,8 @@ public class StayKidsAccessibilityService extends AccessibilityService {
             for (int i = 0; i < childCount; i++) {
                 AccessibilityNodeInfo child = node.getChild(i);
                 if (child != null) {
-                    checkNodesForUrl(child, depth + 1);
+                    boolean blocked = checkNodesForUrl(child, depth + 1);
+                    if (blocked) return true;
                 }
             }
         } finally {
@@ -195,6 +206,7 @@ public class StayKidsAccessibilityService extends AccessibilityService {
                 } catch (Exception ignored) {}
             }
         }
+        return false;
     }
 
     public void performRemoteTouch(float x, float y) {

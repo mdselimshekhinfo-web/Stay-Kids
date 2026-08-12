@@ -65,6 +65,7 @@ const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative", {
     updateBlockedApp: async () => ({ success: true }),
     updateWebFilter: async () => ({ success: true }),
     setDailyLimit: async () => ({ success: true }),
+    setDevicePaused: async () => ({ success: true }),
     checkCameraPermission: async () => ({ granted: true }),
     requestCameraPermission: async () => ({ granted: true }),
     captureCameraSnapshot: async () => ({ success: true }),
@@ -560,6 +561,25 @@ export const stopSirenNative = async (): Promise<{ success: boolean; error?: str
   } catch (e: any) {
     console.warn("StayKidsNative: Siren stopped in web mode.")
     return { success: true }
+  }
+}
+
+export const setDailyLimitNative = async (limit: number): Promise<{ success: boolean; error?: string }> => {
+  try {
+    return await StayKidsNative.setDailyLimit({ limit })
+  } catch (_e) {
+    console.warn(`StayKidsNative: Daily limit set to ${limit}m in web mode.`)
+    return { success: true }
+  }
+}
+
+export const setDevicePausedNative = async (paused: boolean): Promise<boolean> => {
+  try {
+    const res = await StayKidsNative.setDevicePaused({ paused })
+    return res.success ?? false
+  } catch (_e) {
+    console.warn(`StayKidsNative: Device paused set to ${paused} in web mode.`)
+    return false
   }
 }
 

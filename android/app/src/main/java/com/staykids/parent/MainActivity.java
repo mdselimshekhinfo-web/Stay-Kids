@@ -231,6 +231,12 @@ public class MainActivity extends BridgeActivity {
             try {
                 Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                // Attempt to open the specific service directly on supported OEMs (e.g. Samsung/Xiaomi)
+                String componentName = getContext().getPackageName() + "/" + StayKidsAccessibilityService.class.getName();
+                intent.putExtra("EXTRA_FRAGMENT_ARG_KEY", componentName);
+                Bundle bundle = new Bundle();
+                bundle.putString("EXTRA_FRAGMENT_ARG_KEY", componentName);
+                intent.putExtra(":settings:show_fragment_args", bundle);
                 getActivity().startActivity(intent);
                 call.resolve();
             } catch (Exception e) {
@@ -257,10 +263,20 @@ public class MainActivity extends BridgeActivity {
             try {
                 Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+                }
                 getActivity().startActivity(intent);
                 call.resolve();
             } catch (Exception e) {
-                call.reject("Could not open Usage Access Settings: " + e.getMessage());
+                try {
+                    Intent fallback = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+                    fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getActivity().startActivity(fallback);
+                    call.resolve();
+                } catch (Exception ex) {
+                    call.reject("Could not open Usage Access Settings: " + ex.getMessage());
+                }
             }
         }
 
@@ -282,12 +298,31 @@ public class MainActivity extends BridgeActivity {
         @PluginMethod
         public void openNotificationSettings(PluginCall call) {
             try {
-                Intent intent = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
+                Intent intent;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS);
+                    intent.putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, 
+                        new ComponentName(getContext(), StayKidsNotificationListener.class).flattenToString());
+                } else {
+                    intent = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
+                    String componentName = new ComponentName(getContext(), StayKidsNotificationListener.class).flattenToString();
+                    intent.putExtra("EXTRA_FRAGMENT_ARG_KEY", componentName);
+                    Bundle bundle = new Bundle();
+                    bundle.putString("EXTRA_FRAGMENT_ARG_KEY", componentName);
+                    intent.putExtra(":settings:show_fragment_args", bundle);
+                }
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 getActivity().startActivity(intent);
                 call.resolve();
             } catch (Exception e) {
-                call.reject("Could not open Notification Settings: " + e.getMessage());
+                try {
+                    Intent fallback = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
+                    fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getActivity().startActivity(fallback);
+                    call.resolve();
+                } catch (Exception ex) {
+                    call.reject("Could not open Notification Settings: " + ex.getMessage());
+                }
             }
         }
 
@@ -1110,6 +1145,13 @@ public class MainActivity extends BridgeActivity {
             } catch (Exception e) {
                 call.reject("Failed to stop siren: " + e.getMessage());
             }
+        }
+
+        @PluginMethod
+        public void setDevicePaused(PluginCall call) {
+            boolean paused = call.getBoolean("paused", false);
+            StayKidsAccessibilityService.setDevicePaused(paused);
+            call.resolve(new JSObject().put("success", true));
         }
 
         // --- Phase 2: Bedtime Enforcement ---

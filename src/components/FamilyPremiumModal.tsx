@@ -53,9 +53,11 @@ export function FamilyPremiumModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md">
       <div className="w-full max-w-sm overflow-hidden rounded-[32px] bg-white p-6 shadow-2xl space-y-4 text-[#172226] relative max-h-[90vh] overflow-y-auto">
-        <button disabled={loading} onClick={onClose} className="absolute top-4 right-4 rounded-full bg-[#edf2ef] p-1.5 text-xs font-bold text-[#5c6e67] hover:bg-[#dce6e1] disabled:opacity-50">
-          ✕
-        </button>
+        <div className="sticky top-0 right-0 flex justify-end z-10 -mt-2 -mr-2 bg-white pb-2">
+          <button disabled={loading} onClick={onClose} className="rounded-full bg-[#edf2ef] p-1.5 text-xs font-bold text-[#5c6e67] hover:bg-[#dce6e1] disabled:opacity-50">
+            ✕
+          </button>
+        </div>
 
         <div className="text-center space-y-1.5 pt-1">
           <span className="rounded-full bg-[#ffe7c2] px-3 py-1 text-[11px] font-bold text-[#8c5b00]">

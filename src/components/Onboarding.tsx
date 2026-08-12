@@ -145,11 +145,7 @@ export function Onboarding({
 
   const handleNextStep = async () => {
     if (step === 0 && role === "parent") {
-      setStep(1) // Show pairing code screen first
-      return
-    }
-    if (step === 1 && role === "parent") {
-      complete(role) // Complete after parent has seen the pairing code
+      complete(role) // Complete immediately so they can sign up/in before pairing
       return
     }
 
@@ -213,7 +209,7 @@ export function Onboarding({
               stay<span className="text-[#287555]">kids</span>
             </p>
             <div className="flex gap-1">
-              {(role === "parent" ? pages.slice(0, 2) : pages).map((_, i) => (
+              {(role === "parent" ? pages.slice(0, 1) : pages).map((_, i) => (
                 <span key={i} className={`h-1.5 w-6 rounded-full ${i <= step ? "bg-[#287555]" : "bg-[#dbe4e2]"}`} />
               ))}
             </div>
@@ -371,18 +367,16 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
+                        openAccessibilitySettings().catch(() => {})
                         setGuideModal({
                           isOpen: true,
                           title: "1. Accessibility Service Access",
                           steps: [
-                            "নিচে 'Open System Settings Now' বাটন চাপুন।",
                             "Android Settings খুলে গেলে 'Installed Apps' (বা Downloaded Services) এ ঢুকুন।",
                             "'StayKids Service' খুঁজে বের করে ট্যাপ করুন।",
                             "উপরে থাকা সুইচ বাটনটি অন (Allow/Enable) করে দিন।",
                           ],
-                          onOpenSettings: async () => {
-                            await openAccessibilitySettings().catch(() => {})
-                          },
+                          onOpenSettings: async () => {},
                         })
                       }}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
@@ -402,18 +396,16 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
+                        requestDisableBatteryOptimization().catch(() => {})
                         setGuideModal({
                           isOpen: true,
                           title: "2. Battery Saver (No Restrictions)",
                           steps: [
-                            "নিচে 'Open System Settings Now' বাটন চাপুন।",
                             "ফোনের Battery Optimization তালিকার অ্যাপসগুলো আসবে।",
                             "'StayKids' অ্যাপটি বেছে নিয়ে 'No Restrictions' বা 'Don't optimize' দিন।",
                             "এর ফলে শাওমি/স্যামসাং ব্যাকগ্রাউন্ডে সার্ভিস বন্ধ করবে না।",
                           ],
-                          onOpenSettings: async () => {
-                            await requestDisableBatteryOptimization().catch(() => {})
-                          },
+                          onOpenSettings: async () => {},
                         })
                       }}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
@@ -433,17 +425,14 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
+                        requestEnableDeviceAdmin().catch(() => {})
                         setGuideModal({
                           isOpen: true,
                           title: "3. Device Admin Protection",
                           steps: [
-                            "নিচে 'Open System Settings Now' বাটন চাপুন।",
                             "ডিভাইস এডমিন সুরক্ষা অ্যাক্টিভ করার পপ-আপ স্ক্রিন আসবে।",
                             "নিচের 'Activate this device admin app' বাটনে চাপুন।",
                           ],
-                          onOpenSettings: async () => {
-                            await requestEnableDeviceAdmin().catch(() => {})
-                          },
                         })
                       }}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
@@ -463,18 +452,15 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
+                        openUsageAccessSettings().catch(() => {})
                         setGuideModal({
                           isOpen: true,
                           title: "Usage Access Permission",
                           steps: [
-                            "নিচে 'Open System Settings Now' বাটন চাপুন।",
                             "Android Settings খুলে গেলে 'Apps with Usage Access' পেইজে ঢুকুন।",
                             "'StayKids' খুঁজে বের করে সিলেক্ট করুন।",
                             "'Permit usage access' সুইচটি অন করে দিন।",
                           ],
-                          onOpenSettings: async () => {
-                            await openUsageAccessSettings().catch(() => {})
-                          },
                         })
                       }}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
@@ -494,18 +480,15 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
+                        openNotificationSettings().catch(() => {})
                         setGuideModal({
                           isOpen: true,
                           title: "Notification Access",
                           steps: [
-                            "নিচে 'Open System Settings Now' বাটন চাপুন।",
                             "Device & app notifications পেজ খুলবে।",
                             "'StayKids' খুঁজে বের করে সিলেক্ট করুন।",
                             "'Allow notification access' সুইচটি অন করে দিন।",
                           ],
-                          onOpenSettings: async () => {
-                            await openNotificationSettings().catch(() => {})
-                          },
                         })
                       }}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
@@ -545,11 +528,11 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
+                        requestOverlayPermission().catch(() => {})
                         setGuideModal({
                           isOpen: true,
                           title: "4. Display Over Other Apps (Overlay)",
                           steps: [
-                            "নিচে 'Open System Settings Now' বাটন চাপুন।",
                             "'Display Over Apps' তালিকার থেকে 'StayKids' অ্যাপটি সিলেক্ট করুন।",
                             "'Allow display over other apps' পারমিশন সুইচটি অন করে দিন।",
                           ],

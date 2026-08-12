@@ -80,7 +80,7 @@ export function Profile({
 
   // B.5 Notification Preferences State
   const defaultPrefs = { sos: true, block: true, location: true, call: true, activity: true }
-  const [notifPrefs, setNotifPrefs] = useState(() => (state as any).notificationPrefs || defaultPrefs)
+  const notifPrefs = (state as any).notificationPrefs || defaultPrefs
 
   const refreshProtectionStatus = async () => {
     setStatusChecking(true)
@@ -431,6 +431,7 @@ export function Profile({
                   }).catch(() => triggerToast("Biometric error", "error"))
                 }).catch(() => triggerToast("Native module load error", "error"))
               } else {
+                try { localStorage.removeItem("staykids_biometric_enabled") } catch {}
                 setBiometricEnabled(false)
               }
             }}

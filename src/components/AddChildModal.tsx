@@ -66,8 +66,8 @@ export function AddChildModal({
       school: school.trim() || undefined,
       location: "Home",
       battery: 100,
-      online: true,
-      protected: true,
+      online: false,
+      protected: false,
     }
 
     setCreatedChildId(childId)
@@ -75,9 +75,6 @@ export function AddChildModal({
     const success = await fetchPairingPin(childId)
     if (success) {
       onDeviceAdded(newChild)
-    } else {
-      setStep("form")
-      setCreatedChildId(null)
     }
   }
 

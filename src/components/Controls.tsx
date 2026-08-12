@@ -90,8 +90,8 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
                 const val = Math.max(15, Math.min(480, Number(e.target.value) || 15))
                 setLocalLimit(val)
               }}
-              onBlur={() => {
-                onAction({ type: "set-limit", value: localLimit })
+              onBlur={(e) => {
+                onAction({ type: "set-limit", value: Number(e.target.value) || 15 })
               }}
               className="w-12 bg-transparent font-bold text-sm text-[#8c5b00] text-center focus:outline-none"
             />
@@ -108,8 +108,8 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
             step="15"
             value={localLimit}
             onChange={(e) => setLocalLimit(Number(e.target.value))}
-            onMouseUp={() => onAction({ type: "set-limit", value: localLimit })}
-            onTouchEnd={() => onAction({ type: "set-limit", value: localLimit })}
+            onMouseUp={(e) => onAction({ type: "set-limit", value: Number((e.target as HTMLInputElement).value) })}
+            onTouchEnd={(e) => onAction({ type: "set-limit", value: Number((e.target as HTMLInputElement).value) })}
           />
           <div className="flex justify-between gap-1 text-[11px] font-bold">
             {[30, 60, 120, 180, 240, 360].map((mins) => (
@@ -266,14 +266,14 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
                           const valStr = e.target.value
                           setAppLimits((prev) => ({ ...prev, [app.name]: valStr }))
                         }}
-                        onBlur={() => {
-                          const valStr = appLimits[app.name]
+                        onBlur={(e) => {
+                          const valStr = e.target.value
                           if (valStr === "" || valStr === undefined) {
-                            onAction({ type: "remove-app-limit", appName: app.name })
+                            onAction({ type: "remove-app-limit", appName: appKey })
                           } else {
                             const val = Number(valStr)
                             if (val >= 0) {
-                              onAction({ type: "set-app-limit", appName: app.name, limit: val })
+                              onAction({ type: "set-app-limit", appName: appKey, limit: val })
                             }
                           }
                         }}
