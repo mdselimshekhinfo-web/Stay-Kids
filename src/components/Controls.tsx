@@ -9,26 +9,27 @@ const Icon = ({ name }: { name: string }) => (
 )
 
 export const Controls = React.memo(function Controls({ state, onAction }: { state: StayKidsState; onAction: (action: Record<string, unknown>) => void }) {
-  const usage = state.usage
-  const controls = state.controls
+  const usage = state.usage || { limit: 120 }
+  const controls = state.controls || {}
+  const child = state.child || {}
 
   const [realApps, setRealApps] = useState<{ name: string; packageName: string; isBlocked: boolean }[]>([])
-  const [localLimit, setLocalLimit] = useState(state.usage.limit)
+  const [localLimit, setLocalLimit] = useState<string | number>(usage.limit)
   const [appLimits, setAppLimits] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    setLocalLimit(state.usage.limit)
-  }, [state.usage.limit])
+    setLocalLimit(usage.limit)
+  }, [usage.limit])
 
   useEffect(() => {
-    if (state.controls.appLimits) {
+    if (controls.appLimits) {
       const stringifiedLimits: Record<string, string> = {}
-      for (const [key, val] of Object.entries(state.controls.appLimits)) {
+      for (const [key, val] of Object.entries(controls.appLimits)) {
         stringifiedLimits[key] = String(val)
       }
       setAppLimits(stringifiedLimits)
     }
-  }, [state.controls.appLimits])
+  }, [controls.appLimits])
 
   useEffect(() => {
     fetchNativeInstalledApps().then((apps) => {
@@ -45,24 +46,24 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
     { name: "Instagram", category: "Social Media", icon: "📷", packageName: "com.instagram.android" },
   ]
 
-  const reportedApps = state.child.installedApps || []
+  const reportedApps = child.installedApps || []
   const displayAppsList = reportedApps.length > 0 
-    ? reportedApps.map((a) => ({ name: a.name, category: "Installed App", icon: "📱", packageName: a.packageName }))
+    ? reportedApps.map((a: any) => ({ name: a.name, category: "Installed App", icon: "📱", packageName: a.packageName }))
     : realApps.length > 0 
     ? realApps.map((a) => ({ name: a.name, category: "Installed App", icon: "📱", packageName: a.packageName }))
     : defaultAppList
 
   const items: [string, string, string, boolean, string][] = [
-    ["App limits", "Social apps stop after limit", "limits", controls.limits, "◫"],
-    ["Bedtime", "Blocks non-essential apps between bedtime and wake time", "bedtime", controls.bedtime, "◐"],
-    ["Web filter", "Blocking mature & unsafe content", "filter", controls.filter, "◉"],
-    ["Stealth mode", "Hide StayKids app icon from child's device", "stealth", controls.stealth, "👻"],
+    ["App limits", "Social apps stop after limit", "limits", controls.limits || false, "◫"],
+    ["Bedtime", "Blocks non-essential apps between bedtime and wake time", "bedtime", controls.bedtime || false, "◐"],
+    ["Web filter", "Blocking mature & unsafe content", "filter", controls.filter || false, "◉"],
+    ["Stealth mode", "Hide StayKids app icon from child's device", "stealth", controls.stealth || false, "👻"],
   ]
 
   return (
     <div className="space-y-5 pb-24">
       <div className="pt-2">
-        <p className="text-sm text-[#70808b]">{state.child.name}'s {state.child.device}</p>
+        <p className="text-sm text-[#70808b]">{child.name || "Child"}'s {child.device || "Device"}</p>
         <h1 className="mt-1 text-[28px] font-bold tracking-[-.05em]">Controls & Rules</h1>
       </div>
 
@@ -87,11 +88,12 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
               step="5"
               value={localLimit}
               onChange={(e) => {
-                const val = Math.max(15, Math.min(480, Number(e.target.value) || 15))
-                setLocalLimit(val)
+                setLocalLimit(e.target.value)
               }}
               onBlur={(e) => {
-                onAction({ type: "set-limit", value: Number(e.target.value) || 15 })
+                const val = Math.max(15, Math.min(480, Number(e.target.value) || 15))
+                setLocalLimit(val)
+                onAction({ type: "set-limit", value: val })
               }}
               className="w-12 bg-transparent font-bold text-sm text-[#8c5b00] text-center focus:outline-none"
             />
@@ -231,9 +233,8 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
         </div>
         <div className="space-y-3 pt-1">
           {displayAppsList.map((app) => {
-            const blockedMap = state.blockedApps || {}
             const appKey = app.packageName || app.name
-            const isBlocked = blockedMap[appKey] ?? false
+            const isBlocked = state.blockedApps?.[appKey] === true
             return (
               <div key={app.packageName || app.name} className="flex items-center justify-between border-b pb-3 border-[#f0f4f4] last:border-0 last:pb-0">
                 <div className="flex items-center gap-3">
@@ -260,11 +261,11 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
                       <input 
                         type="number"
                         placeholder="No limit"
-                        value={appLimits[app.name] ?? ""}
+                        value={appLimits[appKey] ?? ""}
                         className="w-12 bg-transparent text-[11px] font-bold text-[#172226] focus:outline-none"
                         onChange={(e) => {
                           const valStr = e.target.value
-                          setAppLimits((prev) => ({ ...prev, [app.name]: valStr }))
+                          setAppLimits((prev) => ({ ...prev, [appKey]: valStr }))
                         }}
                         onBlur={(e) => {
                           const valStr = e.target.value

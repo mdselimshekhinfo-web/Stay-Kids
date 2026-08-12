@@ -19,6 +19,7 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
   const [sosError, setSosError] = useState(false)
   const [iconHidden, setIconHidden] = useState(false)
   const [isRedeeming, setIsRedeeming] = useState(false)
+  const [isClaiming, setIsClaiming] = useState(false)
   const isPaused = state.controls.paused
   const remainingMins = Math.max(0, state.usage.limit - state.usage.minutes)
   const rewards = state.rewards || { earned: 0, balance: 0 }
@@ -111,11 +112,13 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
             
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => {
-                  if (state.rewards?.goalClaimedToday) return
-                  sendStayKidsAction({ type: "add-reward-points", points: 10 })
+                onClick={async () => {
+                  if (state.rewards?.goalClaimedToday || isClaiming) return
+                  setIsClaiming(true)
+                  await sendStayKidsAction({ type: "add-reward-points", points: 10 }).catch(() => {})
+                  setIsClaiming(false)
                 }}
-                disabled={state.rewards?.goalClaimedToday}
+                disabled={state.rewards?.goalClaimedToday || isClaiming}
                 className="w-full rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 p-3 text-sm font-bold transition flex flex-col items-center justify-center gap-1"
               >
                 <span className="text-2xl">✅</span>

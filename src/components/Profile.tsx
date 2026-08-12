@@ -292,7 +292,7 @@ export function Profile({
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="bg-[#f8fbf9] p-3 rounded-xl">
             <p className="text-xs text-[#71807a]">Child Name</p>
-            <p className="font-bold text-[#172226] mt-0.5">{state.child.name}</p>
+            <p className="font-bold text-[#172226] mt-0.5">{state.child?.name}</p>
           </div>
           <div className="bg-[#f8fbf9] p-3 rounded-xl">
             <p className="text-xs text-[#71807a]">Age / Grade</p>
@@ -311,7 +311,7 @@ export function Profile({
                       desc: "Enter your child's school name.",
                       actionText: "Save",
                       isInput: true,
-                      defaultValue: state.child.school || "",
+                      defaultValue: state.child?.school || "",
                       onConfirm: (val) => {
                         if (val !== undefined && val !== null) {
                           onAction({ type: "update-school", school: val.trim() })
@@ -325,11 +325,11 @@ export function Profile({
                 </button>
               )}
             </div>
-            <p className="font-bold text-[#172226] mt-0.5 truncate">{state.child.school || "Not set"}</p>
+            <p className="font-bold text-[#172226] mt-0.5 truncate">{state.child?.school || "Not set"}</p>
           </div>
           <div className="bg-[#f8fbf9] p-3 rounded-xl">
             <p className="text-xs text-[#71807a]">Device Model</p>
-            <p className="font-bold text-[#172226] mt-0.5">{state.child.device}</p>
+            <p className="font-bold text-[#172226] mt-0.5">{state.child?.device}</p>
           </div>
         </div>
       </div>
@@ -747,3 +747,4 @@ export function Profile({
     </div>
   )
 }
+

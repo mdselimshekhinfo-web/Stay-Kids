@@ -77,6 +77,9 @@ public class StayKidsAccessibilityService extends AccessibilityService {
         if (instance != null) {
             android.content.SharedPreferences prefs = instance.getSharedPreferences("StayKidsPrefs", android.content.Context.MODE_PRIVATE);
             prefs.edit().putBoolean("bedtimeActive", active).apply();
+            if (active) {
+                instance.performGlobalAction(GLOBAL_ACTION_HOME);
+            }
         }
     }
 
@@ -85,6 +88,9 @@ public class StayKidsAccessibilityService extends AccessibilityService {
         if (instance != null) {
             android.content.SharedPreferences prefs = instance.getSharedPreferences("StayKidsPrefs", android.content.Context.MODE_PRIVATE);
             prefs.edit().putBoolean("devicePaused", paused).apply();
+            if (paused) {
+                instance.performGlobalAction(GLOBAL_ACTION_HOME);
+            }
         }
     }
 

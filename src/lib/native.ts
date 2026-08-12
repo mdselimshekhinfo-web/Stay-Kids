@@ -45,6 +45,7 @@ export interface StayKidsNativePlugin {
   triggerSiren(): Promise<{ success: boolean }>
   stopSiren(): Promise<{ success: boolean }>
   setBedtimeSchedule(options: { time: string; wakeTime?: string }): Promise<{ success: boolean }>
+  setDevicePaused(options: { paused: boolean }): Promise<{ success: boolean }>
   addGeofence(options: { latitude: number; longitude: number; radius: number }): Promise<{ success: boolean }>
   removeGeofence(options: { id: string }): Promise<{ success: boolean }>
   getScreenResolution(): Promise<{ screenWidth?: number; screenHeight?: number }>
@@ -224,15 +225,7 @@ export const syncWebFilter = async (enabled: boolean): Promise<boolean> => {
   }
 }
 
-export const syncDailyLimit = async (limit: number): Promise<boolean> => {
-  try {
-    const res = await StayKidsNative.setDailyLimit({ limit })
-    return res.success ?? false
-  } catch (_e) {
-    console.warn(`StayKidsNative: Daily limit (${limit} min) simulated in web mode.`)
-    return false
-  }
-}
+// Removed redundant syncDailyLimit (use setDailyLimitNative instead)
 
 export const checkCameraPermission = async (): Promise<boolean> => {
   try {

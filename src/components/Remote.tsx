@@ -21,17 +21,84 @@ L.Icon.Default.mergeOptions({
 })
 import type { StayKidsState } from "../lib/staykids-api"
 import {
-  captureNativeSnapshot,
   triggerRemoteTouch,
-  startNativeScreenShare,
-  stopNativeScreenShare,
   triggerRemoteNavigation,
-  stopNativeAudioCapture,
-  startNativeLiveCamera,
-  stopNativeLiveCamera,
   listenCameraFrame,
 } from "../lib/native"
 import { triggerToast } from "./Toast"
+
+// FlashGet Style Connection Overlay
+const FlashgetConnectionUI = ({
+  status,
+  title,
+  childName,
+  onRetry,
+  onBack,
+  onSnapshot
+}: {
+  status: "connecting" | "failed"
+  title: string
+  childName?: string
+  onRetry: () => void
+  onBack: () => void
+  onSnapshot?: () => void
+}) => {
+  return (
+    <div className="absolute inset-0 z-[150] bg-white flex flex-col items-center">
+      <div className="w-full flex items-center h-14 px-4 border-b border-[#f0f0f0]">
+        <button onClick={onBack} className="p-2 text-black">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h1 className="text-lg font-semibold text-black ml-4">{title}</h1>
+      </div>
+      <div className="mt-20 flex items-center justify-center gap-4">
+        <div className="w-24 h-48 rounded-[24px] border border-[#d8d3f6] bg-[#b8aef4] shadow-sm flex flex-col items-center justify-center relative">
+          <div className="w-6 h-1 rounded-full bg-white/50 absolute top-3"></div>
+          <span className="text-4xl">??</span>
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          {status === "connecting" ? (
+            <div className="w-16 h-[2px] bg-gray-200 overflow-hidden relative">
+               <div className="absolute inset-0 bg-[#f48c42] w-1/2 animate-[ping_1.5s_infinite]"></div>
+            </div>
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-[#f48c42] flex items-center justify-center text-white text-3xl font-bold shadow-md">!</div>
+          )}
+        </div>
+        <div className="w-24 h-48 rounded-[24px] border border-[#d8d3f6] bg-[#b8aef4] shadow-sm flex flex-col items-center justify-center relative">
+           <div className="w-6 h-1 rounded-full bg-white/50 absolute top-3"></div>
+           <span className="text-4xl">??</span>
+        </div>
+      </div>
+      <div className="mt-8 px-8 text-center max-w-sm">
+        {status === "connecting" ? (
+          <>
+            <h2 className="text-lg font-bold text-[#333]">Connecting to the device...</h2>
+            <p className="text-sm text-[#888] mt-3">It takes time to connect, please wait patiently</p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-lg font-bold text-[#333]">Connection failed (Channel 1)</h2>
+            <p className="text-xs text-[#aaa] mt-1">{childName}</p>
+            <div className="text-sm text-[#666] text-left mt-6 space-y-4 leading-relaxed">
+              <p>You can click [Retry] to reconnect.<br/>If reconnection fails, you can use [Camera Snapshot] to take photos of the surroundings of your child's device for viewing.</p>
+              <p>If the above solutions do not solve your problem, you can click [How to Fix] for support.</p>
+            </div>
+          </>
+        )}
+      </div>
+      {status === "failed" && (
+        <div className="mt-auto mb-8 w-full px-6 flex flex-col gap-3">
+          <button onClick={onRetry} className="w-full py-3.5 rounded-full bg-[#7c5ff0] text-white font-bold text-[15px] hover:bg-[#6c4be0] active:scale-95 transition">Retry</button>
+          {onSnapshot && (
+            <button onClick={onSnapshot} className="w-full py-3.5 rounded-full border border-[#7c5ff0] text-[#7c5ff0] font-bold text-[15px] hover:bg-[#f5f3ff] active:scale-95 transition">Camera Snapshot</button>
+          )}
+          <button className="w-full py-3.5 text-[#7c5ff0] font-bold text-[15px] mt-2">How to Fix</button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function Remote({ state, onAction }: { state: StayKidsState; onAction: (data: Record<string, unknown>) => void }) {
   const [tool, setTool] = useState<string | null>(null)
@@ -144,6 +211,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
   }, [cameraStreaming])
 
   // Part A: Complete WebRTC SDP Offer, Answer & Candidate Negotiation Logic
+  const [hasRemoteDesc, setHasRemoteDesc] = useState(false)
   const appliedCandidatesCount = React.useRef(0)
 
   useEffect(() => {
@@ -152,6 +220,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         pcRef.current.close()
         pcRef.current = null
         appliedCandidatesCount.current = 0
+        setHasRemoteDesc(false)
         setWebrtcConnected(false)
       }
       return
@@ -218,13 +287,14 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         try {
           const answerObj = typeof remote.webrtcAnswer === "string" ? JSON.parse(remote.webrtcAnswer) : remote.webrtcAnswer
           await pcRef.current!.setRemoteDescription(answerObj)
+          setHasRemoteDesc(true)
         } catch (err) {
           console.warn("Error setting remote answer:", err)
         }
       }
 
       // Apply backend-accumulated ICE candidates — only if remote description is set
-      if (!pcRef.current!.remoteDescription) return // Wait until answer is applied
+      if (!hasRemoteDesc) return // Wait until answer is applied
       if (remote.webrtcCandidates && Array.isArray(remote.webrtcCandidates)) {
         const candidates = remote.webrtcCandidates
         for (let i = appliedCandidatesCount.current; i < candidates.length; i++) {
@@ -238,7 +308,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     }
 
     applyWebRtcState()
-  }, [remote.webrtcAnswer, remote.webrtcCandidates, pcRef.current?.remoteDescription])
+  }, [remote.webrtcAnswer, remote.webrtcCandidates, hasRemoteDesc])
 
   // 2b. Cleanup WebRTC on unmount
   useEffect(() => {
@@ -247,12 +317,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         pcRef.current.close()
         pcRef.current = null
       }
-      // Cleanup native streams
-      import("./lib/native").then(({ stopNativeLiveCamera, stopNativeScreenShare, stopNativeAudioCapture }) => {
-        stopNativeLiveCamera().catch(() => {})
-        stopNativeScreenShare().catch(() => {})
-        stopNativeAudioCapture().catch(() => {})
-      })
+      
     }
   }, [])
 
@@ -261,7 +326,9 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     if ((tool === "Screen Mirror" || tool === "Remote access") && !remote.mirrorStreamActive && remote.connectionState !== "denied" && remote.connectionState !== "requesting-consent") {
       const initMirror = async () => {
         onAction({ type: "webrtc-signal", signalState: "requesting-consent" })
-        const res = await startNativeScreenShare()
+        onAction({ type: "mirror-toggle", active: true })
+      })
+        onAction({ type: "mirror-toggle", active: true })
         if (res.error) {
           onAction({ type: "webrtc-signal", signalState: "denied" })
           triggerToast("Consent Error: " + res.error, "error")
@@ -280,9 +347,11 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     if (tool === "Live Camera" && !cameraStreaming && remote.connectionState !== "denied" && remote.connectionState !== "connecting") {
       const initCam = async () => {
         onAction({ type: "webrtc-signal", signalState: "connecting" })
+        onAction({ type: "live-cam-toggle", active: true, facing: camFacing })
+      })
         setCameraStreaming(true)
         setLiveCamFrame(null)
-        const res = await startNativeLiveCamera(camFacing)
+        onAction({ type: "live-cam-toggle", active: true, facing: camFacing })
         if (res.error) {
           setCameraStreaming(false)
           onAction({ type: "webrtc-signal", signalState: "denied" })
@@ -320,12 +389,12 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
       setShowQuitModal(false)
       
       if (tool === "Live Camera" && cameraStreaming) {
-        await stopNativeLiveCamera().catch(() => {})
+        onAction({ type: "live-cam-toggle", active: false })
         setCameraStreaming(false)
         setLiveCamFrame(null)
       }
       if ((tool === "Screen Mirror" || tool === "Remote access") && remote.mirrorStreamActive) {
-        await stopNativeScreenShare().catch(() => {})
+        onAction({ type: "mirror-toggle", active: false })
         onAction({ type: "mirror-toggle", active: false })
         onAction({ type: "webrtc-signal", signalState: "idle", clearSignal: true })
       }
@@ -374,7 +443,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             
             {/* Connection States */}
             {remote.connectionState === "connecting" && (
-              <FlashgetConnectionUI 
+              <FlashgetConnectionUI childName={state.child?.name} 
                 status="connecting"
                 title="Remote Camera"
                 onBack={() => handleQuitTool(true)}
@@ -383,19 +452,19 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             )}
             
             {remote.connectionState === "denied" && (
-               <FlashgetConnectionUI 
+               <FlashgetConnectionUI childName={state.child?.name} 
                 status="failed"
                 title="Remote Camera"
                 onBack={() => handleQuitTool(true)}
                 onSnapshot={() => {
                   onAction({ type: "capture-snapshot", facing: camFacing })
-                  captureNativeSnapshot().then(() => triggerToast("Snapshot requested", "success")).catch(() => triggerToast("Snapshot failed", "error"))
+                  onAction({ type: "capture-snapshot" })
                 }}
                 onRetry={async () => {
                   onAction({ type: "webrtc-signal", signalState: "connecting" })
                   setCameraStreaming(true)
                   setLiveCamFrame(null)
-                  const res = await startNativeLiveCamera(camFacing)
+                  onAction({ type: "live-cam-toggle", active: true, facing: camFacing })
                   if (res.error) {
                     setCameraStreaming(false)
                     onAction({ type: "webrtc-signal", signalState: "denied" })
@@ -425,10 +494,10 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                     const newFacing = camFacing === "environment" ? "user" : "environment"
                     setCamFacing(newFacing)
                     if (cameraStreaming) {
-                      await stopNativeLiveCamera().catch(() => {})
+                      onAction({ type: "live-cam-toggle", active: false })
                       setLiveCamFrame(null)
                       setCameraStreaming(true)
-                      startNativeLiveCamera(newFacing).catch(() => {})
+                      onAction({ type: "live-cam-toggle", active: true, facing: newFacing })
                     }
                   }}
                   className="p-3 bg-black/40 rounded-full text-white hover:bg-black/60 transition"
@@ -438,7 +507,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 <button 
                   onClick={() => {
                     onAction({ type: "capture-snapshot", facing: camFacing })
-                    captureNativeSnapshot().then(() => triggerToast("Snapshot saved", "success")).catch(() => triggerToast("Snapshot failed", "error"))
+                    onAction({ type: "capture-snapshot" })
                   }}
                   className="p-3 bg-black/40 rounded-full text-white hover:bg-black/60 transition"
                 >
@@ -502,7 +571,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             
             {/* Connection States */}
             {(!remote.mirrorStreamActive || remote.connectionState === "connecting" || remote.connectionState === "requesting-consent") && remote.connectionState !== "denied" && (
-              <FlashgetConnectionUI 
+              <FlashgetConnectionUI childName={state.child?.name} 
                 status="connecting"
                 title="Screen Mirroring"
                 onBack={() => handleQuitTool(true)}
@@ -511,13 +580,13 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             )}
             
             {remote.connectionState === "denied" && (
-               <FlashgetConnectionUI 
+               <FlashgetConnectionUI childName={state.child?.name} 
                 status="failed"
                 title="Screen Mirroring"
                 onBack={() => handleQuitTool(true)}
                 onRetry={async () => {
                    onAction({ type: "webrtc-signal", signalState: "requesting-consent" })
-                   const res = await startNativeScreenShare()
+                   onAction({ type: "mirror-toggle", active: true })
                    if (res.error) {
                      onAction({ type: "webrtc-signal", signalState: "denied" })
                      triggerToast("Consent Error: " + res.error, "error")
@@ -591,7 +660,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                   </button>
                   <button 
                     onClick={() => {
-                      captureNativeSnapshot().then(() => triggerToast("Snapshot saved", "success")).catch(() => triggerToast("Snapshot failed", "error"))
+                      onAction({ type: "capture-snapshot" })
                     }}
                     className="p-3 bg-black/40 rounded-full text-white hover:bg-black/60 transition"
                   >
@@ -655,9 +724,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
               type="button"
               onClick={async () => {
                 if (audio) {
-                  await stopNativeAudioCapture().catch(() => {
-                    triggerToast("Failed to stop audio capture", "error")
-                  })
+                  onAction({ type: "ambient-audio", active: false })
                 }
                 onAction({ type: "audio-toggle", active: !audio })
               }}
@@ -680,9 +747,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             <button
               onClick={() => {
                 onAction({ type: "capture-snapshot", facing: camFacing })
-                captureNativeSnapshot().catch(() => {
-                  triggerToast("Snapshot failed — check child connection", "error")
-                })
+                onAction({ type: "capture-snapshot" })
               }}
               className="w-full max-w-xs rounded-xl bg-[#287555] py-4 text-base font-bold text-white hover:bg-[#1f5c43] shadow-md transition active:scale-95"
             >
@@ -705,7 +770,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             
             {/* Connection States */}
             {(!remote.mirrorStreamActive || remote.connectionState === "connecting" || remote.connectionState === "requesting-consent") && remote.connectionState !== "denied" && (
-              <FlashgetConnectionUI 
+              <FlashgetConnectionUI childName={state.child?.name} 
                 status="connecting"
                 title="Remote Access"
                 onBack={() => handleQuitTool(true)}
@@ -714,13 +779,13 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
             )}
             
             {remote.connectionState === "denied" && (
-               <FlashgetConnectionUI 
+               <FlashgetConnectionUI childName={state.child?.name} 
                 status="failed"
                 title="Remote Access"
                 onBack={() => handleQuitTool(true)}
                 onRetry={async () => {
                    onAction({ type: "webrtc-signal", signalState: "requesting-consent" })
-                   const res = await startNativeScreenShare()
+                   onAction({ type: "mirror-toggle", active: true })
                    if (res.error) {
                      onAction({ type: "webrtc-signal", signalState: "denied" })
                      triggerToast("Consent Error: " + res.error, "error")
@@ -861,3 +926,4 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     </div>
   )
 }
+

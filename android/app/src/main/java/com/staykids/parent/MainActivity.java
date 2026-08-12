@@ -119,10 +119,14 @@ public class MainActivity extends BridgeActivity {
         protected void handleOnDestroy() {
             super.handleOnDestroy();
             if (geofenceReceiver != null) {
-                getContext().unregisterReceiver(geofenceReceiver);
+                try {
+                    getContext().unregisterReceiver(geofenceReceiver);
+                } catch (IllegalArgumentException ignored) {}
             }
             if (webVisitReceiver != null) {
-                getContext().unregisterReceiver(webVisitReceiver);
+                try {
+                    getContext().unregisterReceiver(webVisitReceiver);
+                } catch (IllegalArgumentException ignored) {}
             }
             if (previousAlarmVolume != -1) {
                 try {
@@ -480,25 +484,28 @@ public class MainActivity extends BridgeActivity {
                     android.database.Cursor cursor = getContext().getContentResolver().query(
                         android.provider.CallLog.Calls.CONTENT_URI, null, null, null, android.provider.CallLog.Calls.DATE + " DESC LIMIT 50");
                     if (cursor != null) {
-                        int numberCol = cursor.getColumnIndex(android.provider.CallLog.Calls.NUMBER);
-                        int nameCol = cursor.getColumnIndex(android.provider.CallLog.Calls.CACHED_NAME);
-                        int typeCol = cursor.getColumnIndex(android.provider.CallLog.Calls.TYPE);
-                        int dateCol = cursor.getColumnIndex(android.provider.CallLog.Calls.DATE);
-                        int durCol = cursor.getColumnIndex(android.provider.CallLog.Calls.DURATION);
-                        
-                        while (cursor.moveToNext()) {
-                            JSObject logItem = new JSObject();
-                            logItem.put("id", "call_" + cursor.getString(dateCol));
-                            logItem.put("logType", "CALL");
-                            logItem.put("contact", cursor.getString(nameCol) != null ? cursor.getString(nameCol) : cursor.getString(numberCol));
+                        try {
+                            int numberCol = cursor.getColumnIndex(android.provider.CallLog.Calls.NUMBER);
+                            int nameCol = cursor.getColumnIndex(android.provider.CallLog.Calls.CACHED_NAME);
+                            int typeCol = cursor.getColumnIndex(android.provider.CallLog.Calls.TYPE);
+                            int dateCol = cursor.getColumnIndex(android.provider.CallLog.Calls.DATE);
+                            int durCol = cursor.getColumnIndex(android.provider.CallLog.Calls.DURATION);
                             
-                            int type = cursor.getInt(typeCol);
-                            String typeStr = type == android.provider.CallLog.Calls.INCOMING_TYPE ? "Incoming" : (type == android.provider.CallLog.Calls.OUTGOING_TYPE ? "Outgoing" : "Missed");
-                            logItem.put("detail", typeStr + " (" + cursor.getString(durCol) + "s)");
-                            logItem.put("timestamp", cursor.getLong(dateCol));
-                            logsArray.put(logItem);
+                            while (cursor.moveToNext()) {
+                                JSObject logItem = new JSObject();
+                                logItem.put("id", "call_" + cursor.getString(dateCol));
+                                logItem.put("logType", "CALL");
+                                logItem.put("contact", cursor.getString(nameCol) != null ? cursor.getString(nameCol) : cursor.getString(numberCol));
+                                
+                                int type = cursor.getInt(typeCol);
+                                String typeStr = type == android.provider.CallLog.Calls.INCOMING_TYPE ? "Incoming" : (type == android.provider.CallLog.Calls.OUTGOING_TYPE ? "Outgoing" : "Missed");
+                                logItem.put("detail", typeStr + " (" + cursor.getString(durCol) + "s)");
+                                logItem.put("timestamp", cursor.getLong(dateCol));
+                                logsArray.put(logItem);
+                            }
+                        } finally {
+                            cursor.close();
                         }
-                        cursor.close();
                     }
                 }
                 
@@ -507,27 +514,30 @@ public class MainActivity extends BridgeActivity {
                     android.database.Cursor cursor = getContext().getContentResolver().query(
                         android.provider.Telephony.Sms.CONTENT_URI, null, null, null, android.provider.Telephony.Sms.DATE + " DESC LIMIT 50");
                     if (cursor != null) {
-                        int addrCol = cursor.getColumnIndex(android.provider.Telephony.Sms.ADDRESS);
-                        int bodyCol = cursor.getColumnIndex(android.provider.Telephony.Sms.BODY);
-                        int typeCol = cursor.getColumnIndex(android.provider.Telephony.Sms.TYPE);
-                        int dateCol = cursor.getColumnIndex(android.provider.Telephony.Sms.DATE);
-                        
-                        while (cursor.moveToNext()) {
-                            JSObject logItem = new JSObject();
-                            logItem.put("id", "sms_" + cursor.getString(dateCol));
-                            logItem.put("logType", "SMS");
-                            logItem.put("contact", cursor.getString(addrCol));
+                        try {
+                            int addrCol = cursor.getColumnIndex(android.provider.Telephony.Sms.ADDRESS);
+                            int bodyCol = cursor.getColumnIndex(android.provider.Telephony.Sms.BODY);
+                            int typeCol = cursor.getColumnIndex(android.provider.Telephony.Sms.TYPE);
+                            int dateCol = cursor.getColumnIndex(android.provider.Telephony.Sms.DATE);
                             
-                            int type = cursor.getInt(typeCol);
-                            String typeStr = type == android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX ? "Received: " : "Sent: ";
-                            String body = cursor.getString(bodyCol);
-                            if (body != null && body.length() > 50) body = body.substring(0, 47) + "...";
-                            
-                            logItem.put("detail", typeStr + body);
-                            logItem.put("timestamp", cursor.getLong(dateCol));
-                            logsArray.put(logItem);
+                            while (cursor.moveToNext()) {
+                                JSObject logItem = new JSObject();
+                                logItem.put("id", "sms_" + cursor.getString(dateCol));
+                                logItem.put("logType", "SMS");
+                                logItem.put("contact", cursor.getString(addrCol));
+                                
+                                int type = cursor.getInt(typeCol);
+                                String typeStr = type == android.provider.Telephony.Sms.MESSAGE_TYPE_INBOX ? "Received: " : "Sent: ";
+                                String body = cursor.getString(bodyCol);
+                                if (body != null && body.length() > 50) body = body.substring(0, 47) + "...";
+                                
+                                logItem.put("detail", typeStr + body);
+                                logItem.put("timestamp", cursor.getLong(dateCol));
+                                logsArray.put(logItem);
+                            }
+                        } finally {
+                            cursor.close();
                         }
-                        cursor.close();
                     }
                 }
 

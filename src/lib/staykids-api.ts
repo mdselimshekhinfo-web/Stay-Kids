@@ -71,6 +71,8 @@ export const setAuthToken = async (token: string | null) => {
   inMemoryToken = token
   if (token) {
     await supabaseAuthClient.auth.setSession({ access_token: token, refresh_token: '' })
+  } else {
+    await supabaseAuthClient.auth.signOut().catch(() => {})
   }
   try {
     if (typeof window !== 'undefined') {
@@ -244,9 +246,6 @@ const request = async (path: string, init?: RequestInit, _isIdempotentRead = fal
       throw finalError
     }
 
-    if (path === "/state") {
-      return defaultLocalState
-    }
     throw finalError
   }
 }

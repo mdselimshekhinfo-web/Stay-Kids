@@ -57,7 +57,7 @@ export function subscribeToChildUpdates(
     .subscribe()
 
   return () => {
-    client.removeChannel(channel)
+    client.removeChannel(channel).catch(() => {})
   }
 }
 

@@ -137,11 +137,7 @@ export function Onboarding({
     }
   }
 
-  useEffect(() => {
-    if (role === "parent" && step === 1) {
-      generateNewPin()
-    }
-  }, [role, step])
+  // Removed dead parent step 1 pin generation
 
   const handleNextStep = async () => {
     if (step === 0 && role === "parent") {
@@ -268,44 +264,7 @@ export function Onboarding({
                 </button>
               </div>
 
-              {role === "parent" && pairMode === "pin" && (
-                <div className="space-y-3">
-                  {dynamicPin ? (
-                    <div className="flex justify-between items-center rounded-2xl border border-dashed border-[#a9c9b2] bg-[#f3faee] px-6 py-4 font-mono text-2xl font-bold tracking-[.3em] text-[#287555]">
-                      <span>{dynamicPin.slice(0, 3)}</span>
-                      <span>{dynamicPin.slice(3, 6)}</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#ffcdd2] bg-[#feebee] px-6 py-4 text-center">
-                      <p className="text-xs font-bold text-[#c62828]">Pairing code unavailable</p>
-                      <button onClick={generateNewPin} className="mt-2 text-xs font-bold text-[#287555] hover:underline">
-                        🔄 Retry Generating Code
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center px-1">
-                    <span className="text-[11px] font-semibold text-[#687b74]">🔒 Single-Use PIN</span>
-                    <button onClick={generateNewPin} className="text-[11px] font-bold text-[#287555] hover:underline">
-                      🔄 Refresh Code
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {role === "parent" && pairMode === "qr" && (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-[#a9c9b2] bg-[#f3faee] p-5 text-center">
-                  <div className="relative grid h-36 w-36 place-items-center rounded-2xl bg-white p-3 shadow-inner border border-[#d2e5d8]">
-                    <div className="grid grid-cols-5 gap-1.5 w-full h-full p-1 opacity-80">
-                      {Array.from({ length: 25 }).map((_, i) => (
-                        <div key={i} className={`rounded-sm ${i % 2 === 0 || i % 7 === 0 ? "bg-[#1d5946]" : "bg-[#d6f4ad]"}`} />
-                      ))}
-                    </div>
-                    <span className="absolute rounded-lg bg-[#1d5946] px-2 py-1 text-[10px] font-bold text-white shadow">StayKids</span>
-                  </div>
-                  <p className="mt-3 text-xs font-bold text-[#287555]">SK-PAIR-{dynamicPin}</p>
-                  <p className="mt-1 text-[11px] text-[#687b74]">Scan this QR Code using child device camera</p>
-                </div>
-              )}
+              {/* Removed dead parent pairing UI since it's handled in AddChildModal */}
 
               {role === "child" && pairMode === "pin" && (
                 <div className="space-y-2">
@@ -376,7 +335,7 @@ export function Onboarding({
                             "'StayKids Service' খুঁজে বের করে ট্যাপ করুন।",
                             "উপরে থাকা সুইচ বাটনটি অন (Allow/Enable) করে দিন।",
                           ],
-                          onOpenSettings: async () => {},
+                          onOpenSettings: async () => { openAccessibilitySettings().catch(() => {}) },
                         })
                       }}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
@@ -405,7 +364,7 @@ export function Onboarding({
                             "'StayKids' অ্যাপটি বেছে নিয়ে 'No Restrictions' বা 'Don't optimize' দিন।",
                             "এর ফলে শাওমি/স্যামসাং ব্যাকগ্রাউন্ডে সার্ভিস বন্ধ করবে না।",
                           ],
-                          onOpenSettings: async () => {},
+                          onOpenSettings: async () => { requestDisableBatteryOptimization().catch(() => {}) },
                         })
                       }}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
@@ -433,6 +392,7 @@ export function Onboarding({
                             "ডিভাইস এডমিন সুরক্ষা অ্যাক্টিভ করার পপ-আপ স্ক্রিন আসবে।",
                             "নিচের 'Activate this device admin app' বাটনে চাপুন।",
                           ],
+                          onOpenSettings: async () => { requestEnableDeviceAdmin().catch(() => {}) },
                         })
                       }}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
@@ -461,6 +421,7 @@ export function Onboarding({
                             "'StayKids' খুঁজে বের করে সিলেক্ট করুন।",
                             "'Permit usage access' সুইচটি অন করে দিন।",
                           ],
+                          onOpenSettings: async () => { openUsageAccessSettings().catch(() => {}) },
                         })
                       }}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${
@@ -489,6 +450,7 @@ export function Onboarding({
                             "'StayKids' খুঁজে বের করে সিলেক্ট করুন।",
                             "'Allow notification access' সুইচটি অন করে দিন।",
                           ],
+                          onOpenSettings: async () => { openNotificationSettings().catch(() => {}) },
                         })
                       }}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition ${

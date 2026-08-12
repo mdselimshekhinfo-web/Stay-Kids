@@ -91,7 +91,7 @@ export const Activity = React.memo(function Activity({ state }: { state: StayKid
               return (
                 <div className="h-44 flex items-end justify-between gap-1 mt-4 pt-2 px-1">
                   {historyData.reverse().map((day: any, i: number) => {
-                    const h = Math.min(100, Math.round((day.minutes_used / Math.max(1, usage.limit)) * 100))
+                    const h = Math.min(100, Math.round((day.minutes_used / Math.max(1, usage.limit || 120)) * 100))
                     return (
                       <div key={i} className="flex flex-col items-center flex-1 group relative">
                         <span className="text-[8px] text-[#71807a] opacity-0 group-hover:opacity-100 transition mb-1">{day.minutes_used}m</span>
@@ -127,8 +127,8 @@ export const Activity = React.memo(function Activity({ state }: { state: StayKid
           </ul>
         ) : (
           <div className="text-center py-4 bg-[#f9fbfb] rounded-xl border border-[#edf1f2]">
-            <span className="text-2xl mb-1 block">📊</span>
-            <p className="text-sm text-[#71807a]">Activity data will appear as your child uses their device</p>
+            <span className="text-2xl mb-1 block">📭</span>
+            <p className="text-sm text-[#71807a]">No recent alerts</p>
           </div>
         )}
       </div>

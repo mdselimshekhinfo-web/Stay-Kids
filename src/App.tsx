@@ -162,9 +162,11 @@ export default function App() {
       }).catch(() => {
         setIsLoading(false)
       })
+    }).catch(() => {
+      setIsLoading(false)
     })
 
-  }, [selectedRole])
+  }, [])
 
   const fetchLatestState = () => {
     getStayKidsState()
@@ -176,10 +178,14 @@ export default function App() {
       })
   }
 
+  useEffect(() => {
+    if (authenticated && ready) {
+      fetchLatestState()
+    }
+  }, [authenticated, ready])
+
   // 1. Adaptive Polling Interval (Foreground: 3s, Background: 30s unless active live stream)
   useEffect(() => {
-    fetchLatestState()
-
     const handleVisibility = () => {
       setIsForeground(document.visibilityState === "visible")
     }
@@ -387,7 +393,7 @@ export default function App() {
             sendStayKidsAction({ type: "register-fcm-token", token }).catch(() => {})
           }
         }).catch(() => {})
-      })
+      }).catch(() => {})
     }
   }, [role])
 
@@ -418,10 +424,15 @@ export default function App() {
 
   // 3. Child Device MediaProjection Auto-Start Response
   useEffect(() => {
+    let isCancelled = false
     if (role === "child" && state.remote.mirrorStreamActive) {
       sendStayKidsAction({ type: "webrtc-signal", signalState: "requesting-consent" }).catch(() => {})
       startNativeScreenShare()
         .then((res) => {
+          if (isCancelled) {
+            if (res.success) stopNativeScreenShare().catch(() => {})
+            return
+          }
           if (res.success) {
             sendStayKidsAction({ type: "webrtc-signal", signalState: "connecting" }).catch(() => {})
           } else {
@@ -430,11 +441,12 @@ export default function App() {
           }
         })
         .catch((_err) => {
-          triggerToast("Screen Share service failed to initialize", "error")
+          if (!isCancelled) triggerToast("Screen Share service failed to initialize", "error")
         })
     } else if (role === "child" && !state.remote.mirrorStreamActive) {
       stopNativeScreenShare().catch(() => {})
     }
+    return () => { isCancelled = true }
   }, [role, state.remote.mirrorStreamActive])
 
   // 4. Child Device Ambient Audio Streaming Response
@@ -445,7 +457,10 @@ export default function App() {
     if (role === "child" && state.remote.audioActive) {
       startNativeAudioCapture()
         .then((res) => {
-          if (!isMounted) return
+          if (!isMounted) {
+            if (res.success) stopNativeAudioCapture().catch(() => {})
+            return
+          }
           if (res.success) {
             unsubscribeAudioListener = listenAudioChunk((chunkBase64) => {
               sendStayKidsAction({
@@ -477,11 +492,11 @@ export default function App() {
     if (role === "child" && state.remote.alarmActive) {
       import("./lib/native").then(({ triggerSirenNative }) => {
         triggerSirenNative().catch(() => {})
-      })
+      }).catch(() => {})
     } else if (role === "child" && !state.remote.alarmActive) {
       import("./lib/native").then(({ stopSirenNative }) => {
         if (stopSirenNative) stopSirenNative().catch(() => {})
-      })
+      }).catch(() => {})
     }
   }, [role, state.remote.alarmActive])
 
