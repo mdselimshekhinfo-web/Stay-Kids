@@ -44,8 +44,8 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
         registerPlugin(StayKidsNativePlugin.class);
+        super.onCreate(savedInstanceState);
         Log.i(TAG, "StayKids MainActivity initialized with full Native Plugin Suite.");
     }
 
@@ -1307,3 +1307,4 @@ public class MainActivity extends BridgeActivity {
 
     }
 }
+
