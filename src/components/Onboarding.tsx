@@ -325,7 +325,6 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
-                        openAccessibilitySettings().catch(() => {})
                         setGuideModal({
                           isOpen: true,
                           title: "1. Accessibility Service Access",
@@ -354,7 +353,6 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
-                        requestDisableBatteryOptimization().catch(() => {})
                         setGuideModal({
                           isOpen: true,
                           title: "2. Battery Saver (No Restrictions)",
@@ -383,7 +381,6 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
-                        requestEnableDeviceAdmin().catch(() => {})
                         setGuideModal({
                           isOpen: true,
                           title: "3. Device Admin Protection",
@@ -411,7 +408,6 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
-                        openUsageAccessSettings().catch(() => {})
                         setGuideModal({
                           isOpen: true,
                           title: "Usage Access Permission",
@@ -440,7 +436,6 @@ export function Onboarding({
                     <button
                       type="button"
                       onClick={() => {
-                        openNotificationSettings().catch(() => {})
                         setGuideModal({
                           isOpen: true,
                           title: "Notification Access",
@@ -624,4 +619,6 @@ export function Onboarding({
     </main>
   )
 }
+
+
 
