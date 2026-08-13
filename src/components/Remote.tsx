@@ -413,46 +413,48 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         )}
 
         {tool === "Live GPS Map" && (
-          <div className="flex flex-col flex-1 space-y-4 pt-14 pb-6">
-            <div className="flex items-center justify-between">
-              <span className="rounded-full bg-[#d6f4ad] px-2.5 py-0.5 text-[10px] font-bold text-[#17352b]">
-                🗺️ OpenStreetMap (Live)
-              </span>
-              <span className="text-[10px] font-mono text-[#baf26b]">
-                {lat.toFixed(4)}, {lng.toFixed(4)}
-              </span>
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col h-full w-full relative">
+            <button onClick={() => handleQuitTool()} className="absolute top-4 left-4 z-[120] p-2 text-white bg-black/40 rounded-full hover:bg-black/60 transition">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            </button>
+            <div className="flex flex-col flex-1 relative">
+              <div className="absolute top-4 inset-x-0 flex justify-center z-[110] pointer-events-none">
+                <span className="rounded-full bg-black/60 backdrop-blur-md px-3 py-1.5 text-xs font-bold text-white shadow-lg">
+                  ?? {lat.toFixed(4)}, {lng.toFixed(4)}
+                </span>
+              </div>
+              <div className="flex-1 w-full relative z-0">
+                <MapContainer 
+                  center={[lat, lng]} 
+                  zoom={15} 
+                  style={{ height: "100%", width: "100%" }}
+                  zoomControl={false}
+                >
+                  <TileLayer
+                    attribution="&copy; OpenStreetMap"
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <MapTracker center={[lat, lng]} />
+                  <Marker position={[lat, lng]}>
+                    <Popup>
+                      <div className="text-center font-bold text-[#17352b]">
+                        {childName}'s location
+                      </div>
+                    </Popup>
+                  </Marker>
+                </MapContainer>
+              </div>
+              <div className="absolute bottom-8 inset-x-6 z-[120]">
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block w-full text-center rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 py-4 text-base font-bold text-white hover:bg-white/20 transition shadow-2xl"
+                >
+                  Open Route in Google Maps ?
+                </a>
+              </div>
             </div>
-            
-            <div className="relative flex-1 w-full rounded-xl overflow-hidden border border-[#287555] bg-white z-0">
-              <MapContainer 
-                center={[lat, lng]} 
-                zoom={15} 
-                style={{ height: '100%', width: '100%' }}
-                zoomControl={false}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <MapTracker center={[lat, lng]} />
-                <Marker position={[lat, lng]}>
-                  <Popup>
-                    <div className="text-center font-bold text-[#17352b]">
-                      {childName}'s location
-                    </div>
-                  </Popup>
-                </Marker>
-              </MapContainer>
-            </div>
-
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`}
-              target="_blank"
-              rel="noreferrer"
-              className="block w-full text-center rounded-xl bg-[#287555] py-4 text-sm font-bold text-white hover:bg-[#1f5c43] transition shadow-md"
-            >
-              📍 Open Route in Google Maps →
-            </a>
           </div>
         )}
 
@@ -580,78 +582,84 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         )}
 
         {tool === "One-way audio" && (
-          <div className="flex flex-col flex-1 space-y-4 pt-14 pb-6">
-            <div className="flex items-center justify-between">
-              <span className="rounded-full bg-[#d6f4ad] px-2.5 py-0.5 text-[10px] font-bold text-[#17352b]">
-                🎙️ Ambient Audio Stream
-              </span>
-              <span className={`text-[10px] font-mono font-bold ${audio ? "text-[#baf26b] animate-pulse" : "text-[#869690]"}`}>
-                {audio ? "🔴 LIVE AUDIO MONITORING" : "⚪ IDLE"}
-              </span>
-            </div>
-
-            <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col h-full w-full relative items-center justify-center">
+            <button onClick={() => handleQuitTool()} className="absolute top-4 left-4 z-[120] p-2 text-white bg-white/10 rounded-full hover:bg-white/20 transition">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            </button>
+            <div className="flex-1 flex flex-col items-center justify-center w-full max-w-sm px-6">
               {audio && remote.liveAudioChunk ? (
-                <div className="space-y-4 w-full max-w-xs p-6 bg-[#0a0a0a] rounded-2xl border border-[#287555] text-center">
-                  <div className="mx-auto h-16 w-16 bg-[#287555] rounded-full flex items-center justify-center animate-pulse">
-                    <span className="text-3xl">🎙️</span>
+                <div className="space-y-6 w-full text-center">
+                  <div className="mx-auto h-24 w-24 bg-[#287555]/20 rounded-full flex items-center justify-center animate-pulse">
+                    <span className="text-5xl">???</span>
                   </div>
-                  <p className="text-sm font-bold text-[#baf26b]">
+                  <p className="text-lg font-bold text-[#baf26b] animate-pulse">
                     Streaming Live Audio...
                   </p>
-                  <audio src={remote.liveAudioChunk} autoPlay controls className="w-full h-10 rounded-lg" />
+                  <audio src={remote.liveAudioChunk} autoPlay controls className="w-full h-12 rounded-xl opacity-80" />
                 </div>
               ) : audio ? (
-                <div className="p-4 text-center space-y-4">
-                  <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#baf26b] border-t-transparent" />
-                  <p className="text-sm font-bold text-[#cce0d5]">Connecting to microphone...</p>
+                <div className="p-4 text-center space-y-6">
+                  <div className="mx-auto h-16 w-16 animate-spin rounded-full border-4 border-[#baf26b] border-t-transparent" />
+                  <p className="text-lg font-bold text-white">Connecting to microphone...</p>
                 </div>
               ) : (
-                <div className="text-center space-y-2 opacity-50">
-                  <span className="text-6xl">🎙️</span>
-                  <p className="text-sm font-bold mt-4">Audio Stream Ready</p>
+                <div className="text-center space-y-6 opacity-60">
+                  <span className="text-7xl">???</span>
+                  <p className="text-xl font-bold text-white">Audio Stream Ready</p>
                 </div>
               )}
+              
+              <div className="absolute bottom-12 inset-x-6">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (audio) {
+                      onAction({ type: "ambient-audio", active: false })
+                    }
+                    onAction({ type: "audio-toggle", active: !audio })
+                  }}
+                  className={`w-full max-w-sm mx-auto block rounded-2xl py-4 text-lg font-bold transition shadow-2xl ${
+                    audio ? "bg-red-500/20 text-red-500 hover:bg-red-500/30 border border-red-500/50" : "bg-white/10 text-white hover:bg-white/20 border border-white/20"
+                  }`}
+                >
+                  {audio ? "Stop Listening" : "Start Listening"}
+                </button>
+              </div>
             </div>
-
-            <button
-              type="button"
-              onClick={async () => {
-                if (audio) {
-                  onAction({ type: "ambient-audio", active: false })
-                }
-                onAction({ type: "audio-toggle", active: !audio })
-              }}
-              className={`w-full rounded-xl py-4 text-sm font-bold transition shadow-sm ${
-                audio ? "bg-[#c62828] text-white hover:bg-[#b71c1c]" : "bg-[#287555] text-white hover:bg-[#1f5c43]"
-              }`}
-            >
-              {audio ? "Stop Listening 🛑" : "Start Listening 🎙️"}
-            </button>
           </div>
         )}
 
         {tool === "Snapshot" && (
-          <div className="flex flex-col flex-1 space-y-6 pt-14 pb-6 items-center justify-center">
-            <span className="text-7xl">📷</span>
-            <p className="font-bold text-2xl text-white">Silent Snapshot</p>
-            <p className="text-sm text-center text-[#cce0d5] px-4 max-w-sm">
-              Capture a high-quality photo using the child device camera silently without triggering the screen.
-            </p>
-            <button
-              onClick={() => {
-                onAction({ type: "capture-snapshot", facing: camFacing })
-                onAction({ type: "capture-snapshot" })
-              }}
-              className="w-full max-w-xs rounded-xl bg-[#287555] py-4 text-base font-bold text-white hover:bg-[#1f5c43] shadow-md transition active:scale-95"
-            >
-              Take Snapshot Now
+          <div className="fixed inset-0 z-[100] bg-black flex flex-col h-full w-full relative items-center justify-center">
+            <button onClick={() => handleQuitTool()} className="absolute top-4 left-4 z-[120] p-2 text-white bg-white/10 rounded-full hover:bg-white/20 transition">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             </button>
-            {remote.lastSnapshotTime && (
-              <p className="text-sm text-center text-[#baf26b] font-semibold bg-[#baf26b]/10 px-4 py-2 rounded-lg">
-                ✓ Captured at {remote.lastSnapshotTime}
-              </p>
-            )}
+            <div className="flex flex-col flex-1 space-y-8 items-center justify-center px-6 w-full max-w-sm">
+              <span className="text-8xl">??</span>
+              <div className="space-y-2 text-center">
+                <p className="font-bold text-3xl text-white">Silent Snapshot</p>
+                <p className="text-base text-white/60">
+                  Capture a photo using the child device silently.
+                </p>
+              </div>
+              
+              <div className="w-full space-y-4 pt-8">
+                <button
+                  onClick={() => {
+                    onAction({ type: "capture-snapshot", facing: camFacing })
+                    onAction({ type: "capture-snapshot" })
+                  }}
+                  className="w-full rounded-2xl bg-white text-black py-4 text-lg font-bold hover:bg-gray-200 shadow-xl transition active:scale-95"
+                >
+                  Take Snapshot Now
+                </button>
+                {remote.lastSnapshotTime && (
+                  <p className="text-sm text-center text-[#baf26b] font-semibold bg-[#baf26b]/10 border border-[#baf26b]/20 px-4 py-3 rounded-xl">
+                    ? Captured at {remote.lastSnapshotTime}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -820,6 +828,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     </div>
   )
 }
+
 
 
 
