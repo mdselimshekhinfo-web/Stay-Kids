@@ -6,7 +6,7 @@
 6    <uses-sdk android:minSdkVersion="24" />
 7
 8    <application>
-8-->F:\Figma\Parental Control App\android\capacitor-cordova-android-plugins\src\main\AndroidManifest.xml:4:1-6:15
+8-->C:\Users\SHEIK SADI\.gemini\antigravity\worktrees\Parental Control App\split_app_build_flavors\android\capacitor-cordova-android-plugins\src\main\AndroidManifest.xml:4:1-6:15
 9    </application>
 10
 11</manifest>

@@ -9,10 +9,12 @@
     "preview": "vite preview",
     "format": "oxfmt",
     "test": "vitest run",
-    "android:sync": "pnpm build && cap sync android",
+    "build:parent": "vite build --mode parent && move dist\\index-parent.html dist\\index.html",
+    "build:child": "vite build --mode child && move dist\\index-child.html dist\\index.html",
+    "android:sync": "cap sync android",
     "android:open": "cap open android",
-    "android:parent": "pnpm run android:sync && cd android && ./gradlew assembleParentDebug",
-    "android:child": "pnpm run android:sync && cd android && ./gradlew assembleChildDebug"
+    "android:parent": "npm run build:parent && npm run android:sync && cd android && gradlew assembleParentDebug",
+    "android:child": "npm run build:child && npm run android:sync && cd android && gradlew assembleChildDebug"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.0",

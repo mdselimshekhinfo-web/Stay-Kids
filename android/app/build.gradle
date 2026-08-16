@@ -49,10 +49,14 @@ android {
             storePassword keystoreProperties['storePassword'] ?: System.getenv("KEYSTORE_PASSWORD") ?: ""
             keyAlias keystoreProperties['keyAlias'] ?: "staykids"
             keyPassword keystoreProperties['keyPassword'] ?: System.getenv("KEY_PASSWORD") ?: ""
+            enableV2Signing true
+            enableV3Signing true
+            enableV4Signing true
         }
     }
     buildTypes {
         release {
+            debuggable false
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'

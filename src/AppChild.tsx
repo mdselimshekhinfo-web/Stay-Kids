@@ -30,7 +30,7 @@ import { Dashboard } from "./components/Dashboard"
 import { Alerts } from "./components/Alerts"
 import { Profile } from "./components/Profile"
 
-const Remote = React.lazy(() => import("./components/Remote").then(m => ({ default: m.Remote })))
+
 const ChildDevice = React.lazy(() => import("./components/ChildDevice").then(m => ({ default: m.ChildDevice })))
 
 const SuspenseWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -82,7 +82,7 @@ const initialDefaultState: StayKidsState = {
   blockedApps: {},
 }
 
-export default function App() {
+export default function AppChild() {
   const [selectedRole, setSelectedRole] = useState<"parent" | "child" | null>(() => {
     const saved = localStorage.getItem("staykids_selected_role")
     return saved === "parent" || saved === "child" ? saved : null
@@ -712,7 +712,7 @@ export default function App() {
     Activity: <Activity state={state} />,
     Alerts: <Alerts state={state} onAction={action} />,
     Profile: <Profile state={state} switchRole={() => setRole("child")} onSignOut={handleSignOut} user={user} onAction={action} />,
-    Remote: <SuspenseWrapper><Remote state={state} onAction={action} /></SuspenseWrapper>,
+    Remote: <SuspenseWrapper><div>Remote is not included in this build.</div></SuspenseWrapper>,
   }
 
   const nav = [

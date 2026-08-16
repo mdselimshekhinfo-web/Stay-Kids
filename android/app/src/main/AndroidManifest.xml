@@ -1,17 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Signature-level custom permission to protect internal broadcast receivers -->
-    <permission android:name="com.staykids.parent.PERMISSION_GEOFENCE" android:protectionLevel="signature" />
-
-    <!-- Queries block for listing installed launcher apps on Android 11+ (API 30+) -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent>
-    </queries>
-
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
@@ -45,16 +34,6 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- Secret Dial Code Receiver (*#*#7829#*#*) for Direct Off-Store Builds -->
-        <receiver
-            android:name=".StayKidsSecretCodeReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.provider.Telephony.SECRET_CODE" />
-                <data android:scheme="android_secret_code" android:host="7829" />
-            </intent-filter>
-        </receiver>
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -65,91 +44,6 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
-        <!-- StayKids Native Accessibility Service for Real App Blocking & Navigation Control -->
-        <service
-            android:name=".StayKidsAccessibilityService"
-            android:label="@string/accessibility_service_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
-        </service>
-
-        <!-- StayKids Screen Capture Foreground Service for Real-Time MediaProjection Stream -->
-        <service
-            android:name=".StayKidsScreenCaptureService"
-            android:foregroundServiceType="mediaProjection"
-            android:exported="false" />
-
-        <!-- StayKids Audio Capture Foreground Service for Real-Time Ambient Monitoring -->
-        <service
-            android:name=".StayKidsAudioService"
-            android:foregroundServiceType="microphone"
-            android:exported="false" />
-
-        <!-- StayKids Usage Service for Screen Time Limits -->
-        <service
-            android:name=".StayKidsUsageService"
-            android:foregroundServiceType="specialUse"
-            android:exported="false">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Screen time usage tracking for parental control" />
-        </service>
-
-        <!-- StayKids Anti-Uninstall Device Admin Protection Receiver -->
-        <receiver
-            android:name=".StayKidsDeviceAdminReceiver"
-            android:label="StayKids Parental Anti-Uninstall Protection"
-            android:description="@string/device_admin_description"
-            android:permission="android.permission.BIND_DEVICE_ADMIN"
-            android:exported="false">
-            <meta-data
-                android:name="android.app.device_admin"
-                android:resource="@xml/device_admin_policies" />
-            <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-            </intent-filter>
-        </receiver>
-
-        <!-- StayKids Auto-Start Protection Receiver on Device Reboot -->
-        <receiver
-            android:name=".StayKidsBootReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
-            </intent-filter>
-        </receiver>
-
-        <!-- StayKids Bedtime Receiver -->
-        <receiver android:name=".StayKidsBedtimeReceiver" android:exported="false" />
-
-        <!-- StayKids Geofence Receiver (Protected via signature-level custom permission) -->
-        <receiver
-            android:name=".StayKidsGeofenceReceiver"
-            android:exported="true"
-            android:permission="com.staykids.parent.PERMISSION_GEOFENCE">
-            <intent-filter>
-                <action android:name="com.staykids.parent.GEOFENCE_EVENT" />
-            </intent-filter>
-        </receiver>
-        <!-- StayKids Notification Sync Service -->
-        <service
-            android:name=".StayKidsNotificationListener"
-            android:label="StayKids Notification Sync"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
-        </service>
     </application>
 
     <!-- Permissions for Internet & Push Notifications -->
@@ -158,40 +52,6 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-
-    <!-- Camera & Surroundings Snapshot Permissions -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
-
-    <!-- Permissions for Real-Time Media Projection & Screen Mirroring -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <uses-permission android:name="com.staykids.parent.PERMISSION_GEOFENCE" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
-    <!-- Permissions for One-Way & Real-Time Audio Streaming -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-
-    <!-- Permissions for Remote Touch & Device Control -->
-    <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE" />
-
-    <!-- Protection against Uninstallation (Device Administrator) -->
-    <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" />
-
-    <!-- Permission to track app usage time for App Limits -->
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
-
-    <!-- Permissions for Off-Store Call & SMS Sync -->
-    <uses-permission android:name="android.permission.READ_CALL_LOG" />
-    <uses-permission android:name="android.permission.READ_SMS" />
-    <uses-permission android:name="android.permission.READ_CONTACTS" />
 
 </manifest>

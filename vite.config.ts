@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
       minify: true,
       rollupOptions: {
+        input: mode === 'child' ? path.resolve(__dirname, 'index-child.html') : mode === 'parent' ? path.resolve(__dirname, 'index-parent.html') : path.resolve(__dirname, 'index.html'),
         output: {
           manualChunks: {
             'vendor-react': ['react', 'react-dom'],
@@ -123,6 +124,12 @@ function figmaSiteConfiguration(config: FigmaSiteConfiguration): Plugin {
       order: 'pre',
       handler(html) {
         let result = html
+        if (mode === 'child') {
+          result = result.replace('/src/main.tsx', '/src/main-child.tsx')
+        } else if (mode === 'parent') {
+          result = result.replace('/src/main.tsx', '/src/main-parent.tsx')
+        }
+        
         result = replaceHtmlCommentSlot(result, 'figma:lang', language)
         result = replaceHtmlCommentSlot(result, 'figma:title', escapeHtmlText(title))
         result = replaceHtmlCommentSlot(result, 'figma:head-start', headStart)

@@ -1,6 +1,5 @@
 import React, { Component, ReactNode } from "react"
 import ReactDOM from "react-dom/client"
-import AppParent from "./AppParent"
 import AppChild from "./AppChild"
 import "./index.css"
 import { ToastContainer } from "./components/Toast"
@@ -57,14 +56,11 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
 initGlobalErrorHandler()
 
-// Rollup will perform dead code elimination based on import.meta.env.MODE
-const App = import.meta.env.MODE === 'child' ? AppChild : AppParent;
-
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <ToastContainer />
-      <App />
+      <AppChild />
     </ErrorBoundary>
   </React.StrictMode>,
 )
