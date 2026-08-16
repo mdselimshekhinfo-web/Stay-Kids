@@ -38,6 +38,17 @@ android {
             buildConfigField "String", "STAYKIDS_ROLE", "\"child\""
         }
     }
+    sourceSets {
+        main {
+            java.srcDirs = ['src/main/java']
+        }
+        parent {
+            java.srcDirs = ['src/parent/java']
+        }
+        child {
+            java.srcDirs = ['src/child/java']
+        }
+    }
     signingConfigs {
         release {
             def keystorePropertiesFile = rootProject.file("keystore.properties")
