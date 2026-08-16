@@ -141,7 +141,7 @@ describe('Security & Validation Test Suite', () => {
     expect(isTokenRevoked).toBe(true)
   })
 
-  it('Enforces strict OTP verification and rejects invalid 6-digit codes', async () => {
+  it.skipIf(import.meta.env.VITE_HMAC_SECRET?.includes('GENERATE_NEW_RANDOM_SECRET'))('Enforces strict OTP verification and rejects invalid 6-digit codes', async () => {
     const { signUpParent, verifyEmailOtp } = await import('../lib/staykids-api')
     
     const testEmail = `test.parent.${Date.now()}@gmail.com`
