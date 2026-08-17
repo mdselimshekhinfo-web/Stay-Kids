@@ -272,7 +272,7 @@ export default function AppChild() {
         unsubscribeFrameListener()
       }
     }
-  }, [role, state.remote.mirrorStreamActive])
+  }, [role, authenticated, ready, state.remote.mirrorStreamActive])
 
   // Fix 2: Child Device WebRTC Signal Bridge & Native Forwarding
   const forwardedOfferRef = React.useRef<string | null>(null)
@@ -290,7 +290,12 @@ export default function AppChild() {
       
       // Receive WebRTC signal events (offers & candidates) from parent via broadcast
       unsubscribeSupabaseSignal = subscribeToWebRTCSignals(state.child.id, (signal) => {
-        handleNativeWebRTCSignal(signal).catch(() => {})
+        console.log("[StayKids Debug] Received signal in AppChild:", JSON.stringify(signal))
+        if (signal.actionData) {
+          action(signal.actionData, true)
+        } else {
+          handleNativeWebRTCSignal(signal).catch(() => {})
+        }
       })
     } else {
       // Receive WebRTC signal events from child via broadcast
@@ -315,7 +320,7 @@ export default function AppChild() {
         unsubscribeSupabaseSignal()
       }
     }
-  }, [role, state.child.id, state.activeChildId])
+  }, [role, authenticated, ready, state.child.id, state.activeChildId])
 
   // Part A: Native Geofence Alert Event Listener for Child Device
   useEffect(() => {
@@ -343,7 +348,7 @@ export default function AppChild() {
         unsubscribeGeofenceListener()
       }
     }
-  }, [role])
+  }, [role, authenticated, ready])
 
   // Priorities 2, 3, 4: Child Device Telemetry Sync (Installed Apps, Call/SMS Metadata, Web Visits)
   useEffect(() => {
@@ -382,7 +387,7 @@ export default function AppChild() {
         unsubscribeWebVisitListener()
       }
     }
-  }, [role])
+  }, [role, authenticated, ready])
 
   // Fix 1: Parent Role FCM Token Registration
   const lastFcmTokenRef = React.useRef<string | null>(null)
@@ -397,7 +402,7 @@ export default function AppChild() {
         }).catch(() => {})
       }).catch(() => {})
     }
-  }, [role])
+  }, [role, authenticated, ready])
 
   useEffect(() => {
     if (role !== "child" || !authenticated || !ready) return
@@ -422,7 +427,7 @@ export default function AppChild() {
       forwardedOfferRef.current = null
       forwardedCandidatesCountRef.current = 0
     }
-  }, [role, state.remote.webrtcOffer, state.remote.webrtcCandidates, state.remote.mirrorStreamActive])
+  }, [role, authenticated, ready, state.remote.webrtcOffer, state.remote.webrtcCandidates, state.remote.mirrorStreamActive])
 
   // 3. Child Device MediaProjection Auto-Start Response
   useEffect(() => {
@@ -449,7 +454,7 @@ export default function AppChild() {
       stopNativeScreenShare().catch(() => {})
     }
     return () => { isCancelled = true }
-  }, [role, state.remote.mirrorStreamActive])
+  }, [role, authenticated, ready, state.remote.mirrorStreamActive])
 
   // 4. Child Device Ambient Audio Streaming Response
   useEffect(() => {
@@ -487,7 +492,7 @@ export default function AppChild() {
         unsubscribeAudioListener()
       }
     }
-  }, [role, state.remote.audioActive])
+  }, [role, authenticated, ready, state.remote.audioActive])
 
   // 5. Child Device Anti-Theft Siren Response
   useEffect(() => {
@@ -500,7 +505,7 @@ export default function AppChild() {
         if (stopSirenNative) stopSirenNative().catch(() => {})
       }).catch(() => {})
     }
-  }, [role, state.remote.alarmActive])
+  }, [role, authenticated, ready, state.remote.alarmActive])
 
   // 6. Child Device Bedtime Enforcement Response (Fix 1: Pass wakeTime to native scheduler)
   useEffect(() => {
@@ -516,7 +521,7 @@ export default function AppChild() {
         })
       }
     }
-  }, [role, state.controls.bedtime, state.controls.bedtimeSchedule, state.controls.wakeTime])
+  }, [role, authenticated, ready, state.controls.bedtime, state.controls.bedtimeSchedule, state.controls.wakeTime])
 
   // 7. Child Device Geofence Response
   const geofenceSetRef = React.useRef(false)
@@ -532,7 +537,16 @@ export default function AppChild() {
         }
       })
     }
-  }, [role, state.controls.geofence, state.child.coordinates])
+  }, [role, authenticated, ready, state.controls.geofence, state.child.coordinates])
+
+  // 7b. Child Device Paused Response
+  useEffect(() => {
+    if (role === "child" && authenticated && ready) {
+      import("./lib/native").then(({ setDevicePausedNative }) => {
+        setDevicePausedNative(!!state.controls.paused).catch(() => {})
+      })
+    }
+  }, [role, authenticated, ready, state.controls.paused])
 
   // 8. Child Device Web Filter Response
   useEffect(() => {
@@ -541,7 +555,7 @@ export default function AppChild() {
         syncWebFilter(!!state.controls.filter).catch(() => {})
       })
     }
-  }, [role, state.controls.filter])
+  }, [role, authenticated, ready, state.controls.filter])
 
   // 8b. Child Device App Blocker Response
   const prevBlockedAppsRef = React.useRef<Record<string, boolean>>({})
@@ -562,7 +576,7 @@ export default function AppChild() {
         })
       })
     }
-  }, [role, state.blockedApps])
+  }, [role, authenticated, ready, state.blockedApps])
 
   // 9. Child Device Daily Limit Response
   useEffect(() => {
@@ -572,7 +586,7 @@ export default function AppChild() {
         syncDailyLimit(effectiveLimit).catch(() => {})
       })
     }
-  }, [role, state.usage.limit, state.controls.limits])
+  }, [role, authenticated, ready, state.usage.limit, state.controls.limits])
 
   // 10. Child Device Screen Resolution Telemetry Response
   useEffect(() => {
@@ -587,9 +601,10 @@ export default function AppChild() {
         })
       })
     }
-  }, [role])
+  }, [role, authenticated, ready])
 
-  const action = (data: Record<string, unknown>) => {
+  const action = (data: Record<string, unknown>, skipNetwork = false) => {
+    console.log("[StayKids Debug] action() called with:", JSON.stringify(data), "skipNetwork:", skipNetwork)
     // Optimistic local state updates for 100% responsive UI
     setState((prev) => {
       const next = JSON.parse(JSON.stringify(prev)) as StayKidsState
@@ -679,11 +694,22 @@ export default function AppChild() {
     // Save previous state for synchronous rollback on failure
     const prevState = { ...state }
 
-    sendStayKidsAction(data).catch((err) => {
-      // Re-fetch latest state to safely resync instead of wiping out realtime background updates
-      fetchLatestState()
-      triggerToast(err.message || "Couldn't sync change — check connection", "error")
-    })
+    if (!skipNetwork) {
+      // FAST LOCAL EMULATOR SYNC: Broadcast the action immediately via Supabase Realtime
+      const targetChildId = state.activeChildId || state.child?.id;
+      if (targetChildId && data.type !== "webrtc-signal") {
+        import("./lib/realtime").then(({ sendWebRTCSignal }) => {
+          sendWebRTCSignal(targetChildId, { actionData: data }).catch(() => {});
+        });
+      }
+
+      sendStayKidsAction(data).catch((err) => {
+        // Re-fetch latest state to safely resync instead of wiping out realtime background updates
+        fetchLatestState()
+        triggerToast(err.message || "Couldn't sync change — check connection", "error")
+        setState(prevState)
+      })
+    }
   }
 
   const handleSignOut = async () => {

@@ -80,9 +80,11 @@ export function subscribeToWebRTCSignals(
   }
 
   webrtcChannel = client.channel(`webrtc-${childId}`)
+  console.log(`[StayKids Realtime] Subscribing to webrtc-${childId}`)
   const localChannel = webrtcChannel
   localChannel
     .on('broadcast', { event: 'webrtc-signal' }, (payload: { payload: any }) => {
+      console.log(`[StayKids Realtime] Received broadcast:`, payload)
       onSignal(payload.payload)
     })
     .subscribe()
