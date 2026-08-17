@@ -680,6 +680,15 @@ export default function AppParent() {
       return;
     }
 
+    // Fix 3: Broadcast instant actions (locking, alarms, settings) for 0-latency child response
+    const instantActions = ["toggle-control", "toggle-geofence", "set-limit", "set-app-limit", "set-bedtime", "trigger-alarm", "audio-toggle", "toggle-app-lock"];
+    if (typeof data.type === "string" && instantActions.includes(data.type)) {
+      const targetChildId = state.activeChildId || state.child.id;
+      sendWebRTCSignal(targetChildId, { actionData: data }).catch((err) => {
+        console.warn("Failed to broadcast instant action via Supabase:", err);
+      });
+    }
+
     // Save previous state for synchronous rollback on failure
     const prevState = { ...state }
 
