@@ -158,6 +158,8 @@ export default function AppChild() {
             }
           }
           setIsLoading(false)
+        }).catch(() => {
+          setIsLoading(false)
         })
       }).catch(() => {
         setIsLoading(false)
@@ -253,7 +255,7 @@ export default function AppChild() {
   useEffect(() => {
     let unsubscribeFrameListener: (() => void) | null = null
 
-    if (role === "child") {
+    if (role === "child" && authenticated && ready) {
       unsubscribeFrameListener = listenScreenFrame((frameBase64) => {
         sendStayKidsAction({
           type: "webrtc-signal",
@@ -280,7 +282,7 @@ export default function AppChild() {
     let unsubscribeWebRTCSignalListener: (() => void) | null = null
     let unsubscribeSupabaseSignal: (() => void) | null = null
 
-    if (role === "child") {
+    if (role === "child" && authenticated && ready) {
       // Forward native WebRTC signal events (answers & candidates) to parent via broadcast
       unsubscribeWebRTCSignalListener = listenWebRTCSignal((signal) => {
         sendWebRTCSignal(state.child.id, signal).catch(() => {})
@@ -320,7 +322,7 @@ export default function AppChild() {
     let isMounted = true
     let unsubscribeGeofenceListener: (() => void) | null = null
 
-    if (role === "child") {
+    if (role === "child" && authenticated && ready) {
       import("./lib/native").then(({ listenGeofenceAlert }) => {
         if (!isMounted) return
         unsubscribeGeofenceListener = listenGeofenceAlert((data) => {
@@ -348,7 +350,7 @@ export default function AppChild() {
     let isMounted = true
     let unsubscribeWebVisitListener: (() => void) | null = null
 
-    if (role === "child") {
+    if (role === "child" && authenticated && ready) {
       import("./lib/native").then(({ fetchNativeInstalledApps, getCallSmsLogsNative, listenWebVisitAlert }) => {
         if (!isMounted) return
         // Sync Installed Apps
@@ -398,7 +400,7 @@ export default function AppChild() {
   }, [role])
 
   useEffect(() => {
-    if (role !== "child") return
+    if (role !== "child" || !authenticated || !ready) return
 
     // Forward SDP Offer from backend state to native WebRTC manager
     if (state.remote.webrtcOffer && JSON.stringify(state.remote.webrtcOffer) !== forwardedOfferRef.current) {
@@ -425,7 +427,7 @@ export default function AppChild() {
   // 3. Child Device MediaProjection Auto-Start Response
   useEffect(() => {
     let isCancelled = false
-    if (role === "child" && state.remote.mirrorStreamActive) {
+    if (role === "child" && state.remote.mirrorStreamActive && authenticated && ready) {
       sendStayKidsAction({ type: "webrtc-signal", signalState: "requesting-consent" }).catch(() => {})
       startNativeScreenShare()
         .then((res) => {
@@ -443,7 +445,7 @@ export default function AppChild() {
         .catch((_err) => {
           if (!isCancelled) triggerToast("Screen Share service failed to initialize", "error")
         })
-    } else if (role === "child" && !state.remote.mirrorStreamActive) {
+    } else if (role === "child" && !state.remote.mirrorStreamActive && authenticated && ready) {
       stopNativeScreenShare().catch(() => {})
     }
     return () => { isCancelled = true }
@@ -454,7 +456,7 @@ export default function AppChild() {
     let isMounted = true
     let unsubscribeAudioListener: (() => void) | null = null
 
-    if (role === "child" && state.remote.audioActive) {
+    if (role === "child" && state.remote.audioActive && authenticated && ready) {
       startNativeAudioCapture()
         .then((res) => {
           if (!isMounted) {
@@ -475,7 +477,7 @@ export default function AppChild() {
         .catch((_err) => {
           triggerToast("Ambient audio service error", "error")
         })
-    } else if (role === "child" && !state.remote.audioActive) {
+    } else if (role === "child" && !state.remote.audioActive && authenticated && ready) {
       stopNativeAudioCapture().catch(() => {})
     }
 
@@ -489,11 +491,11 @@ export default function AppChild() {
 
   // 5. Child Device Anti-Theft Siren Response
   useEffect(() => {
-    if (role === "child" && state.remote.alarmActive) {
+    if (role === "child" && state.remote.alarmActive && authenticated && ready) {
       import("./lib/native").then(({ triggerSirenNative }) => {
         triggerSirenNative().catch(() => {})
       }).catch(() => {})
-    } else if (role === "child" && !state.remote.alarmActive) {
+    } else if (role === "child" && !state.remote.alarmActive && authenticated && ready) {
       import("./lib/native").then(({ stopSirenNative }) => {
         if (stopSirenNative) stopSirenNative().catch(() => {})
       }).catch(() => {})
@@ -502,7 +504,7 @@ export default function AppChild() {
 
   // 6. Child Device Bedtime Enforcement Response (Fix 1: Pass wakeTime to native scheduler)
   useEffect(() => {
-    if (role === "child") {
+    if (role === "child" && authenticated && ready) {
       if (state.controls.bedtime && state.controls.bedtimeSchedule) {
         import("./lib/native").then(({ setBedtimeNative }) => {
           setBedtimeNative(state.controls.bedtimeSchedule!, state.controls.wakeTime || "07:00").catch(() => {})
@@ -519,7 +521,7 @@ export default function AppChild() {
   // 7. Child Device Geofence Response
   const geofenceSetRef = React.useRef(false)
   useEffect(() => {
-    if (role === "child") {
+    if (role === "child" && authenticated && ready) {
       import("./lib/native").then(({ addGeofenceNative, removeGeofenceNative }) => {
         if (state.controls.geofence && state.child.coordinates && !geofenceSetRef.current) {
           addGeofenceNative(state.child.coordinates!.lat, state.child.coordinates!.lng, 500).catch(() => {})
@@ -534,7 +536,7 @@ export default function AppChild() {
 
   // 8. Child Device Web Filter Response
   useEffect(() => {
-    if (role === "child") {
+    if (role === "child" && authenticated && ready) {
       import("./lib/native").then(({ syncWebFilter }) => {
         syncWebFilter(!!state.controls.filter).catch(() => {})
       })
@@ -544,7 +546,7 @@ export default function AppChild() {
   // 8b. Child Device App Blocker Response
   const prevBlockedAppsRef = React.useRef<Record<string, boolean>>({})
   useEffect(() => {
-    if (role === "child" && state.blockedApps) {
+    if (role === "child" && state.blockedApps && authenticated && ready) {
       const current = state.blockedApps || {}
       const prev = prevBlockedAppsRef.current
       prevBlockedAppsRef.current = { ...current }
@@ -564,7 +566,7 @@ export default function AppChild() {
 
   // 9. Child Device Daily Limit Response
   useEffect(() => {
-    if (role === "child") {
+    if (role === "child" && authenticated && ready) {
       import("./lib/native").then(({ syncDailyLimit }) => {
         const effectiveLimit = state.controls.limits === false ? 9999 : (state.usage.limit || 120)
         syncDailyLimit(effectiveLimit).catch(() => {})
@@ -574,7 +576,7 @@ export default function AppChild() {
 
   // 10. Child Device Screen Resolution Telemetry Response
   useEffect(() => {
-    if (role === "child") {
+    if (role === "child" && authenticated && ready) {
       import("./lib/native").then(({ getScreenResolutionNative }) => {
         getScreenResolutionNative().then((res) => {
           sendStayKidsAction({
@@ -772,7 +774,7 @@ export default function AppChild() {
   if (!selectedRole) {
     return (
       <Onboarding
-        defaultRole="parent"
+        defaultRole="child"
         complete={(selectedRoleChoice) => {
           localStorage.setItem("staykids_selected_role", selectedRoleChoice)
           setSelectedRole(selectedRoleChoice)

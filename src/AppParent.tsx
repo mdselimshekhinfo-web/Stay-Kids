@@ -665,13 +665,19 @@ export default function AppParent() {
       return next
     })
 
-    // Fix 2: Re-fetch latest server state on failure to avoid stale snapshot rollbacks
+    // Fix 2: WebRTC signals use Supabase Broadcast for SDP/ICE candidates (low latency),
+    // but we also persist signalState changes to the server so polling clients see the update.
     if (data.type === "webrtc-signal") {
       const targetChildId = state.activeChildId || state.child.id;
+      // Always broadcast (low-latency P2P path)
       sendWebRTCSignal(targetChildId, data).catch((err) => {
         console.warn("Failed to broadcast WebRTC signal via Supabase:", err);
       });
-      return; // Do not send via HTTP API to avoid latency
+      // Also persist connectionState changes via HTTP so child's polling picks them up
+      if (data.signalState) {
+        sendStayKidsAction({ type: "webrtc-signal", signalState: data.signalState, clearSignal: data.clearSignal }).catch(() => {});
+      }
+      return;
     }
 
     // Save previous state for synchronous rollback on failure

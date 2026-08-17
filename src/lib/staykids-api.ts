@@ -11,12 +11,16 @@ import {
   ActionSchema,
 } from './validation-schemas'
 
-const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`
-const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || publicAnonKey
-
 export const supabaseAuthClient = createSupabaseClient(
-  supabaseUrl,
-  supabaseAnonKey
+  import.meta.env.VITE_SUPABASE_URL || `https://${projectId}.supabase.co`,
+  import.meta.env.VITE_SUPABASE_ANON_KEY || publicAnonKey,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false
+    }
+  }
 )
 
 const getApiBaseUrl = () => {
@@ -69,10 +73,14 @@ export const loadAuthToken = async () => {
 
 export const setAuthToken = async (token: string | null) => {
   inMemoryToken = token
-  if (token) {
-    await supabaseAuthClient.auth.setSession({ access_token: token, refresh_token: '' })
-  } else {
-    await supabaseAuthClient.auth.signOut().catch(() => {})
+  try {
+    if (token) {
+      await supabaseAuthClient.auth.setSession({ access_token: token, refresh_token: '' })
+    } else {
+      await supabaseAuthClient.auth.signOut().catch(() => {})
+    }
+  } catch (err) {
+    console.warn("Supabase Auth setSession failed, continuing with custom token", err)
   }
   try {
     if (typeof window !== 'undefined') {

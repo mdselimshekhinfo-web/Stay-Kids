@@ -21,8 +21,6 @@ L.Icon.Default.mergeOptions({
 })
 import type { StayKidsState } from "../lib/staykids-api"
 import {
-  triggerRemoteTouch,
-  triggerRemoteNavigation,
   listenCameraFrame,
 } from "../lib/native"
 import { triggerToast } from "./Toast"
@@ -287,9 +285,10 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
         setCameraStreaming(false)
         setLiveCamFrame(null)
       }
-      if ((tool === "Screen Mirror" || tool === "Remote access") && remote.mirrorStreamActive) {
-        onAction({ type: "mirror-toggle", active: false })
-        onAction({ type: "mirror-toggle", active: false })
+      if (tool === "Screen Mirror" || tool === "Remote access") {
+        if (remote.mirrorStreamActive) {
+          onAction({ type: "mirror-toggle", active: false })
+        }
         onAction({ type: "webrtc-signal", signalState: "idle", clearSignal: true })
       }
       if (tool === "One-way audio" && remote.audioActive) {
@@ -352,19 +351,12 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 onBack={() => handleQuitTool(true)}
                 onSnapshot={() => {
                   onAction({ type: "capture-snapshot", facing: camFacing })
-                  onAction({ type: "capture-snapshot" })
                 }}
                 onRetry={async () => {
                   onAction({ type: "webrtc-signal", signalState: "connecting" })
                   setCameraStreaming(true)
                   setLiveCamFrame(null)
                   onAction({ type: "live-cam-toggle", active: true, facing: camFacing })
-                  if (res.error) {
-                    setCameraStreaming(false)
-                    onAction({ type: "webrtc-signal", signalState: "denied" })
-                  } else {
-                    onAction({ type: "webrtc-signal", signalState: "live" })
-                  }
                 }} 
               />
             )}
@@ -483,13 +475,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 onRetry={async () => {
                    onAction({ type: "webrtc-signal", signalState: "requesting-consent" })
                    onAction({ type: "mirror-toggle", active: true })
-                   if (res.error) {
-                     onAction({ type: "webrtc-signal", signalState: "denied" })
-                     triggerToast("Consent Error: " + res.error, "error")
-                   } else {
-                     onAction({ type: "mirror-toggle", active: true })
-                     onAction({ type: "webrtc-signal", signalState: "connecting" })
-                   }
+                   onAction({ type: "webrtc-signal", signalState: "connecting" })
                 }} 
               />
             )}
@@ -523,9 +509,8 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                     const targetX = Math.round(((clickX - offsetX) / renderedW) * nativeW);
                     const targetY = Math.round(((clickY - offsetY) / renderedH) * nativeH);
                     onAction({ type: "remote-touch", x: targetX, y: targetY, actionType: "TOUCH" });
-                    triggerRemoteTouch(targetX, targetY).catch(() => {
-                        triggerToast("Touch command failed", "error");
-                    });
+                    // triggerRemoteTouch is an accessibility bridge for the CHILD device only.
+                    // Touch commands are relayed via server -> child native plugin.
                 }
               }}
               className="relative flex-1 w-full h-full bg-black flex items-center justify-center select-none overflow-hidden"
@@ -688,13 +673,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 onRetry={async () => {
                    onAction({ type: "webrtc-signal", signalState: "requesting-consent" })
                    onAction({ type: "mirror-toggle", active: true })
-                   if (res.error) {
-                     onAction({ type: "webrtc-signal", signalState: "denied" })
-                     triggerToast("Consent Error: " + res.error, "error")
-                   } else {
-                     onAction({ type: "mirror-toggle", active: true })
-                     onAction({ type: "webrtc-signal", signalState: "connecting" })
-                   }
+                   onAction({ type: "webrtc-signal", signalState: "connecting" })
                 }} 
               />
             )}
@@ -728,9 +707,8 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                     const targetX = Math.round(((clickX - offsetX) / renderedW) * nativeW);
                     const targetY = Math.round(((clickY - offsetY) / renderedH) * nativeH);
                     onAction({ type: "remote-touch", x: targetX, y: targetY, actionType: "TOUCH" });
-                    triggerRemoteTouch(targetX, targetY).catch(() => {
-                        triggerToast("Touch command failed", "error");
-                    });
+                    // triggerRemoteTouch is an accessibility bridge for the CHILD device only.
+                    // Touch commands are relayed via server -> child native plugin.
                 }
               }}
               className="relative flex-1 w-full h-full bg-black flex items-center justify-center select-none overflow-hidden cursor-crosshair"
@@ -764,13 +742,13 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                    )}
                 </div>
                 <div className="flex items-center justify-between px-2 pb-1">
-                  <button onClick={() => { onAction({ type: "remote-touch", actionType: "RECENTS" }); triggerRemoteNavigation("RECENTS").catch(() => triggerToast("Failed", "error")) }} className="p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition active:scale-95">
+                  <button onClick={() => { onAction({ type: "remote-touch", actionType: "RECENTS" }); }} className="p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition active:scale-95">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
                   </button>
-                  <button onClick={() => { onAction({ type: "remote-touch", actionType: "HOME" }); triggerRemoteNavigation("HOME").catch(() => triggerToast("Failed", "error")) }} className="p-4 bg-white/20 rounded-full text-white hover:bg-white/30 transition active:scale-95 shadow-lg">
+                  <button onClick={() => { onAction({ type: "remote-touch", actionType: "HOME" }); }} className="p-4 bg-white/20 rounded-full text-white hover:bg-white/30 transition active:scale-95 shadow-lg">
                     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
                   </button>
-                  <button onClick={() => { onAction({ type: "remote-touch", actionType: "BACK" }); triggerRemoteNavigation("BACK").catch(() => triggerToast("Failed", "error")) }} className="p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition active:scale-95">
+                  <button onClick={() => { onAction({ type: "remote-touch", actionType: "BACK" }); }} className="p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition active:scale-95">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                   </button>
                 </div>

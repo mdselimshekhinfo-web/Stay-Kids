@@ -37,6 +37,11 @@ actionRoutes.get("/state", async (c) => {
         webrtcAnswer: liveData.webrtcAnswer || state.remote.webrtcAnswer,
         webrtcCandidates: liveData.webrtcCandidates || state.remote.webrtcCandidates || [],
         connectionState: liveData.connectionState || state.remote.connectionState,
+        audioActive: liveData.audioActive !== undefined ? liveData.audioActive : state.remote.audioActive,
+        mirrorStreamActive: liveData.mirrorStreamActive !== undefined ? liveData.mirrorStreamActive : state.remote.mirrorStreamActive,
+        tool: liveData.tool || state.remote.tool,
+        lastSnapshotTime: liveData.lastSnapshotTime || state.remote.lastSnapshotTime,
+        status: liveData.status || state.remote.status,
       };
     }
 
@@ -201,7 +206,7 @@ actionRoutes.post("/action", async (c) => {
         web_filter_enabled: childState.controls.filter || false,
         daily_limit_minutes: childState.usage?.limit || 120
       });
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "toggle-app-lock" && typeof action.appName === "string") {
       if (action.appName.length > 256) {
         return c.json({ error: "App name too long" }, 400);
@@ -218,7 +223,7 @@ actionRoutes.post("/action", async (c) => {
         app_name: action.appName,
         is_blocked: childState.blockedApps[action.appName]
       });
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "update-location" && typeof action.location === "string") {
       state.child.location = action.location;
       if (action.coordinates) state.child.coordinates = action.coordinates;
@@ -228,7 +233,7 @@ actionRoutes.post("/action", async (c) => {
         latitude: action.coordinates?.lat,
         longitude: action.coordinates?.lng
       }).eq('id', targetChildId);
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "update-school" && typeof action.school === "string") {
       if (!childState.child) childState.child = { ...state.child };
       childState.child.school = action.school;
@@ -237,7 +242,7 @@ actionRoutes.post("/action", async (c) => {
         state.children = state.children.map((c: any) => c.id === targetChildId ? { ...c, school: action.school } : c);
       }
       await supabase.from('children').update({ school: action.school }).eq('id', targetChildId);
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "register-fcm-token" && typeof action.token === "string") {
       await kv.set(`fcm_token:${authCtx.email.toLowerCase()}:${targetChildId}`, action.token);
       await kv.set(`fcm_token:${authCtx.email.toLowerCase()}`, action.token);
@@ -283,7 +288,7 @@ actionRoutes.post("/action", async (c) => {
         is_read: false,
       });
       sendFcmPushNotification(authCtx.email, newAlert.title, newAlert.detail).catch(() => {});
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "unpair-device" && typeof action.childId === "string") {
       const targetId = action.childId;
       await kv.set(`unpaired:${targetId}`, true);
@@ -299,9 +304,11 @@ actionRoutes.post("/action", async (c) => {
     } else if (action.type === "update-notification-prefs" && action.prefs && typeof action.prefs === "object") {
       if (!state.notificationPrefs) state.notificationPrefs = { sos: true, block: true, location: true, call: true, activity: true };
       state.notificationPrefs = { ...state.notificationPrefs, ...(action.prefs as any) };
+      needsFullSave = true;
     } else if (action.type === "toggle-geofence") {
       childState.controls.geofence = !childState.controls.geofence;
       state.controls = { ...childState.controls };
+      needsFullSave = true;
     } else if (action.type === "set-limit" && typeof action.value === "number") {
       if (action.value < 0 || action.value > 1440) {
         return c.json({ error: "Invalid limit, must be between 0 and 1440" }, 400);
@@ -313,19 +320,20 @@ actionRoutes.post("/action", async (c) => {
         child_id: targetChildId,
         daily_limit_minutes: action.value
       });
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "set-app-limit" && typeof action.appName === "string" && typeof action.limit === "number") {
       if (!childState.controls.appLimits) childState.controls.appLimits = {};
       childState.controls.appLimits[action.appName] = action.limit;
       state.controls = { ...childState.controls };
+      needsFullSave = true;
     } else if (action.type === "mark-all-read") {
       state.alerts = state.alerts.map((a: any) => ({ ...a, read: true }));
       await supabase.from('alerts').update({ is_read: true }).eq('child_id', targetChildId);
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "mark-read" && typeof action.id === "string") {
       state.alerts = state.alerts.map((a: any) => (a.id === action.id ? { ...a, read: true } : a));
       await supabase.from('alerts').update({ is_read: true }).eq('id', action.id);
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "trigger-alarm") {
       if (!state.remote) state.remote = { status: "idle", tool: "Screen Mirror", consentRequired: false, audioActive: false };
       state.remote.alarmActive = !state.remote.alarmActive;
@@ -348,13 +356,21 @@ actionRoutes.post("/action", async (c) => {
           is_read: false,
         });
       }
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "select-remote-tool" && typeof action.tool === "string") {
       if (!state.remote) state.remote = { status: "idle", tool: "Screen Mirror", consentRequired: false, audioActive: false };
       state.remote.tool = action.tool;
+      const liveKey = `live:${authCtx.email.toLowerCase()}:${targetChildId}`;
+      const existingLive = (await kv.get(liveKey)) || {};
+      await kv.set(liveKey, { ...existingLive, tool: action.tool, timestamp: Date.now() });
+      needsFullSave = true;
     } else if (action.type === "capture-snapshot") {
       if (!state.remote) state.remote = { status: "idle", tool: "Camera Snapshot", consentRequired: false, audioActive: false };
-      state.remote.lastSnapshotTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const snapTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      state.remote.lastSnapshotTime = snapTime;
+      const liveKey = `live:${authCtx.email.toLowerCase()}:${targetChildId}`;
+      const existingLive = (await kv.get(liveKey)) || {};
+      await kv.set(liveKey, { ...existingLive, lastSnapshotTime: snapTime, timestamp: Date.now() });
       const newAlert = {
         id: crypto.randomUUID(),
         category: "activity",
@@ -372,7 +388,7 @@ actionRoutes.post("/action", async (c) => {
         category: newAlert.category,
         is_read: false,
       });
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "mirror-toggle") {
       if (!state.remote) state.remote = { status: "idle", tool: "Screen Mirror", consentRequired: false, audioActive: false };
       const nextActive = typeof action.active === "boolean" ? action.active : !state.remote.mirrorStreamActive;
@@ -382,6 +398,16 @@ actionRoutes.post("/action", async (c) => {
       if (!nextActive) {
         state.remote.liveFrame = null;
       }
+      const liveKey = `live:${authCtx.email.toLowerCase()}:${targetChildId}`;
+      const existingLive = (await kv.get(liveKey)) || {};
+      await kv.set(liveKey, { 
+        ...existingLive, 
+        mirrorStreamActive: nextActive, 
+        connectionState: nextActive ? "connecting" : "idle", 
+        status: nextActive ? "active" : "idle", 
+        liveFrame: nextActive ? existingLive.liveFrame : null,
+        timestamp: Date.now() 
+      });
       if (nextActive) {
         const newAlert = {
           id: crypto.randomUUID(),
@@ -401,7 +427,7 @@ actionRoutes.post("/action", async (c) => {
           is_read: false,
         });
       }
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "add-reward-points") {
       const allowedAdd = await checkRateLimit(`add-reward:${targetChildId}`, 10, 60000);
       if (!allowedAdd) {
@@ -482,7 +508,7 @@ actionRoutes.post("/action", async (c) => {
       }
 
       sendFcmPushNotification(authCtx.email, newAlert.title, newAlert.detail).catch(() => {});
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "log-call-sms" && typeof action.detail === "string") {
       const newAlert = {
         id: crypto.randomUUID(),
@@ -501,7 +527,7 @@ actionRoutes.post("/action", async (c) => {
         category: newAlert.category,
         is_read: false,
       });
-      needsFullSave = false;
+      needsFullSave = true;
     } else if (action.type === "set-bedtime" && (typeof action.bedtime === "string" || typeof action.time === "string")) {
       const bedtimeVal = action.bedtime || action.time || "21:00";
       const wakeTimeVal = action.wakeTime || "07:00";
@@ -509,6 +535,13 @@ actionRoutes.post("/action", async (c) => {
       childState.controls.wakeTime = wakeTimeVal;
       state.controls.bedtimeSchedule = bedtimeVal;
       (state.controls as any).wakeTime = wakeTimeVal;
+      await supabase.from('device_controls').upsert({
+        child_id: targetChildId,
+        bedtime_enabled: true,
+        bedtime_start: bedtimeVal,
+        bedtime_end: wakeTimeVal,
+      });
+      needsFullSave = true;
     } else if (action.type === "device-telemetry") {
       if (typeof action.screenWidth === "number") {
         if (!childState.child) childState.child = { ...state.child };
@@ -520,10 +553,22 @@ actionRoutes.post("/action", async (c) => {
         childState.child.screenHeight = action.screenHeight;
         state.child.screenHeight = action.screenHeight;
       }
+      if (typeof action.batteryLevel === "number") {
+        state.child.battery = action.batteryLevel;
+        if (state.children) {
+          state.children = state.children.map((ch: any) => ch.id === targetChildId ? { ...ch, battery: action.batteryLevel } : ch);
+        }
+        await supabase.from('children').update({ battery_level: action.batteryLevel }).eq('id', targetChildId);
+      }
+      needsFullSave = false; // device telemetry is high-frequency, skip full save
     } else if (action.type === "audio-toggle") {
       if (!state.remote) state.remote = { status: "idle", tool: "One-way audio", consentRequired: false, audioActive: false };
       const nextActive = typeof action.active === "boolean" ? action.active : !state.remote.audioActive;
       state.remote.audioActive = nextActive;
+      const liveKey = `live:${authCtx.email.toLowerCase()}:${targetChildId}`;
+      const existingLive = (await kv.get(liveKey)) || {};
+      await kv.set(liveKey, { ...existingLive, audioActive: nextActive, timestamp: Date.now() });
+      needsFullSave = true;
     } else if (action.type === "protection-status" && action.status && typeof action.status === "object") {
       const status = action.status as Record<string, boolean>;
       if (!state.protectionStatus) state.protectionStatus = {};
@@ -585,7 +630,7 @@ actionRoutes.post("/action", async (c) => {
           });
         }
       }
-      needsFullSave = false;
+      needsFullSave = true;
     }
 
     if (needsFullSave) {
