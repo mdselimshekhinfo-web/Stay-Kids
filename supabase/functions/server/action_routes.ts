@@ -76,11 +76,14 @@ actionRoutes.post("/action", async (c) => {
       "protection-status", "trigger-sos", "audio-chunk",
       "webrtc-signal", "capture-snapshot", "audio-toggle",
       "geofence-alert", "installed-apps-telemetry", "sync-call-sms-logs",
-      "web-visit-telemetry", "device-telemetry", "add-reward-points", "redeem-reward-points"
+      "web-visit-telemetry", "device-telemetry", "add-reward-points", "redeem-reward-points",
+      "social-notification-telemetry"
     ];
-    if (authCtx.isDevice && !DEVICE_ALLOWED_ACTIONS.includes(action.type)) {
-      return c.json({ error: "Action not permitted for device tokens" }, 403);
+
+    if (authCtx.isDevice && !DEVICE_ALLOWED_ACTIONS.includes(action.type) && action.type !== "add-child") {
+      return c.json({ error: "Device token is not authorized for this action." }, 403);
     }
+
     if (authCtx.isDevice && !authCtx.childId) {
       return c.json({ success: false, error: "Device token missing childId" }, 400);
     }
@@ -157,7 +160,35 @@ actionRoutes.post("/action", async (c) => {
 
     let needsFullSave = true;
 
-    if (action.type === "select-child" && typeof action.childId === "string") {
+    if (action.type === "social-notification-telemetry") {
+      const newAlert = {
+        id: crypto.randomUUID(),
+        category: "social",
+        title: `Message from ${action.packageName || 'App'}`,
+        detail: `Title: ${action.title}\nMessage: ${action.text}`,
+        time: "Just now",
+        read: false,
+      };
+      state.alerts.unshift(newAlert);
+      await supabase.from('alerts').insert({
+        id: newAlert.id,
+        child_id: targetChildId,
+        title: newAlert.title,
+        description: newAlert.detail,
+        category: newAlert.category,
+        is_read: false,
+      });
+      needsFullSave = true;
+    } else if (action.type === "set-geofence-zone" && action.zone) {
+      if (!childState.controls) childState.controls = { paused: false, limits: true, bedtime: true, filter: true };
+      childState.controls.geofenceZone = action.zone;
+      state.controls.geofenceZone = action.zone;
+      await supabase.from('device_controls').upsert({
+        child_id: targetChildId,
+        geofence_enabled: true,
+      });
+      needsFullSave = true;
+    } else if (action.type === "select-child" && typeof action.childId === "string") {
       if (!state.children?.some((c: any) => c.id === action.childId)) {
         return c.json({ error: "Child not found" }, 400);
       }
