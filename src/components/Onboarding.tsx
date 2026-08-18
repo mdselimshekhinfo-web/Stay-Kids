@@ -30,12 +30,14 @@ export function Onboarding({
   complete,
   defaultRole = "parent",
   activeChildId = "child-1",
+  initialStep,
 }: {
   complete: (role: "parent" | "child") => void
   defaultRole?: "parent" | "child"
   activeChildId?: string
+  initialStep?: number
 }) {
-  const [step, setStep] = useState(defaultRole === "child" ? 1 : 0)
+  const [step, setStep] = useState(initialStep !== undefined ? initialStep : (defaultRole === "child" ? 1 : 0))
   const [role, setRole] = useState<"parent" | "child">(defaultRole)
   const [pairMode, setPairMode] = useState<"pin" | "qr">("pin")
   const [inputPin, setInputPin] = useState("")

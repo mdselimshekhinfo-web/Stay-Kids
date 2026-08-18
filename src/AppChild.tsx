@@ -102,6 +102,7 @@ export default function AppChild() {
   const [biometricLocked, setBiometricLocked] = useState<boolean>(() => {
     return localStorage.getItem("staykids_biometric_enabled") === "true"
   })
+  const [managePermissions, setManagePermissions] = useState(false)
 
   // Hardware Back Button Handler
   useEffect(() => {
@@ -824,7 +825,17 @@ export default function AppChild() {
         />
       )
     }
-    return <SuspenseWrapper><ChildDevice state={state} switchRole={resetRoleSelection} /></SuspenseWrapper>
+    if (managePermissions) {
+      return (
+        <Onboarding
+          defaultRole="child"
+          initialStep={2}
+          complete={() => setManagePermissions(false)}
+        />
+      )
+    }
+
+    return <SuspenseWrapper><ChildDevice state={state} openPermissions={() => setManagePermissions(true)} /></SuspenseWrapper>
   }
 
   // 3. Parent Device Flow
