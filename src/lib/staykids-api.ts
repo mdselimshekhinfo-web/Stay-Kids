@@ -60,7 +60,7 @@ export type StayKidsState = {
   blockedApps?: Record<string, boolean>
   rewards: { earned: number; balance: number }
   alerts: { id: string; title: string; detail: string; time: string; read: boolean }[]
-  remote: { status: string; tool: string; consentRequired: boolean; audioActive: boolean; alarmActive?: boolean; lastSnapshotTime?: string; mirrorStreamActive?: boolean; lastSignal?: any; lastTouchAction?: string; liveFrame?: string; connectionState?: string; liveAudioChunk?: string; webrtcOffer?: string; webrtcAnswer?: string; webrtcCandidates?: any[] }
+  remote: { status: string; tool: string; consentRequired: boolean; audioActive: boolean; alarmActive?: boolean; lastSnapshotTime?: string; mirrorStreamActive?: boolean; cameraStreamActive?: boolean; useFrontCamera?: boolean; lastSignal?: any; lastTouchAction?: string; liveFrame?: string; connectionState?: string; liveAudioChunk?: string; webrtcOffer?: string; webrtcAnswer?: string; webrtcCandidates?: any[] }
 }
 
 let inMemoryToken: string | null = null

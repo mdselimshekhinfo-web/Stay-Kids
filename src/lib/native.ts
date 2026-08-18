@@ -45,6 +45,7 @@ export interface StayKidsNativePlugin {
   triggerSiren(): Promise<{ success: boolean }>
   stopSiren(): Promise<{ success: boolean }>
   setBedtimeSchedule(options: { time: string; wakeTime?: string }): Promise<{ success: boolean }>
+  cancelBedtimeSchedule(): Promise<{ success: boolean }>
   setDevicePaused(options: { paused: boolean }): Promise<{ success: boolean }>
   addGeofence(options: { latitude: number; longitude: number; radius: number }): Promise<{ success: boolean }>
   removeGeofence(options: { id: string }): Promise<{ success: boolean }>
@@ -54,6 +55,9 @@ export interface StayKidsNativePlugin {
   getAppUsageStats(): Promise<{ success: boolean; stats?: { packageName: string; appName: string; durationMs: number; lastUsed: number }[] }>
   getFcmToken(): Promise<{ success: boolean; token?: string; error?: string }>
   getAppRole(): Promise<{ role: string }>
+  initBackgroundSync(options: { url: string; jwt: string; hmacSecret: string }): Promise<{ success: boolean }>
+  startCameraStream(options: { useFrontCamera: boolean }): Promise<{ success: boolean }>
+  stopCameraStream(): Promise<{ success: boolean }>
 }
 
 const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative", {
@@ -99,9 +103,13 @@ const StayKidsNative = registerPlugin<StayKidsNativePlugin>("StayKidsNative", {
     triggerSiren: async () => ({ success: true }),
     stopSiren: async () => ({ success: true }),
     setBedtimeSchedule: async () => ({ success: true }),
+    cancelBedtimeSchedule: async () => ({ success: true }),
     addGeofence: async () => ({ success: true }),
     getAppUsageStats: async () => ({ success: true, stats: [] }),
     getAppRole: async () => ({ role: "unknown" }),
+    initBackgroundSync: async () => ({ success: true }),
+    startCameraStream: async () => ({ success: true }),
+    stopCameraStream: async () => ({ success: true }),
     toggleAppIconVisibility: async () => ({ success: true, hidden: false }),
     isAppIconHidden: async () => ({ hidden: false }),
   } as any,
@@ -585,6 +593,15 @@ export const setBedtimeNative = async (time: string, wakeTime = "07:00"): Promis
   }
 }
 
+export const cancelBedtimeScheduleNative = async (): Promise<{ success: boolean; error?: string }> => {
+  try {
+    return await StayKidsNative.cancelBedtimeSchedule()
+  } catch (e: any) {
+    console.warn(`StayKidsNative: Bedtime schedule cancelled in web mode.`)
+    return { success: true }
+  }
+}
+
 export const addGeofenceNative = async (latitude: number, longitude: number, radius = 100): Promise<{ success: boolean; error?: string }> => {
   try {
     return await StayKidsNative.addGeofence({ latitude, longitude, radius })
@@ -660,6 +677,32 @@ export const listenWebVisitAlert = (
       handlePromise.then((h) => h.remove()).catch(() => {})
     }
   } catch (_e) {
+    return () => {}
+  }
+}
+
+export const initBackgroundSyncNative = async (url: string, jwt: string, hmacSecret: string): Promise<void> => {
+  try {
+    await StayKidsNative.initBackgroundSync({ url, jwt, hmacSecret })
+  } catch (e) {
+    console.warn("initBackgroundSyncNative not available on web")
+  }
+}
+
+export const listenSocialNotificationAlert = (
+  callback: (data: { packageName?: string; title?: string; text?: string; postTime?: number }) => void
+): (() => void) => {
+  try {
+    const handlePromise = StayKidsNative.addListener("social_notification_alert", (data: any) => {
+      if (data) {
+        callback(data)
+      }
+    })
+
+    return () => {
+      handlePromise.then(handle => handle.remove()).catch(() => {})
+    }
+  } catch (e) {
     return () => {}
   }
 }

@@ -9,6 +9,8 @@ import {
 import {
   startNativeScreenShare,
   stopNativeScreenShare,
+  startCameraNative,
+  stopCameraNative,
   listenScreenFrame,
   startNativeAudioCapture,
   stopNativeAudioCapture,
@@ -238,7 +240,7 @@ export default function AppChild() {
     }
 
     // Fallback: Reduced polling (every 30s as safety net, or 3s if no realtime)
-    const isLiveActive = Boolean(state.remote?.mirrorStreamActive || state.remote?.audioActive)
+    const isLiveActive = Boolean(state.remote?.mirrorStreamActive || state.remote?.audioActive || state.remote?.cameraStreamActive)
     const realtimeActive = isRealtimeAvailable() && childIds.length > 0
     const pollIntervalMs = realtimeActive
       ? (isLiveActive ? 5000 : 30000)  // With realtime: slow fallback only
@@ -250,7 +252,7 @@ export default function AppChild() {
       clearInterval(interval)
       if (unsubscribeRealtime) unsubscribeRealtime()
     }
-  }, [isForeground, authenticated, ready, state.children?.length, state.remote?.mirrorStreamActive, state.remote?.audioActive])
+  }, [isForeground, authenticated, ready, state.children?.length, state.remote?.mirrorStreamActive, state.remote?.audioActive, state.remote?.cameraStreamActive])
 
   // 2. Real-time Child Frame Stream Listener
   useEffect(() => {
@@ -355,9 +357,10 @@ export default function AppChild() {
   useEffect(() => {
     let isMounted = true
     let unsubscribeWebVisitListener: (() => void) | null = null
+    let unsubscribeSocialNotificationListener: (() => void) | null = null
 
     if (role === "child" && authenticated && ready) {
-      import("./lib/native").then(({ fetchNativeInstalledApps, getCallSmsLogsNative, listenWebVisitAlert }) => {
+      import("./lib/native").then(({ fetchNativeInstalledApps, getCallSmsLogsNative, listenWebVisitAlert, listenSocialNotificationAlert }) => {
         if (!isMounted) return
         // Sync Installed Apps
         fetchNativeInstalledApps().then((apps) => {
@@ -368,7 +371,7 @@ export default function AppChild() {
 
         // Sync Call & SMS Metadata
         getCallSmsLogsNative().then((logs) => {
-          if (isMounted && logs && logs.length > 0) {
+          if (isMounted && logs && (logs.calls.length > 0 || logs.sms.length > 0)) {
             sendStayKidsAction({ type: "sync-call-sms-logs", logs }).catch(() => {})
           }
         }).catch(() => {})
@@ -379,6 +382,13 @@ export default function AppChild() {
             sendStayKidsAction({ type: "web-visit-telemetry", url: data.url }).catch(() => {})
           }
         })
+
+        // Listen for Social Notifications
+        unsubscribeSocialNotificationListener = listenSocialNotificationAlert((data) => {
+          if (data && data.packageName) {
+            sendStayKidsAction({ type: "social-notification-telemetry", ...data }).catch(() => {})
+          }
+        })
       })
     }
 
@@ -386,6 +396,9 @@ export default function AppChild() {
       isMounted = false
       if (unsubscribeWebVisitListener) {
         unsubscribeWebVisitListener()
+      }
+      if (unsubscribeSocialNotificationListener) {
+        unsubscribeSocialNotificationListener()
       }
     }
   }, [role, authenticated, ready])
@@ -424,11 +437,11 @@ export default function AppChild() {
       }
     }
 
-    if (!state.remote.mirrorStreamActive) {
+    if (!state.remote.mirrorStreamActive && !state.remote.cameraStreamActive) {
       forwardedOfferRef.current = null
       forwardedCandidatesCountRef.current = 0
     }
-  }, [role, authenticated, ready, state.remote.webrtcOffer, state.remote.webrtcCandidates, state.remote.mirrorStreamActive])
+  }, [role, authenticated, ready, state.remote.webrtcOffer, state.remote.webrtcCandidates, state.remote.mirrorStreamActive, state.remote.cameraStreamActive])
 
   // 3. Child Device MediaProjection Auto-Start Response
   useEffect(() => {
@@ -517,8 +530,8 @@ export default function AppChild() {
         })
       } else if (!state.controls.bedtime) {
         // Clear bedtime schedule when disabled
-        import("./lib/native").then(({ setBedtimeNative }) => {
-          setBedtimeNative("00:00", "00:00").catch(() => {})
+        import("./lib/native").then(({ cancelBedtimeScheduleNative }) => {
+          cancelBedtimeScheduleNative().catch(() => {})
         })
       }
     }
@@ -582,12 +595,28 @@ export default function AppChild() {
   // 9. Child Device Daily Limit Response
   useEffect(() => {
     if (role === "child" && authenticated && ready) {
-      import("./lib/native").then(({ syncDailyLimit }) => {
+      import("./lib/native").then(({ setDailyLimitNative }) => {
         const effectiveLimit = state.controls.limits === false ? 9999 : (state.usage.limit || 120)
-        syncDailyLimit(effectiveLimit).catch(() => {})
+        setDailyLimitNative(effectiveLimit).catch(() => {})
       })
     }
   }, [role, authenticated, ready, state.usage.limit, state.controls.limits])
+
+  // 9b. Background Sync Initializer
+  useEffect(() => {
+    if (role === "child" && authenticated && ready) {
+      import("./lib/native").then(async ({ initBackgroundSyncNative }) => {
+        const jwt = await import("./lib/staykids-api").then(m => m.loadAuthToken())
+        if (jwt) {
+          initBackgroundSyncNative(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/server/action`,
+            jwt,
+            import.meta.env.VITE_HMAC_SECRET
+          )
+        }
+      })
+    }
+  }, [role, authenticated, ready])
 
   // 10. Child Device Screen Resolution Telemetry Response
   useEffect(() => {
@@ -644,6 +673,8 @@ export default function AppChild() {
         if (app) next.blockedApps = { ...(next.blockedApps || {}), [app]: !(next.blockedApps || {})[app] };
       } else if (data.type === "mirror-toggle") {
         next.remote = { ...next.remote, mirrorStreamActive: !!data.active, connectionState: data.active ? "connecting" : "idle" } as any;
+      } else if (data.type === "camera-toggle") {
+        next.remote = { ...next.remote, cameraStreamActive: !!data.active, useFrontCamera: !!data.useFrontCamera, connectionState: data.active ? "connecting" : "idle" } as any;
       } else if (data.type === "capture-snapshot") {
         next.remote = { ...next.remote, lastSnapshotTime: Date.now() as any };
       } else if (data.type === "remote-touch") {

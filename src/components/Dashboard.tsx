@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react"
 import { fetchChildUsageStats, fetchChildNotifications, fetchChildCallSmsLogs, StayKidsState } from "../lib/staykids-api"
 
 export const Dashboard = React.memo(function Dashboard({ state }: { state: StayKidsState }) {
-  const [activeTab, setActiveTab] = useState<"usage" | "notifications" | "calls">("usage")
+  const [activeTab, setActiveTab] = useState<"usage" | "notifications" | "calls" | "social">("usage")
   
   const [usageStats, setUsageStats] = useState<any[]>([])
   const [notifications, setNotifications] = useState<any[]>([])
@@ -11,6 +11,7 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
   const [isLoading, setIsLoading] = useState(false)
 
   const childId = state.activeChildId || "child-1"
+  const socialNotifications = state.child?.social_notifications || []
 
   useEffect(() => {
     let mounted = true
@@ -46,7 +47,8 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
   const tabs = [
     { id: "usage", label: "App Usage Analytics", icon: "📊" },
     { id: "notifications", label: "Notifications Inbox", icon: "🔔" },
-    { id: "calls", label: "Call & SMS Logs", icon: "📞" }
+    { id: "calls", label: "Call & SMS Logs", icon: "📞" },
+    { id: "social", label: "Social", icon: "💬" }
   ] as const
 
   return (
@@ -174,6 +176,31 @@ export const Dashboard = React.memo(function Dashboard({ state }: { state: StayK
                     <p className="text-sm text-[#71807a] italic">No SMS logs found.</p>
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === "social" && (
+              <div className="space-y-4">
+                <h2 className="font-bold text-[#172226] text-lg mb-2">Social Notifications</h2>
+                {socialNotifications.length > 0 ? (
+                  <ul className="space-y-3">
+                    {socialNotifications.map((notif: any, index: number) => (
+                      <li key={index} className="flex flex-col gap-1 bg-[#f8fbf9] p-3 rounded-xl border border-[#e8f0eb]">
+                        <div className="flex justify-between items-start">
+                          <span className="font-bold text-[#172226]">{notif.appName || "Social App"}</span>
+                          <span className="text-xs text-[#809098]">{notif.timestamp ? new Date(notif.timestamp).toLocaleTimeString() : 'N/A'}</span>
+                        </div>
+                        <p className="font-medium text-[#46545b] text-sm">{notif.title}</p>
+                        {notif.text && <p className="text-xs text-[#71807a] mt-1">{notif.text}</p>}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-center py-8">
+                    <span className="text-4xl mb-2 block">💬</span>
+                    <p className="text-[#71807a]">No social notifications tracked yet.</p>
+                  </div>
+                )}
               </div>
             )}
           </>

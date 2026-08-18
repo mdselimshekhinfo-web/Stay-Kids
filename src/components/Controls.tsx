@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react"
+import { MapContainer, TileLayer, Circle, useMapEvents } from "react-leaflet"
+import "leaflet/dist/leaflet.css"
 import type { StayKidsState } from "../lib/staykids-api"
 import { fetchNativeInstalledApps } from "../lib/native"
 
@@ -8,6 +10,15 @@ const Icon = ({ name }: { name: string }) => (
   </span>
 )
 
+function LocationPicker({ position, setPosition }: { position: {lat: number, lng: number} | null, setPosition: (pos: {lat: number, lng: number}) => void }) {
+  useMapEvents({
+    click(e) {
+      setPosition(e.latlng)
+    },
+  })
+  return position ? <Circle center={position} radius={500} /> : null
+}
+
 export const Controls = React.memo(function Controls({ state, onAction }: { state: StayKidsState; onAction: (action: Record<string, unknown>) => void }) {
   const usage = state.usage || { limit: 120 }
   const controls = state.controls || {}
@@ -16,6 +27,12 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
   const [realApps, setRealApps] = useState<{ name: string; packageName: string; isBlocked: boolean }[]>([])
   const [localLimit, setLocalLimit] = useState<string | number>(usage.limit)
   const [appLimits, setAppLimits] = useState<Record<string, string>>({})
+  const [geofencePos, setGeofencePos] = useState<{lat: number, lng: number} | null>(
+    controls.geofenceZone ? { lat: controls.geofenceZone.lat, lng: controls.geofenceZone.lng } : null
+  )
+  const [geofenceRadius, setGeofenceRadius] = useState<number>(
+    controls.geofenceZone?.radius || 500
+  )
 
   useEffect(() => {
     setLocalLimit(usage.limit)
@@ -136,12 +153,12 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
 
       {/* Geofence Zones */}
       <div className="rounded-[24px] border border-[#e1e7e8] bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <span className="text-xl">📍</span>
             <div>
               <p className="font-bold text-sm text-[#172226]">Geofencing (Safe Zones)</p>
-              <p className="text-xs text-[#71807a]">Alert if {child.name} leaves current location (500m radius)</p>
+              <p className="text-xs text-[#71807a]">Tap on map to set a safe zone center</p>
             </div>
           </div>
           <button
@@ -151,6 +168,54 @@ export const Controls = React.memo(function Controls({ state, onAction }: { stat
             <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all duration-200 ${controls.geofence ? "left-6" : "left-1"}`} />
           </button>
         </div>
+        
+        {controls.geofence && (
+          <div className="space-y-3 mt-2 border-t pt-4 border-[#e1e7e8]">
+            <div className="h-48 w-full rounded-xl overflow-hidden border border-[#e1e7e8] z-0 relative">
+              <MapContainer center={geofencePos || [51.505, -0.09]} zoom={13} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                />
+                <LocationPicker position={geofencePos} setPosition={setGeofencePos} />
+              </MapContainer>
+            </div>
+            
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 flex items-center gap-2">
+                <span className="text-xs font-bold text-[#71807a]">Radius:</span>
+                <input 
+                  type="number"
+                  value={geofenceRadius}
+                  onChange={(e) => setGeofenceRadius(Number(e.target.value))}
+                  className="w-20 bg-[#f5e6c4] px-2 py-1 rounded text-sm font-bold focus:outline-none"
+                  step="100"
+                  min="100"
+                />
+                <span className="text-xs text-[#71807a]">m</span>
+              </div>
+              <button
+                onClick={() => {
+                  if (geofencePos) {
+                    onAction({ 
+                      type: "set-geofence-zone", 
+                      zone: { 
+                        lat: geofencePos.lat, 
+                        lng: geofencePos.lng, 
+                        radius: geofenceRadius, 
+                        label: "Safe Zone" 
+                      } 
+                    })
+                  }
+                }}
+                disabled={!geofencePos}
+                className={`rounded-lg px-4 py-1.5 text-sm font-bold transition-colors ${geofencePos ? "bg-[#287555] text-white hover:bg-[#1d5946]" : "bg-[#d8e0e3] text-[#71807a] cursor-not-allowed"}`}
+              >
+                Save Zone
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Anti-Theft Siren Alarm */}

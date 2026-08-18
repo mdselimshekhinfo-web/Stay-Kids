@@ -1,4 +1,4 @@
-﻿import { Hono } from 'npm:hono';
+import { Hono } from 'npm:hono';
 import { getAuthContext, getStateFromDB, saveStateToDB, defaultState } from './db.ts';
 import { sendFcmPushNotification } from './notifications.ts';
 import { checkRateLimit } from './security.ts';
@@ -363,6 +363,28 @@ actionRoutes.post("/action", async (c) => {
       const liveKey = `live:${authCtx.email.toLowerCase()}:${targetChildId}`;
       const existingLive = (await kv.get(liveKey)) || {};
       await kv.set(liveKey, { ...existingLive, tool: action.tool, timestamp: Date.now() });
+      needsFullSave = true;
+    } else if (action.type === "camera-toggle") {
+      if (!state.remote) state.remote = { status: "idle", tool: "Remote Camera", consentRequired: false, audioActive: false };
+      const nextActive = typeof action.active === "boolean" ? action.active : !state.remote.cameraStreamActive;
+      state.remote.cameraStreamActive = nextActive;
+      state.remote.useFrontCamera = !!action.useFrontCamera;
+      state.remote.connectionState = nextActive ? "connecting" : "idle";
+      state.remote.status = nextActive ? "active" : "idle";
+      if (!nextActive) {
+        state.remote.liveFrame = null;
+      }
+      const liveKey = `live:${authCtx.email.toLowerCase()}:${targetChildId}`;
+      const existingLive = (await kv.get(liveKey)) || {};
+      await kv.set(liveKey, { 
+        ...existingLive, 
+        cameraStreamActive: nextActive, 
+        useFrontCamera: !!action.useFrontCamera,
+        connectionState: nextActive ? "connecting" : "idle", 
+        status: nextActive ? "active" : "idle", 
+        liveFrame: nextActive ? existingLive.liveFrame : null,
+        timestamp: Date.now() 
+      });
       needsFullSave = true;
     } else if (action.type === "capture-snapshot") {
       if (!state.remote) state.remote = { status: "idle", tool: "Camera Snapshot", consentRequired: false, audioActive: false };

@@ -104,16 +104,36 @@ public class MainActivity extends BridgeActivity {
                 }
             };
 
+            socialNotificationReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if ("com.staykids.parent.NOTIFICATION_POSTED".equals(intent.getAction())) {
+                        String notificationData = intent.getStringExtra("notificationData");
+                        if (notificationData != null) {
+                            try {
+                                JSObject data = new JSObject(notificationData);
+                                notifyListeners("social_notification_alert", data);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                }
+            };
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 getContext().registerReceiver(geofenceReceiver, new android.content.IntentFilter("com.staykids.parent.GEOFENCE_EVENT"), Context.RECEIVER_NOT_EXPORTED);
                 getContext().registerReceiver(webVisitReceiver, new android.content.IntentFilter("com.staykids.parent.WEB_VISIT_EVENT"), Context.RECEIVER_NOT_EXPORTED);
+                getContext().registerReceiver(socialNotificationReceiver, new android.content.IntentFilter("com.staykids.parent.NOTIFICATION_POSTED"), Context.RECEIVER_NOT_EXPORTED);
             } else {
                 getContext().registerReceiver(geofenceReceiver, new android.content.IntentFilter("com.staykids.parent.GEOFENCE_EVENT"));
                 getContext().registerReceiver(webVisitReceiver, new android.content.IntentFilter("com.staykids.parent.WEB_VISIT_EVENT"));
+                getContext().registerReceiver(socialNotificationReceiver, new android.content.IntentFilter("com.staykids.parent.NOTIFICATION_POSTED"));
             }
         }
 
         private BroadcastReceiver webVisitReceiver;
+        private BroadcastReceiver socialNotificationReceiver;
 
         @Override
         protected void handleOnDestroy() {
@@ -137,6 +157,11 @@ public class MainActivity extends BridgeActivity {
             if (webVisitReceiver != null) {
                 try {
                     getContext().unregisterReceiver(webVisitReceiver);
+                } catch (IllegalArgumentException ignored) {}
+            }
+            if (socialNotificationReceiver != null) {
+                try {
+                    getContext().unregisterReceiver(socialNotificationReceiver);
                 } catch (IllegalArgumentException ignored) {}
             }
             if (previousAlarmVolume != -1) {
@@ -214,6 +239,60 @@ public class MainActivity extends BridgeActivity {
         @PluginMethod
         public void getAppRole(PluginCall call) {
             call.resolve(new JSObject().put("role", BuildConfig.STAYKIDS_ROLE));
+        }
+
+        @PluginMethod
+        public void startCameraStream(PluginCall call) {
+            boolean useFront = call.getBoolean("useFrontCamera", false);
+            try {
+                StayKidsWebRTCManager.getInstance(getContext()).startCameraWebRTC(useFront);
+                call.resolve(new JSObject().put("success", true));
+            } catch (Exception e) {
+                call.reject("Failed to start camera stream", e);
+            }
+        }
+
+        @PluginMethod
+        public void stopCameraStream(PluginCall call) {
+            try {
+                StayKidsWebRTCManager.getInstance(getContext()).stopWebRTC();
+                call.resolve(new JSObject().put("success", true));
+            } catch (Exception e) {
+                call.reject("Failed to stop camera stream", e);
+            }
+        }
+
+        @PluginMethod
+        public void initBackgroundSync(PluginCall call) {
+            String url = call.getString("url");
+            String jwt = call.getString("jwt");
+            String hmacSecret = call.getString("hmacSecret");
+
+            if (url == null || jwt == null || hmacSecret == null) {
+                call.reject("Missing required parameters for background sync");
+                return;
+            }
+
+            android.content.SharedPreferences prefs = getContext().getSharedPreferences("StayKidsPrefs", Context.MODE_PRIVATE);
+            prefs.edit()
+                .putString("syncUrl", url)
+                .putString("syncJwt", jwt)
+                .putString("syncHmacSecret", hmacSecret)
+                .apply();
+
+            androidx.work.PeriodicWorkRequest syncRequest =
+                new androidx.work.PeriodicWorkRequest.Builder(
+                    StayKidsSyncWorker.class,
+                    15, java.util.concurrent.TimeUnit.MINUTES)
+                .build();
+
+            androidx.work.WorkManager.getInstance(getContext())
+                .enqueueUniquePeriodicWork(
+                    "StayKidsPeriodicSync",
+                    androidx.work.ExistingPeriodicWorkPolicy.UPDATE,
+                    syncRequest);
+
+            call.resolve(new JSObject().put("success", true));
         }
 
         @PluginMethod
@@ -1240,6 +1319,37 @@ public class MainActivity extends BridgeActivity {
                     .put("message", "Bedtime scheduled at " + time + " and Wake Time at " + wakeTime));
             } catch (Exception e) {
                 call.reject("Failed to set bedtime schedule: " + e.getMessage());
+            }
+        }
+
+        @PluginMethod
+        public void cancelBedtimeSchedule(PluginCall call) {
+            try {
+                AlarmManager alarmManager = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+                if (alarmManager == null) {
+                    call.reject("AlarmManager not available.");
+                    return;
+                }
+
+                int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    flags |= PendingIntent.FLAG_IMMUTABLE;
+                }
+
+                Intent bedIntent = new Intent(getContext(), StayKidsBedtimeReceiver.class);
+                bedIntent.putExtra("isWake", false);
+                PendingIntent bedPendingIntent = PendingIntent.getBroadcast(getContext(), 0, bedIntent, flags);
+                alarmManager.cancel(bedPendingIntent);
+
+                Intent wakeIntent = new Intent(getContext(), StayKidsBedtimeReceiver.class);
+                wakeIntent.putExtra("isWake", true);
+                PendingIntent wakePendingIntent = PendingIntent.getBroadcast(getContext(), 1, wakeIntent, flags);
+                alarmManager.cancel(wakePendingIntent);
+
+                Log.i("MainActivity", "Bedtime alarms cancelled");
+                call.resolve(new JSObject().put("success", true).put("message", "Bedtime alarms cancelled"));
+            } catch (Exception e) {
+                call.reject("Failed to cancel bedtime schedule: " + e.getMessage());
             }
         }
 

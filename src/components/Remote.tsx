@@ -268,7 +268,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
     if (tool === "Live Camera" && !cameraStreaming && remote.connectionState !== "denied" && remote.connectionState !== "connecting") {
       const initCam = async () => {
         onAction({ type: "webrtc-signal", signalState: "connecting" })
-        onAction({ type: "live-cam-toggle", active: true, facing: camFacing })
+        onAction({ type: "camera-toggle", active: true, useFrontCamera: camFacing === "user" })
       }
       const timeout = setTimeout(initCam, 500)
       return () => clearTimeout(timeout)
@@ -299,7 +299,7 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
       setShowQuitModal(false)
       
       if (tool === "Live Camera" && cameraStreaming) {
-        onAction({ type: "live-cam-toggle", active: false })
+        onAction({ type: "camera-toggle", active: false })
         setCameraStreaming(false)
         setLiveCamFrame(null)
       }
@@ -370,12 +370,12 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                 onSnapshot={() => {
                   onAction({ type: "capture-snapshot", facing: camFacing })
                 }}
-                onRetry={async () => {
-                  onAction({ type: "webrtc-signal", signalState: "connecting" })
-                  setCameraStreaming(true)
-                  setLiveCamFrame(null)
-                  onAction({ type: "live-cam-toggle", active: true, facing: camFacing })
-                }} 
+                  onRetry={async () => {
+                    onAction({ type: "webrtc-signal", signalState: "connecting" })
+                    setCameraStreaming(true)
+                    setLiveCamFrame(null)
+                    onAction({ type: "camera-toggle", active: true, useFrontCamera: camFacing === "user" })
+                  }} 
               />
             )}
 
@@ -398,10 +398,10 @@ export function Remote({ state, onAction }: { state: StayKidsState; onAction: (d
                     const newFacing = camFacing === "environment" ? "user" : "environment"
                     setCamFacing(newFacing)
                     if (cameraStreaming) {
-                      onAction({ type: "live-cam-toggle", active: false })
+                      onAction({ type: "camera-toggle", active: false })
                       setLiveCamFrame(null)
                       setCameraStreaming(true)
-                      onAction({ type: "live-cam-toggle", active: true, facing: newFacing })
+                      onAction({ type: "camera-toggle", active: true, useFrontCamera: newFacing === "user" })
                     }
                   }}
                   className="p-3 bg-black/40 rounded-full text-white hover:bg-black/60 transition"
