@@ -552,7 +552,7 @@ export function Onboarding({
                   {/* Permission 7: Microphone & Audio Stream */}
                   <div className="flex items-center justify-between rounded-xl bg-white p-3 border border-[#d2e2d7] shadow-sm">
                     <div>
-                      <p className="font-bold text-[#172226]">7. Microphone Access</p>
+                      <p className="font-bold text-[#172226]">10. Microphone Access</p>
                       <p className="text-[10px] text-[#71807a]">Enables one-way surroundings audio monitoring</p>
                     </div>
                     <button
@@ -569,11 +569,11 @@ export function Onboarding({
                     </button>
                   </div>
 
-                  {/* Permission 8: MediaProjection Screen Share Priming */}
+                  {/* Permission 8: Screen Capture Permission */}
                   <div className="flex items-center justify-between rounded-xl bg-white p-3 border border-[#d2e2d7] shadow-sm">
                     <div>
-                      <p className="font-bold text-[#172226]">8. MediaProjection Screen Share</p>
-                      <p className="text-[10px] text-[#71807a]">One-time system consent for live HD screen stream</p>
+                      <p className="font-bold text-[#172226]">11. Screen Capture</p>
+                      <p className="text-[10px] text-[#71807a]">Required for live screen mirroring (Popup will appear)</p>
                     </div>
                     <button
                       type="button"
