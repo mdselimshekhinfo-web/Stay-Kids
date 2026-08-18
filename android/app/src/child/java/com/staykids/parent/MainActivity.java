@@ -63,6 +63,10 @@ public class MainActivity extends BridgeActivity {
             @Permission(
                 alias = "microphone",
                 strings = { Manifest.permission.RECORD_AUDIO }
+            ),
+            @Permission(
+                alias = "callsms",
+                strings = { Manifest.permission.READ_CALL_LOG, Manifest.permission.READ_SMS, Manifest.permission.READ_CONTACTS }
             )
         }
     )
@@ -444,8 +448,16 @@ public class MainActivity extends BridgeActivity {
             if (granted) {
                 call.resolve(new JSObject().put("granted", true));
             } else {
-                ActivityCompat.requestPermissions(getActivity(), permissions, 902);
+                requestPermissionForAlias("callsms", call, "callSmsPermCallback");
+            }
+        }
+
+        @PermissionCallback
+        private void callSmsPermCallback(PluginCall call) {
+            if (getPermissionState("callsms") == PermissionState.GRANTED) {
                 call.resolve(new JSObject().put("granted", true));
+            } else {
+                call.resolve(new JSObject().put("granted", false).put("error", "Permission denied"));
             }
         }
         @PluginMethod
