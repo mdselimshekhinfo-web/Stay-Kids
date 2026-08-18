@@ -335,7 +335,14 @@ public class MainActivity extends BridgeActivity {
                 Bundle bundle = new Bundle();
                 bundle.putString("EXTRA_FRAGMENT_ARG_KEY", componentName);
                 intent.putExtra(":settings:show_fragment_args", bundle);
-                getActivity().startActivity(intent);
+                try {
+                    getActivity().startActivity(intent);
+                } catch (Exception innerE) {
+                    // Fallback to raw intent
+                    Intent fallbackIntent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                    fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getActivity().startActivity(fallbackIntent);
+                }
                 call.resolve();
             } catch (Exception e) {
                 call.reject("Could not open Accessibility Settings: " + e.getMessage());

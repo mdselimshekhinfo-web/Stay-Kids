@@ -24,8 +24,19 @@ actionRoutes.get("/state", async (c) => {
     const state = await getStateFromDB(authCtx.email);
     if (!state) return c.json(JSON.parse(JSON.stringify(defaultState)));
 
+    const targetChildId = authCtx.isDevice 
+      ? authCtx.childId 
+      : (state.activeChildId || "child-1");
+
+    if (authCtx.isDevice && authCtx.childId && state.children) {
+      const myChild = state.children.find((ch: any) => ch.id === authCtx.childId);
+      if (myChild) {
+        state.child = myChild;
+        state.activeChildId = myChild.id;
+      }
+    }
+
     // Merge transient live stream state & WebRTC signaling from KV store (2.2)
-    const targetChildId = authCtx.childId || state.activeChildId || "child-1";
     const liveKey = `live:${authCtx.email.toLowerCase()}:${targetChildId}`;
     const liveData = await kv.get(liveKey);
     if (liveData && Date.now() - liveData.timestamp < 30000) {
