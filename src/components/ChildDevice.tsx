@@ -256,10 +256,6 @@ export function ChildDevice({ state, switchRole }: { state: StayKidsState; switc
                 : "App icon is visible in app drawer. Tap button above to conceal icon for Off-Store direct distribution."}
             </p>
           </div>
-
-          <button onClick={switchRole} className="mt-8 text-sm font-bold text-[#d6f4ad] hover:underline">
-            Switch to parent mode
-          </button>
         </div>
       </div>
     </main>
