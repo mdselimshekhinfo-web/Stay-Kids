@@ -1,4 +1,4 @@
-import { Hono } from 'npm:hono';
+﻿import { Hono } from 'npm:hono';
 import { getAuthContext, getStateFromDB, saveStateToDB, defaultState } from './db.ts';
 import { sendFcmPushNotification } from './notifications.ts';
 import { checkRateLimit } from './security.ts';
@@ -273,7 +273,7 @@ actionRoutes.post("/action", async (c) => {
       const newAlert = {
         id: crypto.randomUUID(),
         category: "location",
-        title: `📍 Geofence ${action.transition === "ENTER" ? "Arrival" : "Departure"}`,
+        title: `ðŸ“ Geofence ${action.transition === "ENTER" ? "Arrival" : "Departure"}`,
         detail: `${state.child?.name || "Child"} ${transitionText} designated safe zone (${zoneText}).`,
         time: "Just now",
         read: false,
@@ -341,7 +341,7 @@ actionRoutes.post("/action", async (c) => {
         const newAlert = {
           id: crypto.randomUUID(),
           category: "sos",
-          title: "🚨 Anti-Theft Alarm Triggered",
+          title: "ðŸš¨ Anti-Theft Alarm Triggered",
           detail: `Loud siren alarm activated remotely on ${state.child.name}'s device.`,
           time: "Just now",
           read: false,
@@ -374,7 +374,7 @@ actionRoutes.post("/action", async (c) => {
       const newAlert = {
         id: crypto.randomUUID(),
         category: "activity",
-        title: "📷 Remote Snapshot Captured",
+        title: "ðŸ“· Remote Snapshot Captured",
         detail: `Camera snapshot captured safely on ${state.child.name}'s device.`,
         time: "Just now",
         read: false,
@@ -412,7 +412,7 @@ actionRoutes.post("/action", async (c) => {
         const newAlert = {
           id: crypto.randomUUID(),
           category: "activity",
-          title: "▣ Live Screen Mirror Requested",
+          title: "â–£ Live Screen Mirror Requested",
           detail: `MediaProjection WebRTC stream session initiated for ${state.child.name}.`,
           time: "Just now",
           read: false,
@@ -471,7 +471,7 @@ actionRoutes.post("/action", async (c) => {
       const newAlert = {
         id: crypto.randomUUID(),
         category: "sos",
-        title: "🆘 EMERGENCY SOS SIGNAL RECEIVED",
+        title: "ðŸ†˜ EMERGENCY SOS SIGNAL RECEIVED",
         detail: hasLocation
           ? `${state.child.name} triggered Emergency SOS! Location: ${action.lat.toFixed(5)}, ${action.lng.toFixed(5)}.`
           : `${state.child.name} triggered Emergency SOS button! Immediate attention required.`,
@@ -513,7 +513,7 @@ actionRoutes.post("/action", async (c) => {
       const newAlert = {
         id: crypto.randomUUID(),
         category: "call",
-        title: action.title || "📞 Call / SMS Activity Alert",
+        title: action.title || "ðŸ“ž Call / SMS Activity Alert",
         detail: action.detail,
         time: "Just now",
         read: false,
@@ -585,7 +585,7 @@ actionRoutes.post("/action", async (c) => {
           const newAlert = {
             id: crypto.randomUUID(),
             category: "block",
-            title: "⚠️ Accessibility Service Disabled",
+            title: "âš ï¸ Accessibility Service Disabled",
             detail: `Accessibility Service was turned off on ${state.child.name}'s phone. App blocking & remote protection are paused!`,
             time: "Just now",
             read: false,
@@ -613,7 +613,7 @@ actionRoutes.post("/action", async (c) => {
           const newAlert = {
             id: crypto.randomUUID(),
             category: "block",
-            title: "⚠️ Device Admin Protection Disabled",
+            title: "âš ï¸ Device Admin Protection Disabled",
             detail: `Device Admin protection was revoked on ${state.child.name}'s phone. Anti-uninstall protection is inactive.`,
             time: "Just now",
             read: false,
@@ -643,3 +643,4 @@ actionRoutes.post("/action", async (c) => {
     return c.json({ error: "Action processing failed. Please try again." }, 500);
   }
 });
+

@@ -91,11 +91,29 @@ public class StayKidsWebRTCManager {
             videoTrack = factory.createVideoTrack("ARDAMSv0", videoSource);
             videoTrack.setEnabled(true);
 
-            PeerConnection.IceServer stunServer = PeerConnection.IceServer
+            PeerConnection.IceServer stunServer1 = PeerConnection.IceServer
                 .builder("stun:stun.l.google.com:19302")
                 .createIceServer();
+            PeerConnection.IceServer stunServer2 = PeerConnection.IceServer
+                .builder("stun:stun1.l.google.com:19302")
+                .createIceServer();
+            PeerConnection.IceServer turnServer1 = PeerConnection.IceServer
+                .builder("turn:openrelay.metered.ca:80")
+                .setUsername("openrelayproject")
+                .setPassword("openrelayproject")
+                .createIceServer();
+            PeerConnection.IceServer turnServer2 = PeerConnection.IceServer
+                .builder("turn:openrelay.metered.ca:443")
+                .setUsername("openrelayproject")
+                .setPassword("openrelayproject")
+                .createIceServer();
+            PeerConnection.IceServer turnServer3 = PeerConnection.IceServer
+                .builder("turn:openrelay.metered.ca:443?transport=tcp")
+                .setUsername("openrelayproject")
+                .setPassword("openrelayproject")
+                .createIceServer();
 
-            List<PeerConnection.IceServer> iceServers = Collections.singletonList(stunServer);
+            List<PeerConnection.IceServer> iceServers = java.util.Arrays.asList(stunServer1, stunServer2, turnServer1, turnServer2, turnServer3);
             PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
 
             peerConnection = factory.createPeerConnection(rtcConfig, new PeerConnection.Observer() {
