@@ -6,20 +6,25 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.staykids.parent.ui.theme.*
 import com.staykids.parent.data.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainParentScreen() {
+fun MainParentScreen(onStartRemote: () -> Unit = {}) {
     var selectedTab by remember { mutableStateOf(0) }
     var appState by remember { mutableStateOf<StayKidsState?>(null) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        try {
-            appState = SupabaseClient.getStayKidsState()
-        } catch (e: Exception) {
-            e.printStackTrace()
+        while (isActive) {
+            try {
+                appState = SupabaseClient.getStayKidsState()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            delay(3000)
         }
     }
 
@@ -29,21 +34,21 @@ fun MainParentScreen() {
                 NavigationBarItem(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    icon = { Text("🏠") },
+                    icon = { Text("??") },
                     label = { Text("Dashboard", color = if (selectedTab == 0) PrimaryGreen else TextSecondary) },
                     colors = NavigationBarItemDefaults.colors(indicatorColor = SurfaceHighlight)
                 )
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    icon = { Text("⚙️") },
+                    icon = { Text("??") },
                     label = { Text("Controls", color = if (selectedTab == 1) PrimaryGreen else TextSecondary) },
                     colors = NavigationBarItemDefaults.colors(indicatorColor = SurfaceHighlight)
                 )
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    icon = { Text("🔔") },
+                    icon = { Text("??") },
                     label = { Text("Alerts", color = if (selectedTab == 2) PrimaryGreen else TextSecondary) },
                     colors = NavigationBarItemDefaults.colors(indicatorColor = SurfaceHighlight)
                 )
@@ -55,7 +60,7 @@ fun MainParentScreen() {
                 CircularProgressIndicator(color = PrimaryGreen)
             } else {
                 when (selectedTab) {
-                    0 -> DashboardScreen()
+                    0 -> DashboardScreen(state = appState!!, onStartRemote = onStartRemote)
                     1 -> ControlsScreen(state = appState!!) { action -> 
                         scope.launch { SupabaseClient.sendStayKidsAction(action) }
                     }
@@ -67,3 +72,4 @@ fun MainParentScreen() {
         }
     }
 }
+

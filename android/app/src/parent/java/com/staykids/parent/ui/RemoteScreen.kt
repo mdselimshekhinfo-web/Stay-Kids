@@ -10,20 +10,46 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.layout.aspectRatio
 import com.staykids.parent.ui.theme.*
+import org.webrtc.EglBase
+import org.webrtc.RendererCommon
+import org.webrtc.SurfaceViewRenderer
 
 @Composable
-fun RemoteScreen() {
+fun RemoteScreen(onClose: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBackground),
+            .background(DarkBackground)
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Connecting to Child Device...", color = PrimaryGreen)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Connecting to Child Device...", color = PrimaryGreen)
+            Button(onClick = onClose, colors = ButtonDefaults.buttonColors(containerColor = DangerRed)) {
+                Text("Close")
+            }
+        }
         Spacer(modifier = Modifier.height(16.dp))
         CircularProgressIndicator(color = PrimaryGreen)
         
-        AndroidView(factory = { ctx -> org.webrtc.SurfaceViewRenderer(ctx).apply { init(org.webrtc.EglBase.create().eglBaseContext, null); setEnableHardwareScaler(true); setScalingType(org.webrtc.RendererCommon.ScalingType.SCALE_ASPECT_FIT) } }, modifier = Modifier.fillMaxWidth().aspectRatio(9f/16f).padding(16.dp))
+        AndroidView(
+            factory = { ctx -> 
+                SurfaceViewRenderer(ctx).apply { 
+                    try {
+                        init(EglBase.create().eglBaseContext, null)
+                        setEnableHardwareScaler(true)
+                        setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                } 
+            }, 
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(9f/16f)
+                .padding(16.dp)
+        )
     }
 }
+

@@ -38,7 +38,7 @@ object SupabaseClient {
         authToken = token
     }
 
-    private fun generateHmacSignature(payload: String, timestamp: String): String {
+    internal fun generateHmacSignature(payload: String, timestamp: String): String {
         if (HMAC_SECRET.isEmpty()) return ""
         return try {
             val algorithm = "HmacSHA256"

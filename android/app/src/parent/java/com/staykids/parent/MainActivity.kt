@@ -19,9 +19,9 @@ class MainActivity : ComponentActivity() {
                 if (!isLoggedIn) { 
                     AuthScreen { isLoggedIn = true } 
                 } else if (isRemote) { 
-                    RemoteScreen() 
+                    RemoteScreen(onClose = { isRemote = false }) 
                 } else { 
-                    MainParentScreen() 
+                    MainParentScreen(onStartRemote = { isRemote = true }) 
                 }
             }
         }

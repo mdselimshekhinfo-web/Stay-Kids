@@ -1,5 +1,10 @@
 package com.staykids.parent.ui
 
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -7,14 +12,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.staykids.parent.StayKidsDeviceAdminReceiver
 import com.staykids.parent.ui.theme.*
 
 @Composable
 fun ChildOnboardingScreen(onPermissionsGranted: () -> Unit) {
     var step by remember { mutableStateOf(1) }
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -71,16 +79,46 @@ fun ChildOnboardingScreen(onPermissionsGranted: () -> Unit) {
 
                 Button(
                     onClick = {
-                        // TODO: Fire actual Intents to Settings here
-                        if (step < 3) step++ else onPermissionsGranted()
+                        when (step) {
+                            1 -> {
+                                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                try { context.startActivity(intent) } catch (e: Exception) {
+                                    val fallback = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                                    fallback.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    try { context.startActivity(fallback) } catch (e: Exception) {}
+                                }
+                                step++
+                            }
+                            2 -> {
+                                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                try { context.startActivity(intent) } catch (e: Exception) {}
+                                step++
+                            }
+                            3 -> {
+                                val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                                    putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, ComponentName(context, StayKidsDeviceAdminReceiver::class.java))
+                                    putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "StayKids needs Device Admin to prevent unauthorized uninstallation.")
+                                }
+                                try { context.startActivity(intent) } catch (e: Exception) {}
+                                step++
+                            }
+                            else -> {
+                                onPermissionsGranted()
+                            }
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Grant Permission", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(if (step <= 3) "Grant Permission" else "Finish", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
     }
 }
+

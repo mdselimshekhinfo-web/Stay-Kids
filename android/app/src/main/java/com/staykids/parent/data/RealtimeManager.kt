@@ -43,35 +43,49 @@ object RealtimeManager {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var heartbeatJob: Job? = null
 
+    // Add connection state flow
+    private val _connectionState = MutableStateFlow(false)
+    val connectionState = _connectionState.asStateFlow()
+
     suspend fun connect() {
         if (session != null) return
         try {
             session = client.webSocketSession(wsUrl)
+            _connectionState.value = true
             startHeartbeat()
             scope.launch {
-                session?.incoming?.consumeAsFlow()?.collect { frame ->
-                    if (frame is Frame.Text) {
-                        val text = frame.readText()
-                        try {
-                            val array = jsonConfig.decodeFromString<JsonArray>(text)
-                            if (array.size >= 5) {
-                                val msg = PhoenixMessage(
-                                    joinRef = if (array[0] is JsonNull) null else array[0].jsonPrimitive.contentOrNull,
-                                    ref = if (array[1] is JsonNull) null else array[1].jsonPrimitive.contentOrNull,
-                                    topic = array[2].jsonPrimitive.content,
-                                    event = array[3].jsonPrimitive.content,
-                                    payload = array[4].jsonObject
-                                )
-                                _incomingMessages.emit(msg)
+                try {
+                    session?.incoming?.consumeAsFlow()?.collect { frame ->
+                        if (frame is Frame.Text) {
+                            val text = frame.readText()
+                            try {
+                                val array = jsonConfig.decodeFromString<JsonArray>(text)
+                                if (array.size >= 5) {
+                                    val msg = PhoenixMessage(
+                                        joinRef = if (array[0] is JsonNull) null else array[0].jsonPrimitive.contentOrNull,
+                                        ref = if (array[1] is JsonNull) null else array[1].jsonPrimitive.contentOrNull,
+                                        topic = array[2].jsonPrimitive.content,
+                                        event = array[3].jsonPrimitive.content,
+                                        payload = array[4].jsonObject
+                                    )
+                                    _incomingMessages.emit(msg)
+                                }
+                            } catch (e: Exception) {
+                                System.err.println("RealtimeManager: Failed to parse incoming WebSocket message: $text")
+                                e.printStackTrace()
                             }
-                        } catch (e: Exception) {
-                            // Ignored or log
                         }
                     }
+                } finally {
+                    _connectionState.value = false
+                    session = null
                 }
             }
         } catch (e: Exception) {
+            _connectionState.value = false
+            System.err.println("RealtimeManager: WebSocket connection failed")
             e.printStackTrace()
+            throw e // Optionally throw to let caller handle the failure
         }
     }
 

@@ -194,7 +194,7 @@ fun ControlsScreen(
             }
         }
 
-        // App Locker
+        // App Time Limits & Locker
         item {
             Column(
                 modifier = Modifier
@@ -203,8 +203,8 @@ fun ControlsScreen(
                     .background(DarkSurface)
                     .padding(20.dp)
             ) {
-                Text("App Locker", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text("Block or limit apps", color = TextSecondary, fontSize = 12.sp)
+                Text("App Time Limits & Locker", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Set time limits or block apps", color = TextSecondary, fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 val apps = child.installedApps ?: emptyList()
@@ -213,31 +213,45 @@ fun ControlsScreen(
                 } else {
                     apps.forEach { app ->
                         val isBlocked = state.blockedApps?.get(app.packageName) ?: false
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text(app.name, color = TextPrimary, fontWeight = FontWeight.Bold)
-                                Text(if (isBlocked) "Blocked" else "Allowed", color = TextSecondary, fontSize = 12.sp)
-                            }
-                            Button(
-                                onClick = {
-                                    onAction(buildJsonObject {
-                                        put("type", "toggle-app-lock")
-                                        put("appName", app.packageName)
-                                    })
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isBlocked) DangerRed.copy(alpha = 0.2f) else PrimaryGreen.copy(alpha = 0.2f),
-                                    contentColor = if (isBlocked) DangerRed else PrimaryGreen
-                                ),
-                                shape = RoundedCornerShape(12.dp)
+                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(if (isBlocked) "Blocked 🚫" else "Allowed ✓")
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(app.name, color = TextPrimary, fontWeight = FontWeight.Bold)
+                                    Text(if (isBlocked) "Blocked" else "Allowed", color = TextSecondary, fontSize = 12.sp)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Button(
+                                        onClick = { /* TODO: Set Limit Mockup */ },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = SurfaceHighlight,
+                                            contentColor = TextPrimary
+                                        ),
+                                        shape = RoundedCornerShape(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                    ) {
+                                        Text("⏱️ Limit", fontSize = 12.sp)
+                                    }
+                                    Button(
+                                        onClick = {
+                                            onAction(buildJsonObject {
+                                                put("type", "toggle-app-lock")
+                                                put("appName", app.packageName)
+                                            })
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isBlocked) DangerRed.copy(alpha = 0.2f) else PrimaryGreen.copy(alpha = 0.2f),
+                                            contentColor = if (isBlocked) DangerRed else PrimaryGreen
+                                        ),
+                                        shape = RoundedCornerShape(12.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                    ) {
+                                        Text(if (isBlocked) "🚫" else "✓", fontSize = 12.sp)
+                                    }
+                                }
                             }
                         }
                     }
