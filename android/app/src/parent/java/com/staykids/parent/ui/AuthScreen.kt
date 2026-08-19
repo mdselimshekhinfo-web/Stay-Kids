@@ -35,8 +35,8 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
             value = email,
             onValueChange = { email = it },
             label = { Text("Email", color = TextSecondary) },
-            colors = TextFieldDefaults.outlinedTextFieldColors(
-                textColor = TextPrimary,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
                 focusedBorderColor = PrimaryGreen,
                 unfocusedBorderColor = TextMuted
             ),
@@ -47,8 +47,8 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
             onValueChange = { password = it },
             label = { Text("Password", color = TextSecondary) },
             visualTransformation = PasswordVisualTransformation(),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
-                textColor = TextPrimary,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary,
                 focusedBorderColor = PrimaryGreen,
                 unfocusedBorderColor = TextMuted
             ),
