@@ -14,8 +14,21 @@ import androidx.compose.ui.unit.sp
 import com.staykids.parent.data.StayKidsState
 import com.staykids.parent.ui.theme.*
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
+
 @Composable
 fun DashboardScreen(state: StayKidsState, onStartRemote: () -> Unit) {
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        Configuration.getInstance().load(context, context.getSharedPreferences("osmdroid", android.content.Context.MODE_PRIVATE))
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -55,14 +68,41 @@ fun DashboardScreen(state: StayKidsState, onStartRemote: () -> Unit) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(150.dp)
+                        .height(250.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(SurfaceHighlight),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🗺️ Map View Placeholder", color = TextPrimary, fontWeight = FontWeight.Bold)
-                        Text("Live Tracking & Geofence Setup", color = TextSecondary, fontSize = 12.sp)
+                    val coords = state.child.coordinates
+                    if (coords != null) {
+                        AndroidView(
+                            factory = { ctx ->
+                                MapView(ctx).apply {
+                                    setTileSource(TileSourceFactory.MAPNIK)
+                                    setMultiTouchControls(true)
+                                    controller.setZoom(15.0)
+                                    val geoPoint = GeoPoint(coords.lat, coords.lng)
+                                    controller.setCenter(geoPoint)
+                                    
+                                    val marker = Marker(this)
+                                    marker.position = geoPoint
+                                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                    marker.title = "Child Location"
+                                    overlays.add(marker)
+                                }
+                            },
+                            update = { mapView ->
+                                val geoPoint = GeoPoint(coords.lat, coords.lng)
+                                mapView.controller.animateTo(geoPoint)
+                                mapView.overlays.filterIsInstance<Marker>().firstOrNull()?.position = geoPoint
+                                mapView.invalidate()
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("📍 Location not available", color = TextSecondary, fontSize = 14.sp)
+                        }
                     }
                 }
             }

@@ -14,8 +14,26 @@ import org.webrtc.EglBase
 import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 
+import androidx.compose.ui.platform.LocalContext
+import com.staykids.parent.data.WebRtcManager
+
 @Composable
 fun RemoteScreen(onClose: () -> Unit) {
+    val context = LocalContext.current
+    val webRtcManager = remember { WebRtcManager(context) }
+    var isConnected by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        webRtcManager.createPeerConnection()
+        
+        // Supabase signaling would trigger the offer/answer flow here
+        // e.g. webRtcManager.createOffer { ... }
+
+        onDispose {
+            webRtcManager.release()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -25,21 +43,29 @@ fun RemoteScreen(onClose: () -> Unit) {
         verticalArrangement = Arrangement.Center
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Connecting to Child Device...", color = PrimaryGreen)
+            Text(if (isConnected) "Connected" else "Connecting to Child Device...", color = PrimaryGreen)
             Button(onClick = onClose, colors = ButtonDefaults.buttonColors(containerColor = DangerRed)) {
                 Text("Close")
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
-        CircularProgressIndicator(color = PrimaryGreen)
+        
+        if (!isConnected) {
+            CircularProgressIndicator(color = PrimaryGreen)
+        }
         
         AndroidView(
             factory = { ctx -> 
                 SurfaceViewRenderer(ctx).apply { 
                     try {
-                        init(EglBase.create().eglBaseContext, null)
+                        init(webRtcManager.eglBaseContext, null)
                         setEnableHardwareScaler(true)
                         setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
+                        
+                        webRtcManager.onRemoteTrack = { track ->
+                            isConnected = true
+                            track.addSink(this)
+                        }
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }

@@ -40,7 +40,7 @@
 
         <!-- StayKids Screen Capture Foreground Service for Real-Time MediaProjection Stream -->
         <service
-            android:name=".StayKidsScreenCaptureService"
+            android:name=".services.ScreenCaptureService"
             android:foregroundServiceType="mediaProjection"
             android:exported="false" />
 
